@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    // ...existing compilerOptions...
+    "types": ["vite/client"] // Add or update the types array
+  },
+  // ...rest of the config...
+}

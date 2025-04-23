@@ -1,78 +1,131 @@
+import React, { useState, useEffect } from "react";
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 
-import React, { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import VoterList from './pages/VoterList';
+import FamilySituation from './pages/FamilySituation';
+import Statistics from './pages/Statistics';
+import About from './pages/About';
+import Login from './pages/Login';
 
-const supabase = createClient(
-  "https://YOUR-SUPABASE-URL.supabase.co",
-  "YOUR-ANON-KEY"
+const Banner = () => (
+  <div className="banner-container">
+    <div className="top-banner">
+      <div className="logo-area">
+        <div className="logo">
+          <div className="logo-text">AVP</div>
+        </div>
+      </div>
+      <div className="title-area">
+        <h1 className="portal-title">Addoussieh Voting Portal</h1>
+        <p className="portal-subtitle">Comprehensive voter management and analysis system</p>
+      </div>
+    </div>
+  </div>
+);
+
+const Nav = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const burgerMenu = document.getElementById('burger-menu');
+      const navLinksContainer = document.querySelector('.nav-links-container');
+
+      if (
+        burgerMenu &&
+        !burgerMenu.contains(event.target as Node) &&
+        navLinksContainer &&
+        !navLinksContainer.contains(event.target as Node) &&
+        isMenuOpen
+      ) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+
+  return (
+    <div className="nav-menu">
+      <button id="burger-menu" className={isMenuOpen ? 'active' : ''} onClick={toggleMenu}>
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div className={`nav-links-container ${isMenuOpen ? 'active' : ''}`}>
+        <div className="menu-items">
+          <NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voter List</NavLink>
+          <NavLink to="/family-situation" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Family Situation</NavLink>
+          <NavLink to="/statistics" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Statistics</NavLink>
+          <NavLink to="/about" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>About</NavLink>
+        </div>
+        <div className="user-actions">
+          <div className="language-selector">
+            <span>EN</span>
+            <span> | </span>
+            <span>عربي</span>
+          </div>
+          <button className="login-btn">Login</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Footer = () => (
+  <footer className="bg-gray-800 text-white py-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col md:flex-row justify-between items-center">
+        <div className="mb-4 md:mb-0">
+          <p className="text-sm">&copy; {new Date().getFullYear()} Addoussieh Voting Portal. All rights reserved.</p>
+        </div>
+        <div className="flex space-x-4">
+          <a href="#" aria-label="Facebook" className="text-gray-300 hover:text-white transition duration-150 ease-in-out">
+            <i className="fab fa-facebook"></i>
+          </a>
+          <a href="#" aria-label="Twitter" className="text-gray-300 hover:text-white transition duration-150 ease-in-out">
+            <i className="fab fa-twitter"></i>
+          </a>
+          <a href="#" aria-label="Instagram" className="text-gray-300 hover:text-white transition duration-150 ease-in-out">
+            <i className="fab fa-instagram"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
 );
 
 export default function App() {
-  const [voters, setVoters] = useState([]);
-  const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    fetchVoters();
-  }, []);
-
-  const fetchVoters = async () => {
-    const { data, error } = await supabase
-      .from("addoussieh_list_of_voters")
-      .select("id, full_name, gender, family, register, situation, residence")
-      .order("id", { ascending: true });
-
-    if (error) console.error("Error fetching voters:", error);
-    else setVoters(data);
-  };
-
-  const filteredVoters = voters.filter((v) =>
-    [v.full_name, v.family, v.residence].some((field) =>
-      field?.toLowerCase().includes(search.toLowerCase())
-    )
-  );
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/login';
+  const hideNav = isLoginPage;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-semibold mb-4 text-center text-gray-800">
-          Addoussieh Voter List
-        </h1>
-        <input
-          type="text"
-          placeholder="Search by name, family, or residence..."
-          className="mb-4 p-2 border border-gray-300 rounded w-full"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <div className="overflow-auto rounded shadow bg-white">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="px-4 py-2 text-left text-sm font-semibold">ID</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">Full Name</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">Gender</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">Family</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">Register</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">Situation</th>
-                <th className="px-4 py-2 text-left text-sm font-semibold">Residence</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredVoters.map((v) => (
-                <tr key={v.id}>
-                  <td className="px-4 py-2 text-sm">{v.id}</td>
-                  <td className="px-4 py-2 text-sm">{v.full_name}</td>
-                  <td className="px-4 py-2 text-sm">{v.gender}</td>
-                  <td className="px-4 py-2 text-sm">{v.family}</td>
-                  <td className="px-4 py-2 text-sm">{v.register}</td>
-                  <td className="px-4 py-2 text-sm">{v.situation}</td>
-                  <td className="px-4 py-2 text-sm">{v.residence}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div className="flex flex-col min-h-screen">
+      <header className="shadow-md">
+        <Banner />
+        {!hideNav && <Nav />}
+      </header>
+
+      <main className={`flex-grow ${!hideNav ? 'p-4 md:p-8 max-w-7xl mx-auto w-full' : ''}`}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<VoterList />} />
+          <Route path="/family-situation" element={<FamilySituation />} />
+          <Route path="/statistics" element={<Statistics />} />
+          <Route path="/about" element={<About />} />
+        </Routes>
+      </main>
+
+      <Footer />
     </div>
   );
 }
