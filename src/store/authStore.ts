@@ -7,6 +7,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export interface UserProfile {
   id: string;
+  name?: string;
   role: 'admin' | 'user';
   voters_list_access: 'none' | 'view' | 'edit';
   family_situation_access: 'none' | 'view' | 'edit';

@@ -12,6 +12,7 @@ import Unauthorized from './pages/Unauthorized';
 import PrivateRoute from './components/PrivateRoute';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import AdminPage from './pages/AdminPage';
 
 const Banner = () => (
   <div className="banner-container">
@@ -33,6 +34,8 @@ const Nav = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { profile, session } = useAuthStore();
   const navigate = useNavigate();
+  const isAdmin = profile?.role === 'admin';
+  const userName = profile?.name || profile?.full_name || session?.user?.email?.split('@')[0] || 'User';
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -46,6 +49,11 @@ const Nav = () => {
     } else {
       navigate('/login');
     }
+  };
+
+  const handleAdminClick = () => {
+    setIsMenuOpen(false);
+    navigate('/admin');
   };
 
   useEffect(() => {
@@ -94,14 +102,30 @@ const Nav = () => {
           )}
           <NavLink to="/about" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>About</NavLink>
         </div>
-        <div className="user-actions">
+        <div className="user-actions flex items-center gap-4">
           {session ? (
-            <button
-              onClick={handleLogout}
-              className="logout-btn px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition duration-150 ease-in-out"
-            >
-              Logout
-            </button>
+            <>
+              <div className="text-gray-700 font-medium hidden sm:block">
+                <span className="mr-2">Hello,</span>
+                <span>{userName}</span>
+              </div>
+              {isAdmin && (
+                <button
+                  onClick={handleAdminClick}
+                  className="text-gray-600 hover:text-red-700 transition duration-150 ease-in-out"
+                  title="Admin Settings"
+                  aria-label="Admin Settings"
+                >
+                  <i className="fas fa-user-cog fa-lg"></i>
+                </button>
+              )}
+              <button
+                onClick={handleLogout}
+                className="logout-btn px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition duration-150 ease-in-out"
+              >
+                Logout
+              </button>
+            </>
           ) : (
             <button
               onClick={() => { navigate('/login'); setIsMenuOpen(false); }}
@@ -142,6 +166,7 @@ const Footer = () => (
 const hasVoterAccess = (profile: UserProfile | null) => !!profile && profile.voters_list_access !== 'none';
 const hasFamilyAccess = (profile: UserProfile | null) => !!profile && profile.family_situation_access !== 'none';
 const hasStatsAccess = (profile: UserProfile | null) => !!profile && profile.statistics_access === 'view';
+const isAdminUser = (profile: UserProfile | null) => !!profile && profile.role === 'admin';
 
 export default function App() {
   const location = useLocation();
@@ -191,6 +216,14 @@ export default function App() {
             element={
               <PrivateRoute permissionCheck={() => hasStatsAccess(profile)}>
                 <Statistics />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <PrivateRoute permissionCheck={() => isAdminUser(profile)}>
+                <AdminPage />
               </PrivateRoute>
             }
           />

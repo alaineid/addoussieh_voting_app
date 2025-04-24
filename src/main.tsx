@@ -5,7 +5,6 @@ import "./index.css";
 import { BrowserRouter } from 'react-router-dom';
 import { initializeAuthListener } from './store/authStore';
 
-
 const unsubscribeAuth = initializeAuthListener();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
