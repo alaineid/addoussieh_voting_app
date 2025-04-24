@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useAuthStore, UserProfile } from './store/authStore'; // Adjust path
-import { supabase } from './lib/supabaseClient'; // Adjust path
+import { useAuthStore, UserProfile } from './store/authStore';
+import { supabase } from './lib/supabaseClient';
 
 import VoterList from './pages/VoterList';
 import FamilySituation from './pages/FamilySituation';
 import Statistics from './pages/Statistics';
 import About from './pages/About';
 import Login from './pages/Login';
-import Unauthorized from './pages/Unauthorized'; // Import Unauthorized
-import PrivateRoute from './components/PrivateRoute'; // Import PrivateRoute
-import ForgotPassword from './pages/ForgotPassword'; // Import ForgotPassword
-import ResetPassword from './pages/ResetPassword'; // Import ResetPassword
+import Unauthorized from './pages/Unauthorized';
+import PrivateRoute from './components/PrivateRoute';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 const Banner = () => (
   <div className="banner-container">
@@ -39,13 +39,12 @@ const Nav = () => {
   };
 
   const handleLogout = async () => {
-    setIsMenuOpen(false); // Close menu on logout
+    setIsMenuOpen(false);
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('Error logging out:', error);
     } else {
-      // Auth listener will clear the store state
-      navigate('/login'); // Redirect to login after logout
+      navigate('/login');
     }
   };
 
@@ -71,7 +70,6 @@ const Nav = () => {
     };
   }, [isMenuOpen]);
 
-  // Permission checks based on profile
   const canViewVoters = profile?.voters_list_access !== 'none';
   const canViewFamily = profile?.family_situation_access !== 'none';
   const canViewStats = profile?.statistics_access === 'view';
@@ -85,7 +83,6 @@ const Nav = () => {
       </button>
       <div className={`nav-links-container ${isMenuOpen ? 'active' : ''}`}>
         <div className="menu-items">
-          {/* Conditionally render links based on permissions */}
           {canViewVoters && (
             <NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voter List</NavLink>
           )}
@@ -95,19 +92,21 @@ const Nav = () => {
           {canViewStats && (
             <NavLink to="/statistics" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Statistics</NavLink>
           )}
-          {/* About tab is always visible in the menu */}
           <NavLink to="/about" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>About</NavLink>
         </div>
         <div className="user-actions">
-          {/* Language selector (optional) */}
-          {/* <div className="language-selector">...</div> */}
-
           {session ? (
-            <button onClick={handleLogout} className="logout-btn">
+            <button
+              onClick={handleLogout}
+              className="logout-btn px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition duration-150 ease-in-out"
+            >
               Logout
             </button>
           ) : (
-            <button onClick={() => { navigate('/login'); setIsMenuOpen(false); }} className="login-btn">
+            <button
+              onClick={() => { navigate('/login'); setIsMenuOpen(false); }}
+              className="login-btn px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-150 ease-in-out"
+            >
               Login
             </button>
           )}
@@ -140,49 +139,37 @@ const Footer = () => (
   </footer>
 );
 
-// Permission check functions
 const hasVoterAccess = (profile: UserProfile | null) => !!profile && profile.voters_list_access !== 'none';
 const hasFamilyAccess = (profile: UserProfile | null) => !!profile && profile.family_situation_access !== 'none';
 const hasStatsAccess = (profile: UserProfile | null) => !!profile && profile.statistics_access === 'view';
 
 export default function App() {
   const location = useLocation();
-  const { loading: authLoading, profile } = useAuthStore(); // Get loading state and profile
+  const { loading: authLoading, profile } = useAuthStore();
 
-  // Determine if the Nav should be hidden (Login, ForgotPassword, ResetPassword pages)
   const isAuthPage = ['/login', '/forgot-password', '/reset-password'].includes(location.pathname);
-  const hideNav = isAuthPage; // Only hide Nav on auth pages
+  const hideNav = isAuthPage;
 
-  // Show a global loading indicator if auth is still loading and not on an auth page
   if (authLoading && !isAuthPage) {
       return <div className="flex justify-center items-center h-screen">Loading Application...</div>;
   }
 
-  // Define base classes for main
   const mainBaseClasses = 'flex-grow';
-  // Define classes for non-auth pages (with padding)
   const mainPageClasses = 'p-4 md:p-8 max-w-7xl mx-auto w-full';
-  // Define classes for the auth pages (full width, gray background)
   const mainAuthClasses = 'bg-gray-50';
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Always show Header (Banner + Nav) */}
       <header className="shadow-md">
         <Banner />
-        {/* Only hide Nav on auth pages and when auth is loading */}
         {!hideNav && !authLoading && <Nav />}
       </header>
-
-      {/* Apply classes conditionally based on whether it's an auth page */}
       <main className={`${mainBaseClasses} ${isAuthPage ? mainAuthClasses : mainPageClasses}`}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
-
-          {/* Protected Routes */}
           <Route
             path="/"
             element={
@@ -210,18 +197,13 @@ export default function App() {
           <Route
             path="/about"
             element={
-              <PrivateRoute> {/* No specific permission needed, just login */}
+              <PrivateRoute>
                 <About />
               </PrivateRoute>
             }
           />
-
-          {/* Add a catch-all or redirect for unknown routes if needed */}
-          {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
         </Routes>
       </main>
-
-      {/* Always show Footer */}
       <Footer />
     </div>
   );

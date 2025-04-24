@@ -1,21 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// !! IMPORTANT SECURITY WARNING !!
-// This component uses the SERVICE_ROLE_KEY directly in the frontend.
-// This is EXTREMELY insecure and should ONLY be used for a temporary,
-// local development setup to create an initial admin user.
-// REMOVE this component, the route in App.tsx, and revert the
-// VITE_SERVICE_ROLE_KEY back to SERVICE_ROLE_KEY in your .env file
-// IMMEDIATELY after use.
-
 const CreateAdminUser = () => {
   const [message, setMessage] = useState('Attempting to create admin user...');
 
   useEffect(() => {
     const createAdmin = async () => {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      // Read the DANGEROUSLY exposed service role key
       const serviceRoleKey = import.meta.env.VITE_SERVICE_ROLE_KEY;
 
       if (!supabaseUrl || !serviceRoleKey) {
@@ -23,8 +14,6 @@ const CreateAdminUser = () => {
         return;
       }
 
-      // Create a Supabase client using the service role key
-      // This bypasses Row Level Security (RLS)
       const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
         auth: {
           autoRefreshToken: false,
@@ -34,11 +23,9 @@ const CreateAdminUser = () => {
 
       try {
         const { data, error } = await supabaseAdmin.auth.admin.createUser({
-          email: 'bashir.karam@gmail.com', // Change this email
-          password: 'Elections25M@y2@25', // CHANGE THIS PASSWORD
-          email_confirm: true, // Automatically confirm the email
-          // You can add user_metadata or app_metadata here if needed
-          // user_metadata: { role: 'admin' } 
+          email: 'bashir.karam@gmail.com',
+          password: 'Elections25M@y2@25',
+          email_confirm: true,
         });
 
         if (error) {
@@ -54,10 +41,9 @@ const CreateAdminUser = () => {
       }
     };
 
-    // Run the creation function only once when the component mounts
     createAdmin();
 
-  }, []); // Empty dependency array ensures this runs only once
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] text-center px-4">

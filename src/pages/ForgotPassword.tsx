@@ -15,8 +15,6 @@ const ForgotPassword = () => {
     setError(null);
 
     try {
-      // Construct the redirect URL. Ensure this matches the site URL configured in Supabase Auth settings.
-      // The reset token will be appended as a hash fragment (#access_token=...). We need a page to handle this.
       const redirectUrl = `${window.location.origin}/reset-password`;
 
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {

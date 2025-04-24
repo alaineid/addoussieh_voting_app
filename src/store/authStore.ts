@@ -1,15 +1,16 @@
 import { create } from 'zustand';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabaseClient'; // Adjust path as needed
+import { supabase } from '../lib/supabaseClient';
 
-// Define the structure of the user profile based on your avp_profiles table
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
 export interface UserProfile {
   id: string;
   role: 'admin' | 'user';
   voters_list_access: 'none' | 'view' | 'edit';
   family_situation_access: 'none' | 'view' | 'edit';
   statistics_access: 'none' | 'view';
-  // Add other profile fields if necessary
 }
 
 interface AuthState {
@@ -27,76 +28,77 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
   profile: null,
-  loading: true, // Start loading until initial auth state is checked
-  setSession: (session) => {
-    set({ session, user: session?.user ?? null, loading: false });
-    // Clear profile if session is null (logged out)
-    if (!session) {
-        get().clearAuth();
-    }
+  loading: true,
+  setSession: (session: Session | null) => {
+    set({ session, user: session?.user ?? null });
   },
-  setProfile: (profile) => set({ profile }),
-  fetchProfile: async (userId) => {
-    set({ loading: true });
+  setProfile: (profile: UserProfile | null) => {
+    set({ profile });
+  },
+  fetchProfile: async (userId: string) => {
+    const session = get().session;
+    const accessToken = session?.access_token;
+
+    if (!supabaseUrl || !supabaseAnonKey || !accessToken) {
+      console.error('[AuthStore Workaround] MANUAL fetch failed: Missing URL, Key, or Token.');
+      set({ profile: null, loading: false });
+      return;
+    }
+
+    const manualUrl = `${supabaseUrl}/rest/v1/avp_profiles?select=*&id=eq.${userId}&limit=1`;
+    const manualHeaders = {
+      'apikey': supabaseAnonKey,
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/json',
+      'X-Client-Info': 'supabase-js-manual-fetch-workaround'
+    };
+
     try {
-      const { data, error, status } = await supabase
-        .from('avp_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const response = await fetch(manualUrl, { headers: manualHeaders });
 
-      if (error && status !== 406) { // 406 means no rows found, which might be okay initially
-        console.error('Error fetching profile:', error);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[AuthStore Workaround] MANUAL fetch HTTP error ${response.status}:`, errorText);
+        throw new Error(`HTTP error ${response.status}: ${errorText}`);
+      }
+
+      const responseData = await response.json() as UserProfile[];
+
+      if (!responseData || responseData.length === 0) {
         set({ profile: null, loading: false });
-        return;
+      } else {
+        set({ profile: responseData[0], loading: false });
       }
 
-      if (data) {
-        set({ profile: data as UserProfile, loading: false });
-      } else {
-        set({ profile: null, loading: false }); // No profile found
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
+    } catch (manualError) {
+      console.error('[AuthStore Workaround] MANUAL fetch failed:', manualError);
       set({ profile: null, loading: false });
     }
   },
-  clearAuth: () => set({ session: null, user: null, profile: null, loading: false }),
+  clearAuth: () => {
+    set({ session: null, user: null, profile: null, loading: false });
+  },
 }));
 
-// Function to initialize auth state listener
 export function initializeAuthListener() {
-    const { setSession, fetchProfile, clearAuth } = useAuthStore.getState();
-
-    // Set initial loading state
-    setSession(null); // Assume logged out initially
     useAuthStore.setState({ loading: true });
-
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-        if (session?.user) {
-            fetchProfile(session.user.id);
-        } else {
-            useAuthStore.setState({ loading: false }); // No session, stop loading
-        }
-    });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
         async (_event, session) => {
+            const { setSession, fetchProfile, clearAuth } = useAuthStore.getState();
+
+            useAuthStore.setState({ loading: true });
+
             setSession(session);
+
             if (session?.user) {
-                // Fetch profile when auth state changes and user exists
                 await fetchProfile(session.user.id);
             } else {
-                // Clear profile if user logs out
                 clearAuth();
             }
-             useAuthStore.setState({ loading: false }); // Update loading state after handling change
         }
     );
 
-    // Return unsubscribe function
     return () => {
         authListener?.subscription.unsubscribe();
     };

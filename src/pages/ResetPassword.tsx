@@ -10,25 +10,15 @@ const ResetPassword = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // Supabase sends the recovery token in the URL hash fragment
-  // We don't need to manually parse it if the session is automatically updated
-  // upon visiting this page with the token.
-
   useEffect(() => {
-    // Check if there's an error in the hash, e.g., #error=unauthorized&error_code=401&error_description=User+not+found
-    const hashParams = new URLSearchParams(window.location.hash.substring(1)); // Remove #
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const errorDescription = hashParams.get('error_description');
     if (errorDescription) {
       setError(decodeURIComponent(errorDescription));
     }
 
-    // Listen for the PASSWORD_RECOVERY event which indicates the user
-    // has successfully authenticated via the recovery link.
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // The user is now signed in via the recovery link.
-        // You can now allow them to update their password.
-        // No need to manually handle the token here if using updateUser.
         setMessage('You can now set a new password.');
       }
     });
@@ -54,8 +44,6 @@ const ResetPassword = () => {
     setError(null);
 
     try {
-      // Since the user authenticated via the recovery link, their session is updated.
-      // We can now update their password directly.
       const { error: updateError } = await supabase.auth.updateUser({ password: password });
 
       if (updateError) {
@@ -63,9 +51,8 @@ const ResetPassword = () => {
       }
 
       setMessage('Password updated successfully! Redirecting to login...');
-      // Optionally sign the user out before redirecting
       await supabase.auth.signOut();
-      setTimeout(() => navigate('/login'), 3000); // Redirect after 3 seconds
+      setTimeout(() => navigate('/login'), 3000);
 
     } catch (err: any) {
       console.error('Password update error:', err);
@@ -129,7 +116,7 @@ const ResetPassword = () => {
           <div>
             <button
               type="submit"
-              disabled={loading || !!error} // Disable if loading or initial error exists
+              disabled={loading || !!error}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-md hover:shadow-lg transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Updating...' : 'Update Password'}

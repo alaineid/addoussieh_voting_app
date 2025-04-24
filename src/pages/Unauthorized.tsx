@@ -10,8 +10,6 @@ const Unauthorized = () => {
       <p className="text-md text-gray-500">
         Please contact the administrator if you believe this is an error.
       </p>
-      {/* Optional: Add a link back to the home page or login page */}
-      {/* <Link to="/" className="mt-6 text-blue-600 hover:underline">Go to Homepage</Link> */}
     </div>
   );
 };

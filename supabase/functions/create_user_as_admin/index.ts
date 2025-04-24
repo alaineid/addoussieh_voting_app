@@ -10,7 +10,6 @@ serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  // Get requesting user
   const authHeader = req.headers.get("Authorization")!;
   const jwt = authHeader?.split("Bearer ")[1];
 
@@ -35,7 +34,6 @@ serve(async (req) => {
     return new Response("Forbidden", { status: 403 });
   }
 
-  // Create new user
   const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -46,7 +44,6 @@ serve(async (req) => {
     return new Response(JSON.stringify(createError), { status: 400 });
   }
 
-  // Assign profile access
   const { error: profileError } = await supabase
     .from("avp_profiles")
     .insert({
