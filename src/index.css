@@ -35,7 +35,7 @@ body {
     align-items: center;
     justify-content: space-between;
     background:
-        url('https://upload.wikimedia.org/wikipedia/commons/5/59/Flag_of_Lebanon.svg') no-repeat right 40px center / auto 50px,
+        url('./assets/Flag_of_Lebanon.svg') no-repeat right 40px center / auto 50px,
         #004e89;
 }
 
@@ -200,7 +200,7 @@ body {
         padding: 10px 20px;
         text-align: left;
         background:
-            url('https://upload.wikimedia.org/wikipedia/commons/5/59/Flag_of_Lebanon.svg') no-repeat right 20px center / auto 40px,
+            url('./assets/Flag_of_Lebanon.svg') no-repeat right 20px center / auto 40px,
             #004e89;
     }
     .logo-area {
@@ -252,7 +252,7 @@ body {
     .top-banner {
         padding: 8px 15px;
         background:
-            url('https://upload.wikimedia.org/wikipedia/commons/5/59/Flag_of_Lebanon.svg') no-repeat right 15px center / auto 35px,
+            url('./assets/Flag_of_Lebanon.svg') no-repeat right 15px center / auto 35px,
             #004e89;
     }
     .title-area {
