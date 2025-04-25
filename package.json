@@ -8,8 +8,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.2",
     "@hookform/resolvers": "^5.0.1",
     "@supabase/supabase-js": "^2.49.4",
+    "@tanstack/react-table": "^8.21.3",
     "@types/zxcvbn": "^4.4.5",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",

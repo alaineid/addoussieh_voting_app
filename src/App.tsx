@@ -171,12 +171,33 @@ const isAdminUser = (profile: UserProfile | null) => !!profile && profile.role =
 export default function App() {
   const location = useLocation();
   const { loading: authLoading, profile } = useAuthStore();
+  const [hasTimedOut, setHasTimedOut] = useState(false);
+  const navigate = useNavigate();
 
   const isAuthPage = ['/login', '/forgot-password', '/reset-password'].includes(location.pathname);
   const hideNav = isAuthPage;
 
-  if (authLoading && !isAuthPage) {
-      return <div className="flex justify-center items-center h-screen">Loading Application...</div>;
+  // Add timeout to prevent infinite loading
+  useEffect(() => {
+    if (authLoading) {
+      const timeoutId = setTimeout(() => {
+        console.warn("Loading timed out - redirecting to login");
+        setHasTimedOut(true);
+      }, 12000); // 12 seconds timeout
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [authLoading]);
+
+  // Redirect to login page if loading times out
+  useEffect(() => {
+    if (hasTimedOut && !isAuthPage) {
+      navigate('/login');
+    }
+  }, [hasTimedOut, isAuthPage, navigate]);
+
+  if (authLoading && !isAuthPage && !hasTimedOut) {
+    return <div className="flex justify-center items-center h-screen">Loading Application...</div>;
   }
 
   const mainBaseClasses = 'flex-grow';
