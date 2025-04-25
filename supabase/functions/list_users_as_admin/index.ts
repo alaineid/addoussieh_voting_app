@@ -48,6 +48,54 @@ serve(async (req) => {
     if (profileData.role !== 'admin') {
       throw new Error('User is not authorized as an admin');
     }
+    
+    // Check if a specific userId is requested
+    const url = new URL(req.url);
+    const userId = url.searchParams.get('userId');
+    
+    // If userId is provided, fetch just that specific user
+    if (userId) {
+      console.log(`Fetching single user with ID: ${userId}`);
+      
+      // Fetch the specific profile
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('avp_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (profileError) {
+        throw new Error(`User profile not found: ${profileError.message}`);
+      }
+      
+      // Fetch the auth user to get the email
+      const { data: authUser, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
+      
+      if (authUserError || !authUser) {
+        throw new Error(`Auth user not found: ${authUserError?.message || 'Unknown error'}`);
+      }
+      
+      // Merge the profile and auth data
+      const userData = {
+        ...profile,
+        email: authUser.user?.email || 'Unknown email'
+      };
+      
+      // Return the single user
+      return new Response(
+        JSON.stringify({ user: userData }),
+        { 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json' 
+          },
+          status: 200
+        }
+      );
+    }
+    
+    // If no userId is provided, fetch all users as before
+    console.log("Fetching all users");
 
     // Fetch user profiles from the database
     const { data: profiles, error: profilesError } = await supabaseAdmin

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import zxcvbn from 'zxcvbn';
 import { useAuthStore, UserProfile } from '../store/authStore';
+import { useUsersStore } from '../store/usersStore';
 import { Tab } from '@headlessui/react';
 import { 
   createColumnHelper, 
@@ -301,9 +302,9 @@ const CreateUserTab = () => {
 
 // Manage Users Tab Component
 const ManageUsersTab = () => {
-  const [users, setUsers] = useState<UserProfileWithEmail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Use the global users store instead of local state
+  const { users, loading, error, fetchUsers, setupRealtimeListeners, cleanupRealtimeListeners } = useUsersStore();
+  
   const [editingId, setEditingId] = useState<string | null>(null);
   const [serverMessage, setServerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const { session } = useAuthStore();
@@ -461,73 +462,20 @@ const ManageUsersTab = () => {
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  // Fetch users on component mount
+  // Initialize data fetching and realtime listeners
   useEffect(() => {
-    fetchUsers();
-    setupRealtimeListeners();
+    if (session?.access_token) {
+      console.log('Initializing ManageUsersTab with data and realtime listeners');
+      fetchUsers(session.access_token);
+      setupRealtimeListeners();
+    }
     
+    // Clean up when component unmounts
     return () => {
-      // Clean up realtime subscription when component unmounts
-      supabase.channel('avp_profiles').unsubscribe();
+      console.log('Cleaning up ManageUsersTab realtime listeners');
+      cleanupRealtimeListeners();
     };
   }, []);
-
-  const fetchUsers = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      if (!session?.access_token) {
-        throw new Error('Authentication error: No access token found.');
-      }
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Configuration error: Supabase URL not found.');
-      }
-      
-      // Call our custom serverless function instead of using the admin API directly
-      const functionUrl = `${supabaseUrl}/functions/v1/list_users_as_admin`;
-      
-      const response = await fetch(functionUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || `HTTP error! status: ${response.status}`);
-      }
-      
-      setUsers(result.users);
-    } catch (error: any) {
-      console.error('Error fetching users:', error);
-      setError(error.message || 'Failed to fetch users');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const setupRealtimeListeners = () => {
-    supabase
-      .channel('avp_profiles_changes')
-      .on(
-        'postgres_changes', 
-        {
-          event: '*',
-          schema: 'public',
-          table: 'avp_profiles'
-        }, 
-        () => {
-          fetchUsers(); // Refresh data when changes occur
-        }
-      )
-      .subscribe();
-  };
 
   const startEdit = (user: UserProfileWithEmail) => {
     setEditingId(user.id);
@@ -592,7 +540,8 @@ const ManageUsersTab = () => {
       setAlertModalOpen(true);
       
       setEditingId(null);
-      fetchUsers(); // Refresh the list
+      // Refresh the list with force=true to ensure updates
+      fetchUsers(session.access_token, true);
     } catch (error: any) {
       console.error('Error updating user:', error);
       
@@ -656,7 +605,8 @@ const ManageUsersTab = () => {
       });
       setAlertModalOpen(true);
       
-      fetchUsers(); // Refresh the list
+      // Refresh the list with force=true to ensure updates
+      fetchUsers(session.access_token, true);
     } catch (error: any) {
       console.error('Error deleting user:', error);
       
@@ -801,11 +751,32 @@ const ManageUsersTab = () => {
 
 // Main AdminPage component with tabs
 const AdminPage = () => {
+  // Add state to track the selected tab index
+  const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+
+  // Load the saved tab index from localStorage when component mounts
+  useEffect(() => {
+    const savedTabIndex = localStorage.getItem('adminPageTabIndex');
+    if (savedTabIndex !== null) {
+      setSelectedTabIndex(parseInt(savedTabIndex, 10));
+    }
+  }, []);
+
+  // Save the tab index to localStorage whenever it changes
+  const handleTabChange = (index: number) => {
+    setSelectedTabIndex(index);
+    localStorage.setItem('adminPageTabIndex', index.toString());
+  };
+
+  // Use useMemo to persist the tab components across renders
+  const createUserTabComponent = useMemo(() => <CreateUserTab />, []);
+  const manageUsersTabComponent = useMemo(() => <ManageUsersTab />, []);
+
   return (
     <div className="max-w-6xl mx-auto mt-8 bg-white shadow-lg rounded-lg overflow-hidden">
       <h1 className="text-3xl font-bold p-6 border-b">Admin Dashboard</h1>
       
-      <Tab.Group>
+      <Tab.Group selectedIndex={selectedTabIndex} onChange={handleTabChange}>
         <Tab.List className="flex border-b">
           <Tab
             className={({ selected }) =>
@@ -831,11 +802,11 @@ const AdminPage = () => {
           </Tab>
         </Tab.List>
         <Tab.Panels>
-          <Tab.Panel>
-            <CreateUserTab />
+          <Tab.Panel className="h-full">
+            {createUserTabComponent}
           </Tab.Panel>
-          <Tab.Panel>
-            <ManageUsersTab />
+          <Tab.Panel className="h-full">
+            {manageUsersTabComponent}
           </Tab.Panel>
         </Tab.Panels>
       </Tab.Group>
