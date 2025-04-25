@@ -561,7 +561,7 @@ const ManageUsersTab = () => {
   ];
 
   const table = useReactTable({
-    data: users,
+    data: users as UserProfileWithEmail[], // Cast to ensure type compatibility
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -799,54 +799,121 @@ const ManageUsersTab = () => {
         </table>
       </div>
       
-      <div className="flex items-center justify-between mt-4">
+      {/* Enhanced pagination controls */}
+      <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
         <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-700">
+            Showing <span className="font-medium">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
+            <span className="font-medium">
+              {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, users.length)}
+            </span> of{" "}
+            <span className="font-medium">{users.length}</span> users
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1">
           <button
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
-            className="px-2 py-1 border rounded disabled:opacity-50"
+            className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+            aria-label="Go to first page"
+            title="First page"
           >
-            {'<<'}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+              <path fillRule="evenodd" d="M15.79 14.77a.75.75 0 01-1.06.02l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 111.04 1.08L11.832 10l3.938 3.71a.75.75 0 01.02 1.06zm-6 0a.75.75 0 01-1.06.02l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 111.04 1.08L5.832 10l3.938 3.71a.75.75 0 01.02 1.06z" clipRule="evenodd" />
+            </svg>
           </button>
+
           <button
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
-            className="px-2 py-1 border rounded disabled:opacity-50"
+            className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+            aria-label="Go to previous page"
+            title="Previous page"
           >
-            {'<'}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+              <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+            </svg>
           </button>
+
+          <div className="flex items-center">
+            {Array.from({length: Math.min(5, table.getPageCount())}, (_, i) => {
+              const pageIndex = table.getState().pagination.pageIndex;
+              let showPage: number;
+              
+              // Logic for which page numbers to display
+              if (table.getPageCount() <= 5) {
+                showPage = i;
+              } else if (pageIndex < 3) {
+                showPage = i;
+              } else if (pageIndex > table.getPageCount() - 4) {
+                showPage = table.getPageCount() - 5 + i;
+              } else {
+                showPage = pageIndex - 2 + i;
+              }
+              
+              return (
+                <button
+                  key={showPage}
+                  onClick={() => table.setPageIndex(showPage)}
+                  disabled={pageIndex === showPage}
+                  className={`px-3 py-1 mx-1 rounded-md text-sm font-medium border ${
+                    pageIndex === showPage 
+                      ? 'bg-red-600 text-white border-red-600' 
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                  aria-label={`Go to page ${showPage + 1}`}
+                  aria-current={pageIndex === showPage ? 'page' : undefined}
+                >
+                  {showPage + 1}
+                </button>
+              );
+            })}
+          </div>
+
           <button
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
-            className="px-2 py-1 border rounded disabled:opacity-50"
+            className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+            aria-label="Go to next page"
+            title="Next page"
           >
-            {'>'}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+              <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+            </svg>
           </button>
+
           <button
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
-            className="px-2 py-1 border rounded disabled:opacity-50"
+            className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+            aria-label="Go to last page"
+            title="Last page"
           >
-            {'>>'}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+              <path fillRule="evenodd" d="M4.21 5.23a.75.75 0 011.06-.02l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 11-1.04-1.08L8.168 10 4.23 6.29a.75.75 0 01-.02-1.06zm6 0a.75.75 0 011.06-.02l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 11-1.04-1.08L14.168 10l-3.938-3.71a.75.75 0 01-.02-1.06z" clipRule="evenodd" />
+            </svg>
           </button>
         </div>
-        <div className="text-sm text-gray-700">
-          Page {table.getState().pagination.pageIndex + 1} of{' '}
-          {table.getPageCount()}
+
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">
+            Per page:
+            <select
+              value={table.getState().pagination.pageSize}
+              onChange={e => {
+                table.setPageSize(Number(e.target.value));
+              }}
+              className="ml-2 px-3 py-1 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            >
+              {[5, 10, 20, 30, 50].map(pageSize => (
+                <option key={pageSize} value={pageSize}>
+                  {pageSize}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <select
-          value={table.getState().pagination.pageSize}
-          onChange={e => {
-            table.setPageSize(Number(e.target.value));
-          }}
-          className="px-2 py-1 border rounded"
-        >
-          {[10, 20, 30, 40, 50].map(pageSize => (
-            <option key={pageSize} value={pageSize}>
-              Show {pageSize}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* Custom modals */}
@@ -899,10 +966,11 @@ const AdminPage = () => {
     <div className="max-w-6xl mx-auto mt-8 bg-white shadow-lg rounded-lg overflow-hidden">
       <h1 className="text-3xl font-bold p-6 border-b">Admin Dashboard</h1>
       
+      {/* Reverting to Headless UI v1 Tab pattern */}
       <Tab.Group selectedIndex={selectedTabIndex} onChange={handleTabChange}>
         <Tab.List className="flex border-b">
           <Tab
-            className={({ selected }) =>
+            className={({ selected }: { selected: boolean }) =>
               `px-6 py-3 text-sm font-medium leading-5 focus:outline-none ${
                 selected
                   ? 'text-red-700 border-b-2 border-red-700 bg-red-50'
@@ -913,7 +981,7 @@ const AdminPage = () => {
             Create User
           </Tab>
           <Tab
-            className={({ selected }) =>
+            className={({ selected }: { selected: boolean }) =>
               `px-6 py-3 text-sm font-medium leading-5 focus:outline-none ${
                 selected
                   ? 'text-red-700 border-b-2 border-red-700 bg-red-50'

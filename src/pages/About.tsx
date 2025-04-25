@@ -1,4 +1,6 @@
 import React from 'react';
+import algorythmLogo from '../assets/Algorythm.png';
+import lebanonFlag from '../assets/Flag_of_Lebanon.svg';
 
 const About: React.FC = () => {
   return (
@@ -23,7 +25,7 @@ const About: React.FC = () => {
         <div className="flex flex-col md:flex-row items-center justify-center gap-8">
           <div className="bg-gray-50 p-6 rounded-lg shadow-md max-w-xs">
             <img 
-              src="/src/assets/Algorythm.png" 
+              src={algorythmLogo} 
               alt="Algorythm Logo" 
               className="h-20 object-contain mx-auto mb-4"
             />
@@ -45,7 +47,7 @@ const About: React.FC = () => {
           
           <div className="bg-gray-50 p-6 rounded-lg shadow-md max-w-xs">
             <img 
-              src="/src/assets/Flag_of_Lebanon.svg" 
+              src={lebanonFlag} 
               alt="Flag of Lebanon" 
               className="h-20 object-contain mx-auto mb-4"
             />
