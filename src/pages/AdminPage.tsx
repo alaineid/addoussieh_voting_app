@@ -13,9 +13,83 @@ import {
   useReactTable,
   getPaginationRowModel
 } from '@tanstack/react-table';
-import { supabase } from '../lib/supabaseClient';
 import ConfirmationModal from '../components/ConfirmationModal';
 import AlertModal from '../components/AlertModal';
+
+// Toast notification component
+interface ToastProps {
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  onClose: () => void;
+}
+
+const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const getBgColor = () => {
+    switch (type) {
+      case 'success': return 'bg-green-500';
+      case 'error': return 'bg-red-500';
+      case 'warning': return 'bg-yellow-500';
+      case 'info': return 'bg-blue-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        );
+      case 'error':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        );
+      case 'warning':
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+          </svg>
+        );
+      case 'info':
+      default:
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        );
+    }
+  };
+
+  return (
+    <div className={`fixed top-4 right-4 z-50 flex items-center p-4 text-white rounded-md shadow-lg transform transition-all duration-300 ${getBgColor()}`}>
+      <div className="mr-3">
+        {getIcon()}
+      </div>
+      <div>{message}</div>
+      <button 
+        onClick={onClose} 
+        className="ml-6 text-white hover:text-gray-200"
+        aria-label="Close"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+  );
+};
 
 // Create User Form Schema
 const schema = z.object({
@@ -104,16 +178,16 @@ const CreateUserTab = () => {
     resolver: zodResolver(schema),
     defaultValues: {
       role: 'user',
-      voters_list_access: 'none',
-      family_situation_access: 'none',
-      statistics_access: 'none',
+      voters_list_access: 'view',
+      family_situation_access: 'view',
+      statistics_access: 'view',
     },
   });
   const [serverMessage, setServerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength | null>(null);
   const { session } = useAuthStore();
   
-  // Alert modal state
+  // Alert modal state for errors only
   const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{
     title: string;
@@ -124,6 +198,13 @@ const CreateUserTab = () => {
     message: '',
     type: 'info'
   });
+  
+  // Toast state for success messages
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+    visible: boolean;
+  } | null>(null);
 
   const passwordValue = watch('password');
 
@@ -190,13 +271,13 @@ const CreateUserTab = () => {
         throw new Error(result.error || `HTTP error! status: ${response.status}`);
       }
 
-      // Show success message using the custom alert modal
-      setAlertConfig({
-        title: 'Success',
+      // Show success message using toast instead of modal
+      setToast({
         message: `User ${data.email} created successfully!`,
-        type: 'success'
+        type: 'success',
+        visible: true
       });
-      setAlertModalOpen(true);
+      
       reset(); // Reset the form after successful creation
 
     } catch (error: any) {
@@ -208,6 +289,10 @@ const CreateUserTab = () => {
       });
       setAlertModalOpen(true);
     }
+  };
+
+  const closeToast = () => {
+    setToast(null);
   };
 
   const renderSelect = (id: keyof FormValues, label: string, options: string[]) => (
@@ -228,6 +313,15 @@ const CreateUserTab = () => {
 
   return (
     <div className="p-6">
+      {/* Toast notification */}
+      {toast && toast.visible && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={closeToast}
+        />
+      )}
+      
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {serverMessage && (
           <div className={`p-4 rounded-md ${serverMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -287,8 +381,8 @@ const CreateUserTab = () => {
           </button>
         </div>
       </form>
-      
-      {/* Alert modal */}
+
+      {/* Alert modal for errors only */}
       <AlertModal 
         isOpen={alertModalOpen}
         onClose={() => setAlertModalOpen(false)}
@@ -322,10 +416,21 @@ const ManageUsersTab = () => {
     message: '',
     type: 'info'
   });
+  
+  // Toast state
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+    visible: boolean;
+  } | null>(null);
 
   const { register, handleSubmit, formState: { errors }, reset } = useForm<EditFormValues>({
     resolver: zodResolver(editSchema)
   });
+  
+  const closeToast = () => {
+    setToast(null);
+  };
 
   const columnHelper = createColumnHelper<UserProfileWithEmail>();
   const columns = [
@@ -531,21 +636,26 @@ const ManageUsersTab = () => {
         throw new Error(result.error || `HTTP error! status: ${response.status}`);
       }
       
-      // Show success message using AlertModal
-      setAlertConfig({
-        title: 'Success',
-        message: 'User updated successfully!',
-        type: 'success'
-      });
-      setAlertModalOpen(true);
-      
+      // Just exit edit mode without showing a success modal or refreshing the table
       setEditingId(null);
-      // Refresh the list with force=true to ensure updates
-      fetchUsers(session.access_token, true);
+      
+      // Manually update the user in the users array instead of refreshing the whole table
+      useUsersStore.setState(state => ({
+        users: state.users.map(user => 
+          user.id === data.id ? { 
+            ...user, 
+            full_name: data.full_name,
+            role: data.role,
+            voters_list_access: data.voters_list_access,
+            family_situation_access: data.family_situation_access,
+            statistics_access: data.statistics_access
+          } : user
+        )
+      }));
     } catch (error: any) {
       console.error('Error updating user:', error);
       
-      // Show error message using AlertModal
+      // Show error message using AlertModal only on error
       setAlertConfig({
         title: 'Error',
         message: error.message || 'Failed to update user',
@@ -597,16 +707,20 @@ const ManageUsersTab = () => {
         throw new Error(result.error || `HTTP error! status: ${response.status}`);
       }
       
-      // Show success message in custom alert modal
-      setAlertConfig({
-        title: 'Success',
+      // Show success message as toast instead of modal
+      setToast({
         message: 'User deleted successfully!',
-        type: 'success'
+        type: 'success',
+        visible: true
       });
-      setAlertModalOpen(true);
       
-      // Refresh the list with force=true to ensure updates
-      fetchUsers(session.access_token, true);
+      // Update local state instead of refreshing the list
+      useUsersStore.setState(state => ({
+        users: state.users.filter(user => user.id !== userId)
+      }));
+      
+      // Close the delete confirmation modal
+      setDeleteModalOpen(false);
     } catch (error: any) {
       console.error('Error deleting user:', error);
       
@@ -630,6 +744,15 @@ const ManageUsersTab = () => {
 
   return (
     <div className="p-6">
+      {/* Toast notification */}
+      {toast && toast.visible && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={closeToast}
+        />
+      )}
+
       {serverMessage && (
         <div className={`p-4 mb-4 rounded-md ${serverMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
           {serverMessage.text}

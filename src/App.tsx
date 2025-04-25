@@ -148,14 +148,8 @@ const Footer = () => (
           <p className="text-sm">&copy; {new Date().getFullYear()} Addoussieh Voting Portal. All rights reserved.</p>
         </div>
         <div className="flex space-x-4">
-          <a href="#" aria-label="Facebook" className="text-gray-300 hover:text-white transition duration-150 ease-in-out">
+          <a href="https://www.facebook.com/Adoussieh" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-gray-300 hover:text-white transition duration-150 ease-in-out">
             <i className="fab fa-facebook"></i>
-          </a>
-          <a href="#" aria-label="Twitter" className="text-gray-300 hover:text-white transition duration-150 ease-in-out">
-            <i className="fab fa-twitter"></i>
-          </a>
-          <a href="#" aria-label="Instagram" className="text-gray-300 hover:text-white transition duration-150 ease-in-out">
-            <i className="fab fa-instagram"></i>
           </a>
         </div>
       </div>
