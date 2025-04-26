@@ -968,7 +968,7 @@ const AdminPage = () => {
 
   return (
     <div className="max-w-6xl mx-auto mt-8 bg-white shadow-lg rounded-lg overflow-hidden">
-      <h1 className="text-3xl font-bold p-6 border-b">Admin Dashboard</h1>
+      <h1 className="text-3xl font-bold p-6 border-b text-blue-800">Admin Dashboard</h1>
       
       {/* Reverting to Headless UI v1 Tab pattern */}
       <Tab.Group selectedIndex={selectedTabIndex} onChange={handleTabChange}>
