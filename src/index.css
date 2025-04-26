@@ -19,6 +19,15 @@ body {
     background-color: #ffffff;
 }
 
+/* Fixed header styles - added to prevent content overlap */
+header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+}
+
 .banner-container {
     width: 100%;
     margin: 0 auto;

@@ -194,63 +194,71 @@ export default function App() {
     return <div className="flex justify-center items-center h-screen">Loading Application...</div>;
   }
 
-  const mainBaseClasses = 'flex-grow';
-  const mainPageClasses = 'p-4 md:p-8 w-full'; // Removed mx-auto to align content with the menu
-  const mainAuthClasses = 'bg-gray-50';
-
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="shadow-lg border-b border-blue-200">
-        <Banner />
-        {!hideNav && !authLoading && <Nav />}
-      </header>
-      <main className={`${mainBaseClasses} ${isAuthPage ? mainAuthClasses : 'bg-gradient-to-b from-blue-50 via-blue-50/70 to-white ' + mainPageClasses}`}>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/unauthorized" element={<Unauthorized />} />
-          <Route
-            path="/"
-            element={
-              <PrivateRoute permissionCheck={() => hasVoterAccess(profile)}>
-                <VoterList />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/family-situation"
-            element={
-              <PrivateRoute permissionCheck={() => hasFamilyAccess(profile)}>
-                <FamilySituation />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/statistics"
-            element={
-              <PrivateRoute permissionCheck={() => hasStatsAccess(profile)}>
-                <Statistics />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <PrivateRoute permissionCheck={() => isAdminUser(profile)}>
-                <AdminPage />
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/about"
-            element={
-              <PrivateRoute>
-                <About />
-              </PrivateRoute>
-            }
-          />
-        </Routes>
+      {/* Create a fixed position header */}
+      {!isAuthPage && !authLoading && (
+        <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-lg">
+          <Banner />
+          <Nav />
+        </header>
+      )}
+      
+      {/* Main content with proper spacing */}
+      <main className={`flex-grow w-full ${isAuthPage ? 'bg-gray-50' : 'bg-gradient-to-b from-blue-50 via-blue-50/70 to-white'}`}>
+        {/* Add spacer div only when header is shown */}
+        {!isAuthPage && !authLoading && (
+          <div className="w-full h-[170px] md:h-[180px]"></div>
+        )}
+        
+        <div className={isAuthPage ? '' : 'p-4 md:p-8'}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
+            <Route
+              path="/"
+              element={
+                <PrivateRoute permissionCheck={() => hasVoterAccess(profile)}>
+                  <VoterList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/family-situation"
+              element={
+                <PrivateRoute permissionCheck={() => hasFamilyAccess(profile)}>
+                  <FamilySituation />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/statistics"
+              element={
+                <PrivateRoute permissionCheck={() => hasStatsAccess(profile)}>
+                  <Statistics />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <PrivateRoute permissionCheck={() => isAdminUser(profile)}>
+                  <AdminPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/about"
+              element={
+                <PrivateRoute>
+                  <About />
+                </PrivateRoute>
+              }
+            />
+          </Routes>
+        </div>
       </main>
       <Footer />
     </div>
