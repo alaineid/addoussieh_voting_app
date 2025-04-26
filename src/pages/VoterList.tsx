@@ -33,6 +33,21 @@ interface Voter {
   has_voted: boolean; // Keep this field as well
 }
 
+// Helper function to format dates correctly accounting for timezone issues
+const formatDate = (dateString: string | null): string => {
+  if (!dateString) return '-';
+  
+  // Parse the date - add time to avoid timezone issues
+  const date = new Date(`${dateString}T12:00:00Z`);
+  
+  // Format as DD/MM/YYYY
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  
+  return `${day}/${month}/${year}`;
+};
+
 const VoterList: React.FC = () => {
   const [voters, setVoters] = useState<Voter[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -248,22 +263,29 @@ const VoterList: React.FC = () => {
     }),
     columnHelper.accessor('dob', { 
       header: 'DOB', 
-      cell: info => info.getValue() ? new Date(info.getValue()!).toLocaleDateString() : '-',
+      cell: info => formatDate(info.getValue() as string),
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
         // If no filter value is set, show all rows
         if (!filterValue) return true;
         
-        const dob = row.getValue(columnId);
+        const dobString = row.getValue(columnId) as string;
         // If the row doesn't have a DOB, don't match it
-        if (!dob) return false;
+        if (!dobString) return false;
         
-        // Extract the year from the DOB
-        const dobYear = new Date(dob as string).getFullYear().toString();
-        
-        // Return true if the year matches the filter value
-        return dobYear === filterValue;
+        try {
+          // Extract the year using the same UTC-based logic as formatDate
+          const date = new Date(`${dobString}T12:00:00Z`);
+          const dobYear = date.getUTCFullYear().toString();
+          
+          // Return true if the year matches the filter value
+          return dobYear === filterValue;
+        } catch (e) {
+          // Handle potential date parsing errors
+          console.error("Error parsing date for filtering:", dobString, e);
+          return false;
+        }
       },
     }),
     columnHelper.accessor('sect', { 
@@ -627,16 +649,18 @@ const VoterList: React.FC = () => {
         )}
         
         {viewMode === 'card' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {table.getRowModel().rows.map(row => {
               const voter = row.original;
               return (
                 <div key={row.id} 
-                  className={`bg-white rounded-lg shadow-sm border ${voter.has_voted 
-                    ? 'border-green-200 hover:shadow-green-100/80' 
-                    : 'border-blue-100 hover:shadow-blue-100/80'} 
+                  className={`bg-white rounded-lg shadow-sm border 
+                    ${voter.has_voted 
+                      ? 'border-l-4 border-green-500 hover:shadow-green-100/80' 
+                      : 'border-l-4 border-blue-500 hover:shadow-blue-100/80'} 
                     p-5 hover:shadow-md transition-all duration-200`}>
-                  <div className="flex items-center justify-between mb-3">
+                  
+                  <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-blue-900 truncate">{voter.full_name}</h3>
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                       voter.has_voted 
@@ -647,49 +671,106 @@ const VoterList: React.FC = () => {
                     </span>
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                    <div className="space-y-2">
-                      {voter.family && (
-                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Family:</span> <span className="font-medium text-gray-700">{voter.family}</span></p>
-                      )}
-                      {voter.alliance && (
-                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Alliance:</span> <span className="font-medium text-gray-700">{voter.alliance}</span></p>
-                      )}
-                      {voter.register && (
-                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Register:</span> <span className="font-medium text-gray-700">{voter.register}</span></p>
-                      )}
-                      {voter.register_sect && (
-                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Reg. Sect:</span> <span className="font-medium text-gray-700">{voter.register_sect}</span></p>
-                      )}
-                      {voter.sect && (
-                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Sect:</span> <span className="font-medium text-gray-700">{voter.sect}</span></p>
-                      )}
-                    </div>
+                  <div className="bg-blue-50/50 rounded-lg p-4 mb-3">
+                    {voter.dob && (
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center text-blue-600">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          <span className="text-xs font-medium">DOB:</span>
+                        </div>
+                        <span className="font-medium text-sm text-gray-700">{formatDate(voter.dob!)}</span>
+                      </div>
+                    )}
                     
-                    <div className="space-y-2">
-                      {voter.father_name && (
-                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Father:</span> <span className="font-medium text-gray-700">{voter.father_name}</span></p>
-                      )}
-                      {voter.mother_name && (
-                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Mother:</span> <span className="font-medium text-gray-700">{voter.mother_name}</span></p>
-                      )}
-                      {voter.gender && (
-                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Gender:</span> <span className="font-medium text-gray-700">{voter.gender}</span></p>
-                      )}
-                      {voter.residence && (
-                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Residence:</span> <span className="font-medium text-gray-700">{voter.residence}</span></p>
-                      )}
-                      {voter.dob && (
-                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">DOB:</span> <span className="font-medium text-gray-700">{new Date(voter.dob).toLocaleDateString()}</span></p>
-                      )}
-                    </div>
+                    {voter.gender && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center text-blue-600">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="text-xs font-medium">Gender:</span>
+                        </div>
+                        <span className="font-medium text-sm text-gray-700">{voter.gender}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-4">
+                    {voter.family && (
+                      <div className="col-span-1">
+                        <p className="text-xs text-blue-600 font-medium mb-1">Family</p>
+                        <p className="text-sm font-medium text-gray-700">{voter.family}</p>
+                      </div>
+                    )}
+                    
+                    {voter.alliance && (
+                      <div className="col-span-1">
+                        <p className="text-xs text-blue-600 font-medium mb-1">Alliance</p>
+                        <p className="text-sm font-medium text-gray-700">{voter.alliance}</p>
+                      </div>
+                    )}
+                    
+                    {voter.register && (
+                      <div className="col-span-1">
+                        <p className="text-xs text-blue-600 font-medium mb-1">Register</p>
+                        <p className="text-sm font-medium text-gray-700">{voter.register}</p>
+                      </div>
+                    )}
+                    
+                    {voter.register_sect && (
+                      <div className="col-span-1">
+                        <p className="text-xs text-blue-600 font-medium mb-1">Reg. Sect</p>
+                        <p className="text-sm font-medium text-gray-700">{voter.register_sect}</p>
+                      </div>
+                    )}
+                    
+                    {voter.sect && (
+                      <div className="col-span-1">
+                        <p className="text-xs text-blue-600 font-medium mb-1">Sect</p>
+                        <p className="text-sm font-medium text-gray-700">{voter.sect}</p>
+                      </div>
+                    )}
+                    
+                    {voter.residence && (
+                      <div className="col-span-1">
+                        <p className="text-xs text-blue-600 font-medium mb-1">Residence</p>
+                        <p className="text-sm font-medium text-gray-700">{voter.residence || 'RESIDENT'}</p>
+                      </div>
+                    )}
+                    
+                    {voter.father_name && (
+                      <div className="col-span-1">
+                        <p className="text-xs text-blue-600 font-medium mb-1">Father</p>
+                        <p className="text-sm font-medium text-gray-700">{voter.father_name}</p>
+                      </div>
+                    )}
+                    
+                    {voter.mother_name && (
+                      <div className="col-span-1">
+                        <p className="text-xs text-blue-600 font-medium mb-1">Mother</p>
+                        <p className="text-sm font-medium text-gray-700">{voter.mother_name}</p>
+                      </div>
+                    )}
                   </div>
                   
                   {voter.situation && (
-                    <div className="mt-4 pt-3 border-t border-blue-50">
-                      <p className="flex items-start">
-                        <span className="text-blue-600 w-24 flex-shrink-0">Situation:</span> 
-                        <span className="font-medium text-gray-700">{voter.situation}</span>
+                    <div className="mt-2 pt-3 border-t border-blue-100">
+                      <div className="flex items-center mb-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m-1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-xs text-blue-600 font-medium">Situation</p>
+                      </div>
+                      <p className={`text-sm font-medium ${
+                        voter.situation === 'AGAINST' 
+                          ? 'text-red-600' 
+                          : voter.situation === 'WITH' 
+                            ? 'text-green-600' 
+                            : 'text-gray-700'
+                      }`}>
+                        {voter.situation}
                       </p>
                     </div>
                   )}
