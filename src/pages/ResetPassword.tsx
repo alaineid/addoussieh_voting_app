@@ -55,7 +55,6 @@ const ResetPassword = () => {
       setTimeout(() => navigate('/login'), 3000);
 
     } catch (err: any) {
-      console.error('Password update error:', err);
       setError(err.error_description || err.message || 'Failed to update password.');
     } finally {
       setLoading(false);

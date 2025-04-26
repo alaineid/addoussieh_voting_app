@@ -569,18 +569,22 @@ const ManageUsersTab = () => {
 
   // Initialize data fetching and realtime listeners
   useEffect(() => {
-    if (session?.access_token) {
-      console.log('Initializing ManageUsersTab with data and realtime listeners');
-      fetchUsers(session.access_token);
+    // Check if session exists, fetchUsers doesn't need the token anymore
+    if (session) { 
+      // Call fetchUsers without the token, it uses the client's session
+      fetchUsers(); 
       setupRealtimeListeners();
+    } else {
+      // Optionally clear users if session is lost?
+      // useUsersStore.setState({ users: [], initialized: false, error: null });
     }
     
-    // Clean up when component unmounts
+    // Clean up when component unmounts or dependencies change
     return () => {
-      console.log('Cleaning up ManageUsersTab realtime listeners');
       cleanupRealtimeListeners();
     };
-  }, []);
+  // Add dependencies: session, fetchUsers, setupRealtimeListeners, cleanupRealtimeListeners
+  }, [session, fetchUsers, setupRealtimeListeners, cleanupRealtimeListeners]);
 
   const startEdit = (user: UserProfileWithEmail) => {
     setEditingId(user.id);
@@ -992,13 +996,9 @@ const AdminPage = () => {
             Manage Users
           </Tab>
         </Tab.List>
-        <Tab.Panels>
-          <Tab.Panel className="h-full">
-            {createUserTabComponent}
-          </Tab.Panel>
-          <Tab.Panel className="h-full">
-            {manageUsersTabComponent}
-          </Tab.Panel>
+        <Tab.Panels className="p-4">
+          <Tab.Panel>{createUserTabComponent}</Tab.Panel>
+          <Tab.Panel>{manageUsersTabComponent}</Tab.Panel>
         </Tab.Panels>
       </Tab.Group>
     </div>

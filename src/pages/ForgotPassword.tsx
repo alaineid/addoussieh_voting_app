@@ -27,7 +27,6 @@ const ForgotPassword = () => {
 
       setMessage('Password reset instructions have been sent to your email.');
     } catch (err: any) {
-      console.error('Password reset error:', err);
       setError(err.error_description || err.message || 'Failed to send password reset email.');
     } finally {
       setLoading(false);

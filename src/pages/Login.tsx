@@ -17,11 +17,8 @@ const Login = () => {
   const from = location.state?.from?.pathname || "/";
 
   useEffect(() => {
-    // Clear existing Supabase sessions if there was a session error (coming from timeout)
     const hasSessionError = new URLSearchParams(location.search).get('session_error') === 'true';
     if (hasSessionError) {
-      console.log("Session error detected - clearing auth state");
-      // Clear localStorage auth items to ensure a clean state
       localStorage.removeItem('supabase.auth.token');
       localStorage.removeItem('supabase.auth.refreshToken');
       setError("Your session expired or was invalid. Please log in again.");
@@ -40,10 +37,8 @@ const Login = () => {
     setError(null);
 
     try {
-      // First, ensure we clear any existing sessions
       await supabase.auth.signOut();
       
-      // Now attempt to sign in
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -63,11 +58,9 @@ const Login = () => {
         localStorage.removeItem('rememberedEmail');
       }
 
-      // Navigate back to the intended page or home
       navigate(from, { replace: true });
 
     } catch (err: any) {
-      console.error('Login error:', err);
       setError(err.error_description || err.message || 'Failed to log in');
     } finally {
       setLoading(false);
@@ -153,7 +146,6 @@ const Login = () => {
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                disabled={loading}
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
                 Remember me
@@ -173,17 +165,7 @@ const Login = () => {
               disabled={loading}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-md hover:shadow-lg transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? (
-                <>
-                  <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  </span>
-                  Signing in...
-                </>
-              ) : 'Sign in'}
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
         </form>
