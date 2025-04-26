@@ -195,7 +195,7 @@ export default function App() {
   }
 
   const mainBaseClasses = 'flex-grow';
-  const mainPageClasses = 'p-4 md:p-8 max-w-7xl mx-auto w-full';
+  const mainPageClasses = 'p-4 md:p-8 w-full'; // Removed mx-auto to align content with the menu
   const mainAuthClasses = 'bg-gray-50';
 
   return (
