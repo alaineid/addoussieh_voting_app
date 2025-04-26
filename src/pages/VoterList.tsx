@@ -249,7 +249,7 @@ const VoterList: React.FC = () => {
   // Loading skeleton UI
   if (loading) {
     return (
-      <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="p-6 bg-gradient-to-b from-blue-50 to-white min-h-screen">
         <div className="mb-6">
           <div className="h-10 w-72 bg-gray-200 rounded-md animate-pulse mb-6"></div>
           <div className="h-12 w-full bg-gray-200 rounded-md animate-pulse mb-8"></div>
@@ -286,7 +286,7 @@ const VoterList: React.FC = () => {
 
   if (error) {
     return (
-      <div className="p-6 text-center bg-gray-50 min-h-screen flex items-center justify-center">
+      <div className="p-6 text-center bg-gradient-to-b from-blue-50 to-white min-h-screen flex items-center justify-center">
         <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-sm max-w-lg">
           <div className="flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500 mr-3" viewBox="0 0 20 20" fill="currentColor">
@@ -306,13 +306,13 @@ const VoterList: React.FC = () => {
   const votedPercentage = totalVoters > 0 ? Math.round((votedCount / totalVoters) * 100) : 0;
 
   return (
-    <div className="p-4 sm:p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 sm:p-6 bg-gradient-to-b from-blue-50 via-blue-50/70 to-white min-h-screen">
       <h2 className="text-3xl font-bold mb-2 text-blue-800">Voter's List</h2>
       <p className="text-gray-600 mb-6">Manage and monitor registered voters</p>
       
       {/* Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow-sm p-4 flex items-center">
+        <div className="bg-white rounded-lg shadow-sm p-4 flex items-center border border-blue-100">
           <div className="rounded-full bg-blue-100 p-3 mr-4">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -324,7 +324,7 @@ const VoterList: React.FC = () => {
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm p-4 flex items-center">
+        <div className="bg-white rounded-lg shadow-sm p-4 flex items-center border border-green-100">
           <div className="rounded-full bg-green-100 p-3 mr-4">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -336,7 +336,7 @@ const VoterList: React.FC = () => {
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-blue-100">
           <p className="text-sm text-gray-500 font-medium mb-2">Participation Rate</p>
           <div className="flex items-center justify-between mb-1">
             <p className="text-2xl font-bold text-gray-800">{votedPercentage}%</p>
@@ -351,7 +351,7 @@ const VoterList: React.FC = () => {
         </div>
       </div>
       
-      <div className="bg-white rounded-xl shadow-sm p-4 md:p-6">
+      <div className="bg-white rounded-xl shadow-sm p-4 md:p-6 border border-blue-100">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           {/* Search Input */}
           <div className="relative flex-1 sm:min-w-[300px]">
@@ -362,14 +362,14 @@ const VoterList: React.FC = () => {
             </div>
             <input
               type="search"
-              className="block w-full pl-10 pr-4 py-2.5 text-gray-900 border border-gray-300 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+              className="block w-full pl-10 pr-4 py-2.5 text-gray-900 border border-blue-200 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
               placeholder="Search by name, family, alliance..."
               value={globalFilter ?? ''}
               onChange={e => setGlobalFilter(e.target.value)}
             />
           </div>
           {/* View Mode Buttons */}
-          <div className="flex bg-gray-100 rounded-lg p-1 shadow-inner">
+          <div className="flex bg-blue-50 rounded-lg p-1 shadow-inner">
             <button
               onClick={() => {
                 setViewMode('table');
@@ -378,7 +378,7 @@ const VoterList: React.FC = () => {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 viewMode === 'table'
                   ? 'bg-white text-blue-700 shadow-sm'
-                  : 'text-gray-700 hover:bg-gray-200'
+                  : 'text-gray-700 hover:bg-blue-100'
               }`}
             >
               <div className="flex items-center">
@@ -396,7 +396,7 @@ const VoterList: React.FC = () => {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 viewMode === 'card'
                   ? 'bg-white text-blue-700 shadow-sm'
-                  : 'text-gray-700 hover:bg-gray-200'
+                  : 'text-gray-700 hover:bg-blue-100'
               }`}
             >
               <div className="flex items-center">
@@ -410,16 +410,16 @@ const VoterList: React.FC = () => {
         </div>
         
         {viewMode === 'table' && (
-          <div className="overflow-x-auto shadow-sm rounded-lg border border-gray-200">
+          <div className="overflow-x-auto shadow-sm rounded-lg border border-blue-200">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-blue-50">
                 {table.getHeaderGroups().map(headerGroup => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map(header => (
                       <th 
                         key={header.id} 
                         scope="col" 
-                        className="px-6 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap"
+                        className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider whitespace-nowrap"
                         onClick={header.column.getToggleSortingHandler()}
                         style={{ cursor: header.column.getCanSort() ? 'pointer' : 'default' }}
                       >
@@ -471,15 +471,15 @@ const VoterList: React.FC = () => {
               return (
                 <div key={row.id} 
                   className={`bg-white rounded-lg shadow-sm border ${voter.has_voted 
-                    ? 'border-green-200 hover:shadow-green-100' 
-                    : 'border-gray-100 hover:shadow-blue-100'} 
+                    ? 'border-green-200 hover:shadow-green-100/80' 
+                    : 'border-blue-100 hover:shadow-blue-100/80'} 
                     p-5 hover:shadow-md transition-all duration-200`}>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-800 truncate">{voter.full_name}</h3>
+                    <h3 className="text-lg font-semibold text-blue-900 truncate">{voter.full_name}</h3>
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                       voter.has_voted 
                         ? 'bg-green-100 text-green-800 border border-green-200' 
-                        : 'bg-red-50 text-red-700 border border-red-200'
+                        : 'bg-blue-50 text-blue-800 border border-blue-200'
                     }`}>
                       {voter.has_voted ? 'Voted' : 'Not Voted'}
                     </span>
@@ -488,45 +488,45 @@ const VoterList: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                     <div className="space-y-2">
                       {voter.family && (
-                        <p className="flex items-center"><span className="text-gray-500 w-16 flex-shrink-0">Family:</span> <span className="font-medium text-gray-700">{voter.family}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Family:</span> <span className="font-medium text-gray-700">{voter.family}</span></p>
                       )}
                       {voter.alliance && (
-                        <p className="flex items-center"><span className="text-gray-500 w-16 flex-shrink-0">Alliance:</span> <span className="font-medium text-gray-700">{voter.alliance}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Alliance:</span> <span className="font-medium text-gray-700">{voter.alliance}</span></p>
                       )}
                       {voter.register && (
-                        <p className="flex items-center"><span className="text-gray-500 w-16 flex-shrink-0">Register:</span> <span className="font-medium text-gray-700">{voter.register}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Register:</span> <span className="font-medium text-gray-700">{voter.register}</span></p>
                       )}
                       {voter.register_sect && (
-                        <p className="flex items-center"><span className="text-gray-500 w-16 flex-shrink-0">Reg. Sect:</span> <span className="font-medium text-gray-700">{voter.register_sect}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Reg. Sect:</span> <span className="font-medium text-gray-700">{voter.register_sect}</span></p>
                       )}
                       {voter.sect && (
-                        <p className="flex items-center"><span className="text-gray-500 w-16 flex-shrink-0">Sect:</span> <span className="font-medium text-gray-700">{voter.sect}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Sect:</span> <span className="font-medium text-gray-700">{voter.sect}</span></p>
                       )}
                     </div>
                     
                     <div className="space-y-2">
                       {voter.father_name && (
-                        <p className="flex items-center"><span className="text-gray-500 w-16 flex-shrink-0">Father:</span> <span className="font-medium text-gray-700">{voter.father_name}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Father:</span> <span className="font-medium text-gray-700">{voter.father_name}</span></p>
                       )}
                       {voter.mother_name && (
-                        <p className="flex items-center"><span className="text-gray-500 w-16 flex-shrink-0">Mother:</span> <span className="font-medium text-gray-700">{voter.mother_name}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Mother:</span> <span className="font-medium text-gray-700">{voter.mother_name}</span></p>
                       )}
                       {voter.gender && (
-                        <p className="flex items-center"><span className="text-gray-500 w-16 flex-shrink-0">Gender:</span> <span className="font-medium text-gray-700">{voter.gender}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Gender:</span> <span className="font-medium text-gray-700">{voter.gender}</span></p>
                       )}
                       {voter.residence && (
-                        <p className="flex items-center"><span className="text-gray-500 w-16 flex-shrink-0">Residence:</span> <span className="font-medium text-gray-700">{voter.residence}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Residence:</span> <span className="font-medium text-gray-700">{voter.residence}</span></p>
                       )}
                       {voter.dob && (
-                        <p className="flex items-center"><span className="text-gray-500 w-16 flex-shrink-0">DOB:</span> <span className="font-medium text-gray-700">{new Date(voter.dob).toLocaleDateString()}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">DOB:</span> <span className="font-medium text-gray-700">{new Date(voter.dob).toLocaleDateString()}</span></p>
                       )}
                     </div>
                   </div>
                   
                   {voter.situation && (
-                    <div className="mt-4 pt-3 border-t border-gray-100">
+                    <div className="mt-4 pt-3 border-t border-blue-50">
                       <p className="flex items-start">
-                        <span className="text-gray-500 w-20 flex-shrink-0">Situation:</span> 
+                        <span className="text-blue-600 w-20 flex-shrink-0">Situation:</span> 
                         <span className="font-medium text-gray-700">{voter.situation}</span>
                       </p>
                     </div>
@@ -541,11 +541,11 @@ const VoterList: React.FC = () => {
         <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
           <div className="flex items-center gap-2 text-sm text-gray-700">
             <span>
-              Showing <span className="font-semibold text-gray-900">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
-              <span className="font-semibold text-gray-900">
+              Showing <span className="font-semibold text-blue-900">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
+              <span className="font-semibold text-blue-900">
                 {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, voters.length)}
               </span> of{" "}
-              <span className="font-semibold text-gray-900">{voters.length}</span> voters
+              <span className="font-semibold text-blue-900">{voters.length}</span> voters
             </span>
           </div>
 
@@ -553,7 +553,7 @@ const VoterList: React.FC = () => {
             <button
               onClick={() => table.setPageIndex(0)}
               disabled={!table.getCanPreviousPage()}
-              className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+              className="p-2 rounded-md border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
               aria-label="Go to first page"
               title="First page"
             >
@@ -564,7 +564,7 @@ const VoterList: React.FC = () => {
             <button
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+              className="p-2 rounded-md border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
               aria-label="Go to previous page"
               title="Previous page"
             >
@@ -596,7 +596,7 @@ const VoterList: React.FC = () => {
                     className={`px-3.5 py-2 mx-1 rounded-md text-sm font-medium border transition-colors ${
                       pageIndex === showPage 
                         ? 'bg-blue-600 text-white border-blue-600' 
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'
                     }`}
                     aria-label={`Go to page ${showPage + 1}`}
                     aria-current={pageIndex === showPage ? 'page' : undefined}
@@ -608,7 +608,7 @@ const VoterList: React.FC = () => {
             </div>
             
             <div className="sm:hidden flex items-center">
-              <span className="px-3 py-1.5 text-sm text-gray-700 font-medium">
+              <span className="px-3 py-1.5 text-sm text-blue-700 font-medium">
                 Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
               </span>
             </div>
@@ -616,7 +616,7 @@ const VoterList: React.FC = () => {
             <button
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+              className="p-2 rounded-md border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
               aria-label="Go to next page"
               title="Next page"
             >
@@ -627,7 +627,7 @@ const VoterList: React.FC = () => {
             <button
               onClick={() => table.setPageIndex(table.getPageCount() - 1)}
               disabled={!table.getCanNextPage()}
-              className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+              className="p-2 rounded-md border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
               aria-label="Go to last page"
               title="Last page"
             >
@@ -638,14 +638,14 @@ const VoterList: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-blue-700">
               Per page:
               <select
                 value={table.getState().pagination.pageSize}
                 onChange={e => {
                   table.setPageSize(Number(e.target.value));
                 }}
-                className="ml-2 px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="ml-2 px-3 py-1.5 text-sm border border-blue-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 {[5, 10, 20, 30, 50].map(pageSize => (
                   <option key={pageSize} value={pageSize}>

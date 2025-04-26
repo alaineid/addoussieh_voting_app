@@ -200,11 +200,11 @@ export default function App() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="shadow-md">
+      <header className="shadow-lg border-b border-blue-200">
         <Banner />
         {!hideNav && !authLoading && <Nav />}
       </header>
-      <main className={`${mainBaseClasses} ${isAuthPage ? mainAuthClasses : mainPageClasses}`}>
+      <main className={`${mainBaseClasses} ${isAuthPage ? mainAuthClasses : 'bg-gradient-to-b from-blue-50 via-blue-50/70 to-white ' + mainPageClasses}`}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
