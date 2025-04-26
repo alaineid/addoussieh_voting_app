@@ -112,25 +112,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 export function initializeAuthListener() {
     useAuthStore.setState({ loading: true });
-    
+
     const timeoutId = setTimeout(() => {
         useAuthStore.setState({ loading: false });
     }, AUTH_LOADING_TIMEOUT);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
         const { setSession, fetchProfile } = useAuthStore.getState();
-        
+
         if (session) {
             setSession(session);
-            fetchProfile(session.user.id).catch(error => {
+            fetchProfile(session.user.id).catch(() => {
                 useAuthStore.setState({ loading: false, profileLoading: false });
             });
         } else {
             useAuthStore.setState({ loading: false, profileLoading: false });
         }
-        
+
         setTimeout(() => clearTimeout(timeoutId), 1000);
-    }).catch(error => {
+    }).catch(() => {
         useAuthStore.setState({ loading: false, profileLoading: false });
         clearTimeout(timeoutId);
     });
@@ -140,16 +140,23 @@ export function initializeAuthListener() {
             const { setSession, fetchProfile, clearAuth } = useAuthStore.getState();
 
             try {
+                // Only update state if the session has actually changed
+                const currentSession = useAuthStore.getState().session;
+                if (currentSession?.user?.id === session?.user?.id) {
+                    return;
+                }
+
                 useAuthStore.setState({ loading: true });
-                
+
                 if (session?.user) {
                     setSession(session);
-                    fetchProfile(session.user.id).catch(err => {
+                    fetchProfile(session.user.id).catch(() => {
+                        useAuthStore.setState({ loading: false });
                     });
                 } else {
                     clearAuth();
                 }
-            } catch (error) {
+            } catch {
                 useAuthStore.setState({ loading: false });
             }
         }
