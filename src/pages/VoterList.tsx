@@ -65,6 +65,107 @@ const VoterList: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Define Filter component for each column type
+  interface FilterProps {
+    column: any;
+    table: any;
+  }
+
+  // Text Filter component for text-based columns
+  const TextFilter: React.FC<FilterProps> = ({ column, table }) => {
+    const columnFilterValue = column.getFilterValue() ?? '';
+
+    return (
+      <input
+        type="text"
+        value={columnFilterValue}
+        onChange={e => column.setFilterValue(e.target.value)}
+        placeholder={`Filter...`}
+        className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+      />
+    );
+  };
+
+  // Select Filter component for columns with finite options
+  const SelectFilter: React.FC<FilterProps> = ({ column, table }) => {
+    const columnFilterValue = column.getFilterValue() ?? '';
+    const sortedUniqueValues = useMemo(() => {
+      // Get unique values from the column
+      const values = new Set(
+        table.getPreFilteredRowModel().flatRows
+          .map((row: any) => row.getValue(column.id))
+          .filter(Boolean)
+      );
+      
+      return Array.from(values).sort();
+    }, [column.id, table.getPreFilteredRowModel().flatRows]);
+
+    return (
+      <select
+        value={columnFilterValue}
+        onChange={e => column.setFilterValue(e.target.value)}
+        className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        <option value="">All</option>
+        {sortedUniqueValues.map((value) => (
+          <option key={value as string} value={value as string}>
+            {value as string}
+          </option>
+        ))}
+      </select>
+    );
+  };
+
+  // Boolean Filter component for has_voted
+  const BooleanFilter: React.FC<FilterProps> = ({ column, table }) => {
+    const columnFilterValue = column.getFilterValue() ?? '';
+
+    return (
+      <select
+        value={columnFilterValue}
+        onChange={e => column.setFilterValue(e.target.value)}
+        className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        <option value="">All</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
+    );
+  };
+
+  // Year Filter component for DOB column
+  const YearFilter: React.FC<FilterProps> = ({ column, table }) => {
+    const columnFilterValue = column.getFilterValue() ?? '';
+    
+    // Extract unique years from DOB values
+    const yearOptions = useMemo(() => {
+      // Get all DOB values from the table data
+      const dobValues = table.getPreFilteredRowModel().flatRows
+        .map((row: any) => row.getValue(column.id))
+        .filter(Boolean)
+        .map((dob: string) => new Date(dob).getFullYear());
+      
+      // Create a set of unique years and convert back to array
+      const uniqueYears = Array.from(new Set(dobValues)).sort();
+      return uniqueYears;
+    }, [column.id, table.getPreFilteredRowModel().flatRows]);
+
+    return (
+      <select
+        value={columnFilterValue}
+        onChange={e => column.setFilterValue(e.target.value)}
+        className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        <option value="">All Years</option>
+        {yearOptions.map(year => (
+          <option key={year} value={year}>
+            {year}
+          </option>
+        ))}
+      </select>
+    );
+  };
+
   // Define table columns using TanStack Table helpers
   const columnHelper = createColumnHelper<Voter>();
   const columns = useMemo(() => [
@@ -72,71 +173,112 @@ const VoterList: React.FC = () => {
       header: 'Full Name', 
       cell: info => info.getValue(),
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('alliance', { 
       header: 'Alliance', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('family', { 
       header: 'Family', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('register', { 
       header: 'Register', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('register_sect', { 
       header: 'Register Sect', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('gender', { 
       header: 'Gender', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'equals',
     }),
     columnHelper.accessor('first_name', { 
       header: 'First Name', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('father_name', { 
       header: 'Father Name', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('last_name', { 
       header: 'Last Name', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('mother_name', { 
       header: 'Mother Name', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('situation', { 
       header: 'Situation', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('dob', { 
       header: 'DOB', 
       cell: info => info.getValue() ? new Date(info.getValue()!).toLocaleDateString() : '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: (row, columnId, filterValue) => {
+        // If no filter value is set, show all rows
+        if (!filterValue) return true;
+        
+        const dob = row.getValue(columnId);
+        // If the row doesn't have a DOB, don't match it
+        if (!dob) return false;
+        
+        // Extract the year from the DOB
+        const dobYear = new Date(dob as string).getFullYear().toString();
+        
+        // Return true if the year matches the filter value
+        return dobYear === filterValue;
+      },
     }),
     columnHelper.accessor('sect', { 
       header: 'Sect', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'equals',
     }),
     columnHelper.accessor('residence', { 
       header: 'Residence', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('has_voted', { 
       header: 'Has Voted', 
@@ -149,6 +291,8 @@ const VoterList: React.FC = () => {
           {info.getValue() ? 'Yes' : 'No'}
         </span>,
       enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: 'equals',
     }),
   ], [columnHelper]);
 
@@ -419,28 +563,46 @@ const VoterList: React.FC = () => {
                       <th 
                         key={header.id} 
                         scope="col" 
-                        className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider whitespace-nowrap"
-                        onClick={header.column.getToggleSortingHandler()}
-                        style={{ cursor: header.column.getCanSort() ? 'pointer' : 'default' }}
+                      className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider whitespace-nowrap min-w-[100px]"
                       >
                         <div className="flex items-center">
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                          {header.column.getIsSorted() === 'asc' && (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                          {header.column.getIsSorted() === 'desc' && (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                          )}
+                          <div
+                            className="cursor-pointer whitespace-nowrap"
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                            {header.column.getIsSorted() === 'asc' && (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600 inline" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                            {header.column.getIsSorted() === 'desc' && (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600 inline" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
                         </div>
+                        
+                        {/* Add column filters */}
+                        {header.column.getCanFilter() ? (
+                          <div className="mt-2">
+                            {header.column.id === 'gender' || header.column.id === 'sect' || header.column.id === 'register_sect' ? (
+                              <SelectFilter column={header.column} table={table} />
+                            ) : header.column.id === 'has_voted' ? (
+                              <BooleanFilter column={header.column} table={table} />
+                            ) : header.column.id === 'dob' ? (
+                              <YearFilter column={header.column} table={table} />
+                            ) : (
+                              <TextFilter column={header.column} table={table} />
+                            )}
+                          </div>
+                        ) : null}
                       </th>
                     ))}
                   </tr>
@@ -488,37 +650,37 @@ const VoterList: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                     <div className="space-y-2">
                       {voter.family && (
-                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Family:</span> <span className="font-medium text-gray-700">{voter.family}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Family:</span> <span className="font-medium text-gray-700">{voter.family}</span></p>
                       )}
                       {voter.alliance && (
-                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Alliance:</span> <span className="font-medium text-gray-700">{voter.alliance}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Alliance:</span> <span className="font-medium text-gray-700">{voter.alliance}</span></p>
                       )}
                       {voter.register && (
-                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Register:</span> <span className="font-medium text-gray-700">{voter.register}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Register:</span> <span className="font-medium text-gray-700">{voter.register}</span></p>
                       )}
                       {voter.register_sect && (
-                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Reg. Sect:</span> <span className="font-medium text-gray-700">{voter.register_sect}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Reg. Sect:</span> <span className="font-medium text-gray-700">{voter.register_sect}</span></p>
                       )}
                       {voter.sect && (
-                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Sect:</span> <span className="font-medium text-gray-700">{voter.sect}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Sect:</span> <span className="font-medium text-gray-700">{voter.sect}</span></p>
                       )}
                     </div>
                     
                     <div className="space-y-2">
                       {voter.father_name && (
-                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Father:</span> <span className="font-medium text-gray-700">{voter.father_name}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Father:</span> <span className="font-medium text-gray-700">{voter.father_name}</span></p>
                       )}
                       {voter.mother_name && (
-                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Mother:</span> <span className="font-medium text-gray-700">{voter.mother_name}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Mother:</span> <span className="font-medium text-gray-700">{voter.mother_name}</span></p>
                       )}
                       {voter.gender && (
-                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Gender:</span> <span className="font-medium text-gray-700">{voter.gender}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Gender:</span> <span className="font-medium text-gray-700">{voter.gender}</span></p>
                       )}
                       {voter.residence && (
-                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">Residence:</span> <span className="font-medium text-gray-700">{voter.residence}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">Residence:</span> <span className="font-medium text-gray-700">{voter.residence}</span></p>
                       )}
                       {voter.dob && (
-                        <p className="flex items-center"><span className="text-blue-600 w-16 flex-shrink-0">DOB:</span> <span className="font-medium text-gray-700">{new Date(voter.dob).toLocaleDateString()}</span></p>
+                        <p className="flex items-center"><span className="text-blue-600 w-24 flex-shrink-0">DOB:</span> <span className="font-medium text-gray-700">{new Date(voter.dob).toLocaleDateString()}</span></p>
                       )}
                     </div>
                   </div>
@@ -526,7 +688,7 @@ const VoterList: React.FC = () => {
                   {voter.situation && (
                     <div className="mt-4 pt-3 border-t border-blue-50">
                       <p className="flex items-start">
-                        <span className="text-blue-600 w-20 flex-shrink-0">Situation:</span> 
+                        <span className="text-blue-600 w-24 flex-shrink-0">Situation:</span> 
                         <span className="font-medium text-gray-700">{voter.situation}</span>
                       </p>
                     </div>

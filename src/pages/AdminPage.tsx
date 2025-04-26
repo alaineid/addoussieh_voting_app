@@ -11,7 +11,9 @@ import {
   flexRender, 
   getCoreRowModel, 
   useReactTable,
-  getPaginationRowModel
+  getPaginationRowModel,
+  getSortedRowModel,
+  SortingState,
 } from '@tanstack/react-table';
 import ConfirmationModal from '../components/ConfirmationModal';
 import AlertModal from '../components/AlertModal';
@@ -312,7 +314,7 @@ const CreateUserTab = () => {
   );
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-gradient-to-b from-blue-50 via-blue-50/70 to-white rounded-lg">
       {/* Toast notification */}
       {toast && toast.visible && (
         <Toast
@@ -322,7 +324,7 @@ const CreateUserTab = () => {
         />
       )}
       
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-xl mx-auto">
         {serverMessage && (
           <div className={`p-4 rounded-md ${serverMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
             {serverMessage.text}
@@ -335,7 +337,7 @@ const CreateUserTab = () => {
             id="name"
             type="text"
             {...register('full_name')}
-            className={`mt-1 block w-full px-3 py-2 border ${errors.full_name ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+            className={`mt-1 block w-full px-3 py-2 border ${errors.full_name ? 'border-red-500' : 'border-blue-200'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
             placeholder="John Doe"
           />
           {errors.full_name && <p className="mt-1 text-xs text-red-600">{errors.full_name.message}</p>}
@@ -347,7 +349,7 @@ const CreateUserTab = () => {
             id="email"
             type="email"
             {...register('email')}
-            className={`mt-1 block w-full px-3 py-2 border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+            className={`mt-1 block w-full px-3 py-2 border ${errors.email ? 'border-red-500' : 'border-blue-200'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
             placeholder="user@example.com"
           />
           {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
@@ -359,7 +361,7 @@ const CreateUserTab = () => {
             id="password"
             type="password"
             {...register('password')}
-            className={`mt-1 block w-full px-3 py-2 border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
+            className={`mt-1 block w-full px-3 py-2 border ${errors.password ? 'border-red-500' : 'border-blue-200'} rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
             placeholder="********"
           />
           {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
@@ -375,7 +377,7 @@ const CreateUserTab = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Creating User...' : 'Create User'}
           </button>
@@ -402,6 +404,7 @@ const ManageUsersTab = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [serverMessage, setServerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const { session } = useAuthStore();
+  const [sorting, setSorting] = useState<SortingState>([]);
   
   // State for modals
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -443,11 +446,13 @@ const ManageUsersTab = () => {
             defaultValue={getValue() as string} 
             className="w-full p-1 border rounded"
           />
-        ) : getValue()
+        ) : getValue(),
+      enableSorting: true,
     }),
     columnHelper.accessor('email', {
       header: 'Email',
-      cell: info => info.getValue()
+      cell: info => info.getValue(),
+      enableSorting: true,
     }),
     columnHelper.accessor(row => row.role, {
       id: 'role',
@@ -462,7 +467,8 @@ const ManageUsersTab = () => {
             <option value="admin">Admin</option>
             <option value="user">User</option>
           </select>
-        ) : getValue()
+        ) : getValue(),
+      enableSorting: true,
     }),
     columnHelper.accessor(row => row.voters_list_access, {
       id: 'voters_list_access',
@@ -478,7 +484,8 @@ const ManageUsersTab = () => {
             <option value="view">View</option>
             <option value="edit">Edit</option>
           </select>
-        ) : getValue()
+        ) : getValue(),
+      enableSorting: true,
     }),
     columnHelper.accessor(row => row.family_situation_access, {
       id: 'family_situation_access',
@@ -494,7 +501,8 @@ const ManageUsersTab = () => {
             <option value="view">View</option>
             <option value="edit">Edit</option>
           </select>
-        ) : getValue()
+        ) : getValue(),
+      enableSorting: true,
     }),
     columnHelper.accessor(row => row.statistics_access, {
       id: 'statistics_access',
@@ -509,7 +517,8 @@ const ManageUsersTab = () => {
             <option value="none">None</option>
             <option value="view">View</option>
           </select>
-        ) : getValue()
+        ) : getValue(),
+      enableSorting: true,
     }),
     columnHelper.display({
       id: 'actions',
@@ -565,6 +574,11 @@ const ManageUsersTab = () => {
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
   });
 
   // Initialize data fetching and realtime listeners
@@ -739,15 +753,65 @@ const ManageUsersTab = () => {
   };
 
   if (loading) {
-    return <div className="p-6 text-center">Loading users...</div>;
+    return (
+      <div className="p-6 bg-gradient-to-b from-blue-50 to-white min-h-screen">
+        <div className="mb-6">
+          <div className="h-10 w-72 bg-gray-200 rounded-md animate-pulse mb-6"></div>
+          <div className="h-12 w-full bg-gray-200 rounded-md animate-pulse mb-8"></div>
+        </div>
+        
+        <div className="border rounded-xl overflow-hidden bg-white shadow-sm">
+          <div className="bg-gray-50 px-4 py-4">
+            <div className="flex justify-between">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-6 bg-gray-200 rounded-md animate-pulse my-2 w-32"></div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="divide-y">
+            {Array.from({ length: 5 }).map((_, rowIndex) => (
+              <div key={rowIndex} className="py-4 px-6 animate-pulse">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="h-6 bg-gray-200 rounded-md w-48"></div>
+                  <div className="h-6 bg-gray-200 rounded-full w-20"></div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {Array.from({ length: 6 }).map((_, colIndex) => (
+                    <div key={colIndex} className="h-5 bg-gray-200 rounded-md w-full"></div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="p-6 text-center text-red-600">Error: {error}</div>;
+    return (
+      <div className="p-6 text-center bg-gradient-to-b from-blue-50 to-white min-h-screen flex items-center justify-center">
+        <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-sm max-w-lg">
+          <div className="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500 mr-3" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <p className="text-red-700 text-lg font-medium">{error}</p>
+          </div>
+          <p className="mt-3 text-red-600 text-sm">Please try refreshing the page or contact an administrator.</p>
+        </div>
+      </div>
+    );
   }
 
+  // Calculate stats
+  const adminUsers = users.filter(user => user.role === 'admin').length;
+  const regularUsers = users.filter(user => user.role === 'user').length;
+  const totalUsers = users.length;
+
   return (
-    <div className="p-6">
+    <div className="p-6 bg-gradient-to-b from-blue-50 via-blue-50/70 to-white rounded-lg">
       {/* Toast notification */}
       {toast && toast.visible && (
         <Toast
@@ -757,61 +821,116 @@ const ManageUsersTab = () => {
         />
       )}
 
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-lg shadow-sm p-4 flex items-center border border-blue-100">
+          <div className="rounded-full bg-blue-100 p-3 mr-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Total Users</p>
+            <p className="text-2xl font-bold text-gray-800">{totalUsers}</p>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm p-4 flex items-center border border-blue-100">
+          <div className="rounded-full bg-red-100 p-3 mr-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Admins</p>
+            <p className="text-2xl font-bold text-gray-800">{adminUsers}</p>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm p-4 flex items-center border border-blue-100">
+          <div className="rounded-full bg-green-100 p-3 mr-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">Regular Users</p>
+            <p className="text-2xl font-bold text-gray-800">{regularUsers}</p>
+          </div>
+        </div>
+      </div>
+      
       {serverMessage && (
         <div className={`p-4 mb-4 rounded-md ${serverMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
           {serverMessage.text}
         </div>
       )}
       
-      {/* Table and pagination controls */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            {table.getHeaderGroups().map(headerGroup => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map(header => (
-                  <th 
-                    key={header.id} 
-                    scope="col" 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
+      {/* User table with improved styling */}
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-blue-100">
+        <div className="overflow-x-auto shadow-sm border border-blue-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-blue-50">
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map(header => (
+                    <th 
+                      key={header.id} 
+                      scope="col" 
+                      className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider whitespace-nowrap"
+                      onClick={header.column.getToggleSortingHandler()}
+                      style={{ cursor: header.column.getCanSort() ? 'pointer' : 'default' }}
+                    >
+                      <div className="flex items-center">
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                        {header.column.getIsSorted() === 'asc' && (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                          </svg>
                         )}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {table.getRowModel().rows.map(row => (
-              <tr key={row.id}>
-                {row.getVisibleCells().map(cell => (
-                  <td 
-                    key={cell.id} 
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                        {header.column.getIsSorted() === 'desc' && (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {table.getRowModel().rows.map(row => (
+                <tr key={row.id} className="hover:bg-blue-50 transition-colors">
+                  {row.getVisibleCells().map(cell => (
+                    <td 
+                      key={cell.id} 
+                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-700"
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       
-      {/* Enhanced pagination controls */}
+      {/* Pagination Controls */}
       <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-700">
-            Showing <span className="font-medium">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
-            <span className="font-medium">
+        <div className="flex items-center gap-2 text-sm text-gray-700">
+          <span>
+            Showing <span className="font-semibold text-blue-900">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
+            <span className="font-semibold text-blue-900">
               {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, users.length)}
             </span> of{" "}
-            <span className="font-medium">{users.length}</span> users
+            <span className="font-semibold text-blue-900">{users.length}</span> users
           </span>
         </div>
 
@@ -819,7 +938,7 @@ const ManageUsersTab = () => {
           <button
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
-            className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+            className="p-2 rounded-md border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
             aria-label="Go to first page"
             title="First page"
           >
@@ -827,11 +946,10 @@ const ManageUsersTab = () => {
               <path fillRule="evenodd" d="M15.79 14.77a.75.75 0 01-1.06.02l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 111.04 1.08L11.832 10l3.938 3.71a.75.75 0 01.02 1.06zm-6 0a.75.75 0 01-1.06.02l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 111.04 1.08L5.832 10l3.938 3.71a.75.75 0 01.02 1.06z" clipRule="evenodd" />
             </svg>
           </button>
-
           <button
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
-            className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+            className="p-2 rounded-md border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
             aria-label="Go to previous page"
             title="Previous page"
           >
@@ -840,12 +958,11 @@ const ManageUsersTab = () => {
             </svg>
           </button>
 
-          <div className="flex items-center">
+          <div className="hidden sm:flex items-center">
             {Array.from({length: Math.min(5, table.getPageCount())}, (_, i) => {
               const pageIndex = table.getState().pagination.pageIndex;
               let showPage: number;
               
-              // Logic for which page numbers to display
               if (table.getPageCount() <= 5) {
                 showPage = i;
               } else if (pageIndex < 3) {
@@ -861,10 +978,10 @@ const ManageUsersTab = () => {
                   key={showPage}
                   onClick={() => table.setPageIndex(showPage)}
                   disabled={pageIndex === showPage}
-                  className={`px-3 py-1 mx-1 rounded-md text-sm font-medium border ${
+                  className={`px-3.5 py-2 mx-1 rounded-md text-sm font-medium border transition-colors ${
                     pageIndex === showPage 
-                      ? 'bg-red-600 text-white border-red-600' 
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      ? 'bg-blue-600 text-white border-blue-600' 
+                      : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'
                   }`}
                   aria-label={`Go to page ${showPage + 1}`}
                   aria-current={pageIndex === showPage ? 'page' : undefined}
@@ -874,11 +991,17 @@ const ManageUsersTab = () => {
               );
             })}
           </div>
+          
+          <div className="sm:hidden flex items-center">
+            <span className="px-3 py-1.5 text-sm text-blue-700 font-medium">
+              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            </span>
+          </div>
 
           <button
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
-            className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+            className="p-2 rounded-md border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
             aria-label="Go to next page"
             title="Next page"
           >
@@ -886,11 +1009,10 @@ const ManageUsersTab = () => {
               <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
             </svg>
           </button>
-
           <button
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
-            className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+            className="p-2 rounded-md border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:pointer-events-none transition-colors"
             aria-label="Go to last page"
             title="Last page"
           >
@@ -901,14 +1023,14 @@ const ManageUsersTab = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-blue-700">
             Per page:
             <select
               value={table.getState().pagination.pageSize}
               onChange={e => {
                 table.setPageSize(Number(e.target.value));
               }}
-              className="ml-2 px-3 py-1 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              className="ml-2 px-3 py-1.5 text-sm border border-blue-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               {[5, 10, 20, 30, 50].map(pageSize => (
                 <option key={pageSize} value={pageSize}>
@@ -967,40 +1089,44 @@ const AdminPage = () => {
   const manageUsersTabComponent = useMemo(() => <ManageUsersTab />, []);
 
   return (
-    <div className="max-w-6xl mx-auto mt-8 bg-white shadow-lg rounded-lg overflow-hidden">
-      <h1 className="text-3xl font-bold p-6 border-b text-blue-800">Admin Dashboard</h1>
+    <div className="p-4 sm:p-6 bg-gradient-to-b from-blue-50 via-blue-50/70 to-white min-h-screen">
+      <h2 className="text-3xl font-bold mb-2 text-blue-800">Admin Dashboard</h2>
+      <p className="text-gray-600 mb-6">Manage users and access permissions</p>
       
-      {/* Reverting to Headless UI v1 Tab pattern */}
-      <Tab.Group selectedIndex={selectedTabIndex} onChange={handleTabChange}>
-        <Tab.List className="flex border-b">
-          <Tab
-            className={({ selected }: { selected: boolean }) =>
-              `px-6 py-3 text-sm font-medium leading-5 focus:outline-none ${
-                selected
-                  ? 'text-red-700 border-b-2 border-red-700 bg-red-50'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`
-            }
-          >
-            Create User
-          </Tab>
-          <Tab
-            className={({ selected }: { selected: boolean }) =>
-              `px-6 py-3 text-sm font-medium leading-5 focus:outline-none ${
-                selected
-                  ? 'text-red-700 border-b-2 border-red-700 bg-red-50'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`
-            }
-          >
-            Manage Users
-          </Tab>
-        </Tab.List>
-        <Tab.Panels className="p-4">
-          <Tab.Panel>{createUserTabComponent}</Tab.Panel>
-          <Tab.Panel>{manageUsersTabComponent}</Tab.Panel>
-        </Tab.Panels>
-      </Tab.Group>
+      {/* Tabs with improved styling */}
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-blue-100 mb-6">
+        {/* Reverting to Headless UI v1 Tab pattern but with improved styling */}
+        <Tab.Group selectedIndex={selectedTabIndex} onChange={handleTabChange}>
+          <Tab.List className="flex border-b border-blue-100 bg-blue-50">
+            <Tab
+              className={({ selected }: { selected: boolean }) =>
+                `px-6 py-3 text-sm font-medium leading-5 focus:outline-none transition-colors ${
+                  selected
+                    ? 'text-blue-700 border-b-2 border-blue-600 bg-white'
+                    : 'text-gray-600 hover:text-blue-700 hover:bg-blue-100/50'
+                }`
+              }
+            >
+              Create User
+            </Tab>
+            <Tab
+              className={({ selected }: { selected: boolean }) =>
+                `px-6 py-3 text-sm font-medium leading-5 focus:outline-none transition-colors ${
+                  selected
+                    ? 'text-blue-700 border-b-2 border-blue-600 bg-white'
+                    : 'text-gray-600 hover:text-blue-700 hover:bg-blue-100/50'
+                }`
+              }
+            >
+              Manage Users
+            </Tab>
+          </Tab.List>
+          <Tab.Panels>
+            <Tab.Panel>{createUserTabComponent}</Tab.Panel>
+            <Tab.Panel>{manageUsersTabComponent}</Tab.Panel>
+          </Tab.Panels>
+        </Tab.Group>
+      </div>
     </div>
   );
 };
