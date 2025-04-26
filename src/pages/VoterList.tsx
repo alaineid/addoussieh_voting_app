@@ -355,7 +355,7 @@ const VoterList: React.FC = () => {
   // Loading skeleton UI
   if (loading) {
     return (
-      <div className="p-6 bg-gradient-to-b from-blue-50 to-white min-h-screen">
+      <div className="p-6 bg-white min-h-screen">
         <div className="mb-6">
           <div className="h-10 w-72 bg-gray-200 rounded-md animate-pulse mb-6"></div>
           <div className="h-12 w-full bg-gray-200 rounded-md animate-pulse mb-8"></div>
@@ -392,7 +392,7 @@ const VoterList: React.FC = () => {
 
   if (error) {
     return (
-      <div className="p-6 text-center bg-gradient-to-b from-blue-50 to-white min-h-screen flex items-center justify-center">
+      <div className="p-6 text-center bg-white min-h-screen flex items-center justify-center">
         <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-sm max-w-lg">
           <div className="flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500 mr-3" viewBox="0 0 20 20" fill="currentColor">
@@ -412,7 +412,7 @@ const VoterList: React.FC = () => {
   const votedPercentage = totalVoters > 0 ? Math.round((votedCount / totalVoters) * 100) : 0;
 
   return (
-    <div className="p-4 sm:p-6 bg-gradient-to-b from-blue-50 via-blue-50/70 to-white min-h-screen">
+    <div className="p-4 sm:p-6 bg-white min-h-screen">
       <h2 className="text-3xl font-bold mb-2 text-blue-800">Voter's List</h2>
       <p className="text-gray-600 mb-6">Manage and monitor registered voters</p>
       
@@ -475,7 +475,7 @@ const VoterList: React.FC = () => {
             />
           </div>
           {/* View Mode Buttons */}
-          <div className="flex bg-blue-50 rounded-lg p-1 shadow-inner">
+          <div className="flex bg-gray-50 rounded-lg p-1 shadow-inner">
             <button
               onClick={() => {
                 setViewMode('table');
@@ -484,7 +484,7 @@ const VoterList: React.FC = () => {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 viewMode === 'table'
                   ? 'bg-white text-blue-700 shadow-sm'
-                  : 'text-gray-700 hover:bg-blue-100'
+                  : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
               <div className="flex items-center">
@@ -502,7 +502,7 @@ const VoterList: React.FC = () => {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 viewMode === 'card'
                   ? 'bg-white text-blue-700 shadow-sm'
-                  : 'text-gray-700 hover:bg-blue-100'
+                  : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
               <div className="flex items-center">
@@ -518,7 +518,7 @@ const VoterList: React.FC = () => {
         {viewMode === 'table' && (
           <div className="overflow-x-auto shadow-sm rounded-lg border border-blue-200">
             <table className="min-w-full divide-y divide-gray-200 table-fixed">
-              <thead className="bg-blue-50">
+              <thead className="bg-gray-50">
                 {table.getHeaderGroups().map(headerGroup => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map(header => (
@@ -621,7 +621,7 @@ const VoterList: React.FC = () => {
                     </span>
                   </div>
                   
-                  <div className="bg-blue-50/50 rounded-lg p-4 mb-3">
+                  <div className="bg-gray-50/50 rounded-lg p-4 mb-3">
                     {voter.dob && (
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center text-blue-600">

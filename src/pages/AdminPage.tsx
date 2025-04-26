@@ -314,7 +314,7 @@ const CreateUserTab = () => {
   );
 
   return (
-    <div className="p-6 bg-gradient-to-b from-blue-50 via-blue-50/70 to-white rounded-lg">
+    <div className="p-6 bg-white rounded-lg">
       {/* Toast notification */}
       {toast && toast.visible && (
         <Toast
@@ -754,7 +754,7 @@ const ManageUsersTab = () => {
 
   if (loading) {
     return (
-      <div className="p-6 bg-gradient-to-b from-blue-50 to-white min-h-screen">
+      <div className="p-6 bg-white rounded-lg">
         <div className="mb-6">
           <div className="h-10 w-72 bg-gray-200 rounded-md animate-pulse mb-6"></div>
           <div className="h-12 w-full bg-gray-200 rounded-md animate-pulse mb-8"></div>
@@ -791,7 +791,7 @@ const ManageUsersTab = () => {
 
   if (error) {
     return (
-      <div className="p-6 text-center bg-gradient-to-b from-blue-50 to-white min-h-screen flex items-center justify-center">
+      <div className="p-6 text-center bg-white rounded-lg">
         <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-sm max-w-lg">
           <div className="flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500 mr-3" viewBox="0 0 20 20" fill="currentColor">
@@ -811,7 +811,7 @@ const ManageUsersTab = () => {
   const totalUsers = users.length;
 
   return (
-    <div className="p-6 bg-gradient-to-b from-blue-50 via-blue-50/70 to-white rounded-lg">
+    <div className="p-6 bg-white rounded-lg">
       {/* Toast notification */}
       {toast && toast.visible && (
         <Toast
@@ -1089,7 +1089,7 @@ const AdminPage = () => {
   const manageUsersTabComponent = useMemo(() => <ManageUsersTab />, []);
 
   return (
-    <div className="p-4 sm:p-6 bg-gradient-to-b from-blue-50 via-blue-50/70 to-white min-h-screen">
+    <div className="p-4 sm:p-6 bg-white min-h-screen">
       <h2 className="text-3xl font-bold mb-2 text-blue-800">Admin Dashboard</h2>
       <p className="text-gray-600 mb-6">Manage users and access permissions</p>
       

@@ -205,7 +205,7 @@ export default function App() {
       )}
       
       {/* Main content with proper spacing */}
-      <main className={`flex-grow w-full ${isAuthPage ? 'bg-gray-50' : 'bg-gradient-to-b from-blue-50 via-blue-50/70 to-white'}`}>
+      <main className={`flex-grow w-full ${isAuthPage ? 'bg-gray-50' : 'bg-white'}`}>
         {/* Add spacer div only when header is shown */}
         {!isAuthPage && !authLoading && (
           <div className="w-full h-[170px] md:h-[180px]"></div>
