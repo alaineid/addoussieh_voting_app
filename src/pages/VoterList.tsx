@@ -18,19 +18,29 @@ interface Voter {
   id: number;
   alliance: string | null;
   family: string | null;
-  register: string | null;
+  register: number | null;
   register_sect: string | null;
   gender: string | null;
   first_name: string | null;
   father_name: string | null;
   last_name: string | null;
   mother_name: string | null;
-  full_name: string; // Assuming full_name is non-nullable
+  full_name: string | null;
   situation: string | null;
-  dob: string | null; // Date of birth - might need formatting
   sect: string | null;
+  n_plus: number | null;
+  n: number | null;
+  n_minus: number | null;
+  against: number | null;
+  no_vote: number | null;
+  death: number | null;
+  military: number | null;
   residence: string | null;
-  has_voted: boolean; // Keep this field as well
+  has_voted: boolean | null;
+  comments: string | null;
+  search_vector: any; // unknown type
+  with_flag: number | null;
+  dob: string | null; // date as string
 }
 
 // Helper function to format dates correctly accounting for timezone issues
@@ -80,107 +90,6 @@ const VoterList: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Define Filter component for each column type
-  interface FilterProps {
-    column: any;
-    table: any;
-  }
-
-  // Text Filter component for text-based columns
-  const TextFilter: React.FC<FilterProps> = ({ column, table }) => {
-    const columnFilterValue = column.getFilterValue() ?? '';
-
-    return (
-      <input
-        type="text"
-        value={columnFilterValue}
-        onChange={e => column.setFilterValue(e.target.value)}
-        placeholder={`Filter...`}
-        className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-      />
-    );
-  };
-
-  // Select Filter component for columns with finite options
-  const SelectFilter: React.FC<FilterProps> = ({ column, table }) => {
-    const columnFilterValue = column.getFilterValue() ?? '';
-    const sortedUniqueValues = useMemo(() => {
-      // Get unique values from the column
-      const values = new Set(
-        table.getPreFilteredRowModel().flatRows
-          .map((row: any) => row.getValue(column.id))
-          .filter(Boolean)
-      );
-      
-      return Array.from(values).sort();
-    }, [column.id, table.getPreFilteredRowModel().flatRows]);
-
-    return (
-      <select
-        value={columnFilterValue}
-        onChange={e => column.setFilterValue(e.target.value)}
-        className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-      >
-        <option value="">All</option>
-        {sortedUniqueValues.map((value) => (
-          <option key={value as string} value={value as string}>
-            {value as string}
-          </option>
-        ))}
-      </select>
-    );
-  };
-
-  // Boolean Filter component for has_voted
-  const BooleanFilter: React.FC<FilterProps> = ({ column, table }) => {
-    const columnFilterValue = column.getFilterValue() ?? '';
-
-    return (
-      <select
-        value={columnFilterValue}
-        onChange={e => column.setFilterValue(e.target.value)}
-        className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-      >
-        <option value="">All</option>
-        <option value="true">Yes</option>
-        <option value="false">No</option>
-      </select>
-    );
-  };
-
-  // Year Filter component for DOB column
-  const YearFilter: React.FC<FilterProps> = ({ column, table }) => {
-    const columnFilterValue = column.getFilterValue() ?? '';
-    
-    // Extract unique years from DOB values
-    const yearOptions = useMemo(() => {
-      // Get all DOB values from the table data
-      const dobValues = table.getPreFilteredRowModel().flatRows
-        .map((row: any) => row.getValue(column.id))
-        .filter(Boolean)
-        .map((dob: string) => new Date(dob).getFullYear());
-      
-      // Create a set of unique years and convert back to array
-      const uniqueYears = Array.from(new Set(dobValues)).sort();
-      return uniqueYears;
-    }, [column.id, table.getPreFilteredRowModel().flatRows]);
-
-    return (
-      <select
-        value={columnFilterValue}
-        onChange={e => column.setFilterValue(e.target.value)}
-        className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-      >
-        <option value="">All Years</option>
-        {yearOptions.map(year => (
-          <option key={year} value={year}>
-            {year}
-          </option>
-        ))}
-      </select>
-    );
-  };
-
   // Define table columns using TanStack Table helpers
   const columnHelper = createColumnHelper<Voter>();
   const columns = useMemo(() => [
@@ -196,35 +105,61 @@ const VoterList: React.FC = () => {
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        return String(value) === filterValue;
+      },
     }),
     columnHelper.accessor('family', { 
       header: 'Family', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+      },
     }),
     columnHelper.accessor('register', { 
       header: 'Register', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        // Compare as numbers
+        return String(value) === filterValue;
+      },
     }),
     columnHelper.accessor('register_sect', { 
       header: 'Register Sect', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+      },
     }),
     columnHelper.accessor('gender', { 
       header: 'Gender', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'equals',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        return String(value) === filterValue;
+      },
     }),
     columnHelper.accessor('first_name', { 
       header: 'First Name', 
@@ -267,22 +202,15 @@ const VoterList: React.FC = () => {
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
-        // If no filter value is set, show all rows
         if (!filterValue) return true;
-        
         const dobString = row.getValue(columnId) as string;
-        // If the row doesn't have a DOB, don't match it
+        if (filterValue === '__EMPTY__') return !dobString;
         if (!dobString) return false;
-        
         try {
-          // Extract the year using the same UTC-based logic as formatDate
           const date = new Date(`${dobString}T12:00:00Z`);
           const dobYear = date.getUTCFullYear().toString();
-          
-          // Return true if the year matches the filter value
           return dobYear === filterValue;
         } catch (e) {
-          // Handle potential date parsing errors
           console.error("Error parsing date for filtering:", dobString, e);
           return false;
         }
@@ -293,7 +221,12 @@ const VoterList: React.FC = () => {
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'equals',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        return String(value) === filterValue;
+      },
     }),
     columnHelper.accessor('residence', { 
       header: 'Residence', 
@@ -314,7 +247,14 @@ const VoterList: React.FC = () => {
         </span>,
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'equals',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        if (filterValue === 'true') return value === true;
+        if (filterValue === 'false') return value === false;
+        return true;
+      },
     }),
   ], [columnHelper]);
 
@@ -577,7 +517,7 @@ const VoterList: React.FC = () => {
         
         {viewMode === 'table' && (
           <div className="overflow-x-auto shadow-sm rounded-lg border border-blue-200">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-gray-200 table-fixed">
               <thead className="bg-blue-50">
                 {table.getHeaderGroups().map(headerGroup => (
                   <tr key={headerGroup.id}>
@@ -585,11 +525,12 @@ const VoterList: React.FC = () => {
                       <th 
                         key={header.id} 
                         scope="col" 
-                      className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider whitespace-nowrap min-w-[100px]"
+                        // Consider adding explicit width classes here if needed, e.g., w-1/6, w-[200px]
+                        className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 uppercase tracking-wider whitespace-nowrap min-w-[100px]"
                       >
                         <div className="flex items-center">
                           <div
-                            className="cursor-pointer whitespace-nowrap"
+                            className="cursor-pointer whitespace-nowrap flex items-center"
                             onClick={header.column.getToggleSortingHandler()}
                           >
                             {header.isPlaceholder
@@ -598,6 +539,7 @@ const VoterList: React.FC = () => {
                                   header.column.columnDef.header,
                                   header.getContext()
                                 )}
+                            {/* Existing sorting indicators */}
                             {header.column.getIsSorted() === 'asc' && (
                               <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600 inline" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
@@ -608,13 +550,21 @@ const VoterList: React.FC = () => {
                                 <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                               </svg>
                             )}
+                            {/* Add indicator for sortable columns that are not currently sorted */}
+                            {header.column.getCanSort() && !header.column.getIsSorted() && (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-gray-400 inline opacity-30 group-hover:opacity-70 transition-opacity" viewBox="0 0 20 20" fill="currentColor">
+                                {/* Use the same 'up' arrow as sorted asc, but styled subtly */}
+                                <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                              </svg>
+                            )}
                           </div>
                         </div>
                         
                         {/* Add column filters */}
                         {header.column.getCanFilter() ? (
                           <div className="mt-2">
-                            {header.column.id === 'gender' || header.column.id === 'sect' || header.column.id === 'register_sect' ? (
+                            {/* Use SelectFilter for 'family', 'register', etc. */}
+                            {header.column.id === 'family' || header.column.id === 'register' || header.column.id === 'gender' || header.column.id === 'sect' || header.column.id === 'register_sect' || header.column.id === 'alliance' ? (
                               <SelectFilter column={header.column} table={table} />
                             ) : header.column.id === 'has_voted' ? (
                               <BooleanFilter column={header.column} table={table} />
@@ -903,5 +853,120 @@ const VoterList: React.FC = () => {
     </div>
   );
 };
+
+// Filter components moved outside VoterList to prevent re-creation on every render
+
+// Text Filter component for text-based columns
+const TextFilter: React.FC<{ column: any; table: any }> = React.memo(({ column }) => {
+  const columnFilterValue = column.getFilterValue() ?? '';
+  return (
+    <input
+      type="text"
+      value={columnFilterValue}
+      onChange={e => column.setFilterValue(e.target.value)}
+      placeholder={`Filter...`}
+      className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+    />
+  );
+});
+
+// Select Filter component for columns with finite options
+const SelectFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, table }) => {
+  const columnFilterValue = column.getFilterValue() ?? '';
+  const sortedUniqueValues = React.useMemo(() => {
+    const values = table.getPreFilteredRowModel().flatRows
+      .map((row: any) => row.getValue(column.id))
+      .map((v: any) => (v === null || v === undefined || v === '' ? '__EMPTY__' : v));
+    const set = new Set(values);
+    const arr = Array.from(set);
+    // For 'register', sort numerically (empty first)
+    if (column.id === 'register') {
+      return arr.sort((a, b) => {
+        if (a === '__EMPTY__') return -1;
+        if (b === '__EMPTY__') return 1;
+        return Number(a) - Number(b);
+      });
+    }
+    // Default sort (existing logic)
+    return arr.sort((a, b) => {
+      if (a === '__EMPTY__') return -1;
+      if (b === '__EMPTY__') return 1;
+      return String(a).localeCompare(String(b));
+    });
+  }, [column.id, table.getPreFilteredRowModel().flatRows]);
+  return (
+    <select
+      value={columnFilterValue}
+      onChange={e => column.setFilterValue(e.target.value)}
+      className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+    >
+      <option value="">All</option>
+      {sortedUniqueValues.map((value) => (
+        <option key={value as string} value={value as string}>
+          {value === '__EMPTY__' ? '-' : (value as string)}
+        </option>
+      ))}
+    </select>
+  );
+});
+
+// Boolean Filter component for has_voted
+const BooleanFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, table }) => {
+  const columnFilterValue = column.getFilterValue() ?? '';
+  // Check if there are any null/empty values
+  const hasEmpty = table.getPreFilteredRowModel().flatRows.some((row: any) => {
+    const v = row.getValue(column.id);
+    return v === null || v === undefined || v === '';
+  });
+  return (
+    <select
+      value={columnFilterValue}
+      onChange={e => column.setFilterValue(e.target.value)}
+      className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+    >
+      <option value="">All</option>
+      <option value="true">Yes</option>
+      <option value="false">No</option>
+      {hasEmpty && <option value="__EMPTY__">-</option>}
+    </select>
+  );
+});
+
+// Year Filter component for DOB column
+const YearFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, table }) => {
+  const columnFilterValue = column.getFilterValue() ?? '';
+  const yearOptions = React.useMemo(() => {
+    const dobValues = table.getPreFilteredRowModel().flatRows
+      .map((row: any) => row.getValue(column.id))
+      .map((dob: string) => {
+        if (!dob) return '__EMPTY__';
+        try {
+          return new Date(`${dob}T12:00:00Z`).getUTCFullYear();
+        } catch {
+          return '__EMPTY__';
+        }
+      });
+    const set = new Set(dobValues);
+    return Array.from(set).sort((a, b) => {
+      if (a === '__EMPTY__') return -1;
+      if (b === '__EMPTY__') return 1;
+      return Number(a) - Number(b);
+    });
+  }, [column.id, table.getPreFilteredRowModel().flatRows]);
+  return (
+    <select
+      value={columnFilterValue}
+      onChange={e => column.setFilterValue(e.target.value)}
+      className="w-full px-2 py-1 text-xs border border-blue-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+    >
+      <option value="">All Years</option>
+      {yearOptions.map(year => (
+        <option key={year} value={year}>
+          {year === '__EMPTY__' ? '-' : year}
+        </option>
+      ))}
+    </select>
+  );
+});
 
 export default VoterList;
