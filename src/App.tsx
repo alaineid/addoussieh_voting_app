@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore, UserProfile } from './store/authStore';
+import { useThemeStore } from './store/themeStore';
 import { supabase } from './lib/supabaseClient';
 
 import VoterList from './pages/VoterList';
@@ -33,6 +34,7 @@ const Banner = () => (
 const Nav = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { profile, session } = useAuthStore();
+  const { isDarkMode, toggleDarkMode } = useThemeStore();
   const navigate = useNavigate();
   const isAdmin = profile?.role === 'admin';
   const userName = profile?.name || profile?.full_name || session?.user?.email?.split('@')[0] || 'User';
@@ -103,16 +105,26 @@ const Nav = () => {
           <NavLink to="/about" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>About</NavLink>
         </div>
         <div className="user-actions flex items-center gap-4">
+          {/* Dark Mode Toggle Button */}
+          <button
+            onClick={toggleDarkMode}
+            className="text-gray-600 dark:text-gray-300 hover:text-yellow-500 dark:hover:text-yellow-300 transition duration-150 ease-in-out"
+            title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'} fa-lg`}></i>
+          </button>
+          
           {session ? (
             <>
-              <div className="text-gray-700 font-medium hidden sm:block">
+              <div className="text-gray-700 dark:text-gray-300 font-medium hidden sm:block">
                 <span className="mr-2">Hello,</span>
                 <span>{userName}</span>
               </div>
               {isAdmin && (
                 <button
                   onClick={handleAdminClick}
-                  className="text-gray-600 hover:text-red-700 transition duration-150 ease-in-out"
+                  className="text-gray-600 dark:text-gray-300 hover:text-red-700 dark:hover:text-red-400 transition duration-150 ease-in-out"
                   title="Admin Settings"
                   aria-label="Admin Settings"
                 >
@@ -121,7 +133,7 @@ const Nav = () => {
               )}
               <button
                 onClick={handleLogout}
-                className="logout-btn px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition duration-150 ease-in-out"
+                className="logout-btn px-4 py-2 bg-red-600 text-white dark:bg-red-700 dark:hover:bg-red-800 rounded hover:bg-red-700 transition duration-150 ease-in-out"
               >
                 Logout
               </button>
@@ -129,7 +141,7 @@ const Nav = () => {
           ) : (
             <button
               onClick={() => { navigate('/login'); setIsMenuOpen(false); }}
-              className="login-btn px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-150 ease-in-out"
+              className="login-btn px-4 py-2 bg-blue-600 text-white dark:bg-blue-700 dark:hover:bg-blue-800 rounded hover:bg-blue-700 transition duration-150 ease-in-out"
             >
               Login
             </button>
@@ -140,22 +152,26 @@ const Nav = () => {
   );
 };
 
-const Footer = () => (
-  <footer className="bg-gray-800 text-white py-6">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col md:flex-row justify-between items-center">
-        <div className="mb-4 md:mb-0">
-          <p className="text-sm">&copy; {new Date().getFullYear()} Addoussieh Voting Portal. All rights reserved.</p>
-        </div>
-        <div className="flex space-x-4">
-          <a href="https://www.facebook.com/Adoussieh" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-gray-300 hover:text-white transition duration-150 ease-in-out">
-            <i className="fab fa-facebook"></i>
-          </a>
+const Footer = () => {
+  const { isDarkMode } = useThemeStore();
+  
+  return (
+    <footer className="bg-gray-800 dark:bg-gray-900 text-white py-6 border-t border-gray-700 dark:border-gray-700">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <div className="mb-4 md:mb-0">
+            <p className="text-sm text-gray-300 dark:text-gray-200">&copy; {new Date().getFullYear()} Addoussieh Voting Portal. All rights reserved.</p>
+          </div>
+          <div className="flex space-x-4">
+            <a href="https://www.facebook.com/Adoussieh" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-gray-300 hover:text-white dark:text-blue-300 dark:hover:text-blue-200 transition duration-150 ease-in-out">
+              <i className="fab fa-facebook fa-lg"></i>
+            </a>
+          </div>
         </div>
       </div>
-    </div>
-  </footer>
-);
+    </footer>
+  );
+};
 
 const hasVoterAccess = (profile: UserProfile | null) => !!profile && profile.voters_list_access !== 'none';
 const hasFamilyAccess = (profile: UserProfile | null) => !!profile && profile.family_situation_access !== 'none';
@@ -165,11 +181,28 @@ const isAdminUser = (profile: UserProfile | null) => !!profile && profile.role =
 export default function App() {
   const location = useLocation();
   const { loading: authLoading, profile } = useAuthStore();
+  const { isDarkMode } = useThemeStore();
   const [hasTimedOut, setHasTimedOut] = useState(false);
   const navigate = useNavigate();
 
   const isAuthPage = ['/login', '/forgot-password', '/reset-password'].includes(location.pathname);
   const hideNav = isAuthPage;
+
+  // Apply dark mode to document body
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      document.body.classList.add('dark', 'bg-gray-900', 'text-white');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark', 'bg-gray-900', 'text-white');
+      document.body.classList.add('bg-white');
+    }
+    
+    return () => {
+      document.body.classList.remove('bg-white', 'bg-gray-900', 'text-white');
+    };
+  }, [isDarkMode]);
 
   // Add timeout to prevent infinite loading
   useEffect(() => {
@@ -191,21 +224,25 @@ export default function App() {
   }, [hasTimedOut, isAuthPage, navigate]);
 
   if (authLoading && !isAuthPage && !hasTimedOut) {
-    return <div className="flex justify-center items-center h-screen">Loading Application...</div>;
+    return <div className="flex justify-center items-center h-screen dark:bg-gray-900 dark:text-white">Loading Application...</div>;
   }
 
   return (
     <div className="flex flex-col min-h-screen">
       {/* Create a fixed position header */}
       {!isAuthPage && !authLoading && (
-        <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-lg">
+        <header className={`fixed top-0 left-0 right-0 z-50 ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white'} shadow-lg`}>
           <Banner />
           <Nav />
         </header>
       )}
       
       {/* Main content with proper spacing */}
-      <main className={`flex-grow w-full ${isAuthPage ? 'bg-gray-50' : 'bg-white'}`}>
+      <main className={`flex-grow w-full transition-colors duration-300 ${
+        isAuthPage 
+          ? isDarkMode ? 'bg-gray-800' : 'bg-gray-50'
+          : isDarkMode ? 'bg-gray-900' : 'bg-white'
+      }`}>
         {/* Add spacer div only when header is shown */}
         {!isAuthPage && !authLoading && (
           <div className="w-full h-[170px] md:h-[180px]"></div>
