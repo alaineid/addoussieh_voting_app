@@ -507,6 +507,56 @@ const VoterList: React.FC = () => {
   // Define table columns using TanStack Table helpers
   const columnHelper = createColumnHelper<Voter>();
   const columns = useMemo(() => [
+    // Add actions column with edit and delete buttons if user has edit permissions
+    ...(hasEditPermission ? [
+      columnHelper.display({
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const voter = row.original;
+          
+          if (editingId === voter.id) {
+            return (
+              <div className="flex space-x-3">
+                <button 
+                  onClick={() => handleSaveEdit()}
+                  className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors"
+                  title="Save"
+                >
+                  <i className="fas fa-save text-lg"></i>
+                </button>
+                <button 
+                  onClick={() => cancelEdit()}
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors"
+                  title="Cancel"
+                >
+                  <i className="fas fa-times text-lg"></i>
+                </button>
+              </div>
+            );
+          }
+          
+          return (
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => startEdit(voter)}
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                title="Edit"
+              >
+                <i className="fas fa-edit text-lg"></i>
+              </button>
+              <button 
+                onClick={() => confirmDelete(voter)}
+                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
+                title="Delete"
+              >
+                <i className="fas fa-trash-alt text-lg"></i>
+              </button>
+            </div>
+          );
+        }
+      })
+    ] : []),
     columnHelper.accessor('full_name', { 
       header: 'Full Name', 
       cell: info => {
@@ -900,56 +950,7 @@ const VoterList: React.FC = () => {
         return true;
       },
     }),
-    // Add actions column with edit and delete buttons if user has edit permissions
-    ...(hasEditPermission ? [
-      columnHelper.display({
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => {
-          const voter = row.original;
-          
-          if (editingId === voter.id) {
-            return (
-              <div className="flex space-x-3">
-                <button 
-                  onClick={() => handleSaveEdit()}
-                  className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors"
-                  title="Save"
-                >
-                  <i className="fas fa-save text-lg"></i>
-                </button>
-                <button 
-                  onClick={() => cancelEdit()}
-                  className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors"
-                  title="Cancel"
-                >
-                  <i className="fas fa-times text-lg"></i>
-                </button>
-              </div>
-            );
-          }
-          
-          return (
-            <div className="flex space-x-3">
-              <button 
-                onClick={() => startEdit(voter)}
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-                title="Edit"
-              >
-                <i className="fas fa-edit text-lg"></i>
-              </button>
-              <button 
-                onClick={() => confirmDelete(voter)}
-                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
-                title="Delete"
-              >
-                <i className="fas fa-trash-alt text-lg"></i>
-              </button>
-            </div>
-          );
-        }
-      })
-    ] : []),
+    // ...existing code...
   ], [columnHelper, hasEditPermission, editingId, editFormData, handleInputChange]);
 
   // Fetch voters function
@@ -1167,11 +1168,11 @@ const VoterList: React.FC = () => {
       {hasEditPermission && (
         <button
           onClick={() => setIsAddVoterModalOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex items-center justify-center z-20 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex items-center justify-center z-20 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           title="Add New Voter"
           aria-label="Add New Voter"
         >
-          <i className="fas fa-plus text-xl"></i>
+          <i className="fas fa-plus text-sm"></i>
         </button>
       )}
       
@@ -1754,7 +1755,6 @@ const VoterList: React.FC = () => {
                       name="gender"
                       value={newVoterData.gender || ''}
                       onChange={handleNewVoterInputChange}
-                     
                       className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select...</option>
