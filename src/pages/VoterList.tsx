@@ -13,6 +13,64 @@ import {
   getFilteredRowModel,
   ColumnFiltersState
 } from '@tanstack/react-table';
+import ConfirmationModal from '../components/ConfirmationModal';
+
+// Toast notification component
+interface ToastProps {
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  onClose: () => void;
+}
+
+const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const getBgColor = () => {
+    switch (type) {
+      case 'success': return 'bg-green-500';
+      case 'error': return 'bg-red-500';
+      case 'warning': return 'bg-yellow-500';
+      case 'info': return 'bg-blue-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success':
+        return <i className="fas fa-check-circle w-5 h-5"></i>;
+      case 'error':
+        return <i className="fas fa-times-circle w-5 h-5"></i>;
+      case 'warning':
+        return <i className="fas fa-exclamation-triangle w-5 h-5"></i>;
+      case 'info':
+      default:
+        return <i className="fas fa-info-circle w-5 h-5"></i>;
+    }
+  };
+
+  return (
+    <div className={`fixed top-4 right-4 z-50 flex items-center p-4 text-white rounded-md shadow-lg transform transition-all duration-300 ${getBgColor()}`}>
+      <div className="mr-3">
+        {getIcon()}
+      </div>
+      <div>{message}</div>
+      <button 
+        onClick={onClose} 
+        className="ml-6 text-white hover:text-gray-200"
+        aria-label="Close"
+      >
+        <i className="fas fa-times w-4 h-4"></i>
+      </button>
+    </div>
+  );
+};
 
 // Define the structure of a voter record based on the requested columns
 interface Voter {
@@ -29,18 +87,19 @@ interface Voter {
   full_name: string | null;
   situation: string | null;
   sect: string | null;
-  n_plus: number | null;
-  n: number | null;
-  n_minus: number | null;
-  against: number | null;
-  no_vote: number | null;
-  death: number | null;
-  military: number | null;
+  // Make these optional since we're not selecting them in our query
+  n_plus?: number | null;
+  n?: number | null;
+  n_minus?: number | null;
+  against?: number | null;
+  no_vote?: number | null;
+  death?: number | null;
+  military?: number | null;
   residence: string | null;
   has_voted: boolean | null;
-  comments: string | null;
-  search_vector: any; // unknown type
-  with_flag: number | null;
+  comments?: string | null;
+  search_vector?: any; // unknown type
+  with_flag?: number | null;
   dob: string | null; // date as string
 }
 
@@ -70,6 +129,221 @@ const VoterList: React.FC = () => {
   const [globalFilter, setGlobalFilter] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const userSelectedViewMode = useRef<boolean>(false);
+  const realtimeChannelRef = useRef<any>(null);
+  const subscriptionErrorCountRef = useRef<number>(0);
+  
+  // Edit and delete state
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editFormData, setEditFormData] = useState<Partial<Voter>>({});
+  // Track only fields that have been specifically modified by user input
+  const [modifiedFields, setModifiedFields] = useState<Set<string>>(new Set());
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [voterToDelete, setVoterToDelete] = useState<Voter | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+    visible: boolean;
+  } | null>(null);
+
+  // Permission check
+  const hasEditPermission = profile?.voters_list_access === 'edit';
+  
+  // Edit and delete functions
+  const startEdit = (voter: Voter) => {
+    setEditingId(voter.id);
+    setEditFormData(voter);
+    // Clear modified fields when starting edit
+    setModifiedFields(new Set());
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditFormData({});
+    setModifiedFields(new Set());
+  };
+
+  // Handle field change while editing
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    
+    // Add this field to the set of modified fields
+    setModifiedFields(prev => new Set(prev).add(name));
+    
+    // For has_voted we need to convert to boolean
+    if (name === 'has_voted') {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value === 'true'
+      }));
+    } else {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editFormData) return;
+
+    try {
+      const currentVoter = voters.find(voter => voter.id === editingId);
+      if (!currentVoter) {
+        throw new Error('Voter not found');
+      }
+
+      // Start with a clean slate for changes
+      const changesToSend: Partial<Voter> = {};
+
+      // Iterate through fields marked as modified by user input
+      modifiedFields.forEach(fieldName => {
+        const field = fieldName as keyof Voter;
+        const newValue = editFormData[field];
+        const originalValue = currentVoter[field];
+
+        // Check if the value has actually changed
+        if (newValue !== originalValue) {
+          // Handle Date of Birth specifically
+          if (field === 'dob') {
+            if (newValue === '') {
+              // User cleared the date field, send null if it wasn't already null
+              if (originalValue !== null) {
+                changesToSend[field] = null;
+              }
+              // If original was already null, don't include 'dob' in the update
+            } else {
+              // User entered a date, send it (assuming it's valid YYYY-MM-DD format)
+              changesToSend[field] = newValue;
+            }
+          } else {
+            // For other fields, just send the new value
+            changesToSend[field] = newValue;
+          }
+        }
+      });
+
+      // Final check: Ensure dob is not an empty string if it somehow got added
+      // This is a safeguard against unexpected states.
+      if (changesToSend.dob === '') {
+         // If the original was null, remove dob entirely from the payload.
+         // If the original was not null, explicitly set it to null.
+         if (currentVoter.dob === null) {
+            delete changesToSend.dob;
+         } else {
+            changesToSend.dob = null;
+         }
+      }
+
+      // Log the final payload right before sending
+      console.log('Final changes being sent to API:', changesToSend);
+
+      if (Object.keys(changesToSend).length === 0) {
+        console.log('No actual changes detected after validation, cancelling save.');
+        setEditingId(null);
+        setEditFormData({});
+        setModifiedFields(new Set());
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('avp_voters')
+        .update(changesToSend) // Use the carefully constructed changesToSend
+        .eq('id', editingId)
+        .select();
+
+      if (error) {
+        // Log the error along with the payload that caused it for better debugging
+        console.error('Error updating voter. Payload:', changesToSend, 'Error:', error);
+        throw error;
+      }
+
+      // Update local state optimistically using the final payload
+      setVoters(prev =>
+        prev.map(voter =>
+          voter.id === editingId ? { ...voter, ...changesToSend } : voter
+        )
+      );
+
+      // Clear edit state
+      setEditingId(null);
+      setEditFormData({});
+      setModifiedFields(new Set());
+
+      // Show success toast
+      setToast({
+        message: 'Voter updated successfully!',
+        type: 'success',
+        visible: true
+      });
+
+    } catch (err: any) {
+      // Enhanced error logging
+      console.error('Caught error in handleSaveEdit:', err);
+      let errorMessage = err.message || 'Failed to update voter';
+      if (err.code === '22007') {
+        errorMessage = 'Invalid date format. Please ensure dates are YYYY-MM-DD or leave blank.';
+      } else if (err.message) {
+         errorMessage = `Update failed: ${err.message}`;
+      }
+      // Include error code/details if available
+      if (err.code || err.details) {
+        errorMessage += ` (Code: ${err.code || 'N/A'}, Details: ${err.details || 'N/A'})`;
+      }
+      setToast({
+        message: errorMessage,
+        type: 'error',
+        visible: true
+      });
+    }
+  };
+
+  const confirmDelete = (voter: Voter) => {
+    setVoterToDelete(voter);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!voterToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from('avp_voters')
+        .delete()
+        .eq('id', voterToDelete.id);
+
+      if (error) throw error;
+
+      // Update local state to avoid full refetch
+      setVoters(prev => prev.filter(voter => voter.id !== voterToDelete.id));
+
+      // Close modal and reset state
+      setDeleteModalOpen(false);
+      setVoterToDelete(null);
+
+      // Show success toast
+      setToast({
+        message: 'Voter deleted successfully!',
+        type: 'success',
+        visible: true
+      });
+
+    } catch (err: any) {
+      console.error('Error deleting voter:', err);
+      setToast({
+        message: err.message || 'Failed to delete voter',
+        type: 'error',
+        visible: true
+      });
+      
+      // Close modal anyway to prevent user from being stuck
+      setDeleteModalOpen(false);
+      setVoterToDelete(null);
+    }
+  };
+
+  const closeToast = () => {
+    setToast(null);
+  };
 
   // Use media query for initial view mode only
   useEffect(() => {
@@ -97,14 +371,42 @@ const VoterList: React.FC = () => {
   const columns = useMemo(() => [
     columnHelper.accessor('full_name', { 
       header: 'Full Name', 
-      cell: info => info.getValue(),
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="text"
+              name="full_name"
+              value={editFormData.full_name ?? voter.full_name ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue();
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: 'includesString',
     }),
     columnHelper.accessor('alliance', { 
       header: 'Alliance', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="text"
+              name="alliance"
+              value={editFormData.alliance ?? voter.alliance ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
@@ -239,14 +541,31 @@ const VoterList: React.FC = () => {
     }),
     columnHelper.accessor('has_voted', { 
       header: 'Has Voted', 
-      cell: info => 
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          info.getValue() 
-            ? 'bg-green-100 text-green-800' 
-            : 'bg-red-100 text-red-800'
-        }`}>
-          {info.getValue() ? 'Yes' : 'No'}
-        </span>,
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <select
+              name="has_voted"
+              value={editFormData.has_voted !== undefined ? String(editFormData.has_voted) : String(voter.has_voted)}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            >
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          );
+        }
+        return (
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            info.getValue() 
+              ? 'bg-green-100 text-green-800' 
+              : 'bg-red-100 text-red-800'
+          }`}>
+            {info.getValue() ? 'Yes' : 'No'}
+          </span>
+        );
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
@@ -258,16 +577,65 @@ const VoterList: React.FC = () => {
         return true;
       },
     }),
-  ], [columnHelper]);
+    // Add actions column with edit and delete buttons if user has edit permissions
+    ...(hasEditPermission ? [
+      columnHelper.display({
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const voter = row.original;
+          
+          if (editingId === voter.id) {
+            return (
+              <div className="flex space-x-3">
+                <button 
+                  onClick={() => handleSaveEdit()}
+                  className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors"
+                  title="Save"
+                >
+                  <i className="fas fa-save text-lg"></i>
+                </button>
+                <button 
+                  onClick={() => cancelEdit()}
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors"
+                  title="Cancel"
+                >
+                  <i className="fas fa-times text-lg"></i>
+                </button>
+              </div>
+            );
+          }
+          
+          return (
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => startEdit(voter)}
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                title="Edit"
+              >
+                <i className="fas fa-edit text-lg"></i>
+              </button>
+              <button 
+                onClick={() => confirmDelete(voter)}
+                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
+                title="Delete"
+              >
+                <i className="fas fa-trash-alt text-lg"></i>
+              </button>
+            </div>
+          );
+        }
+      })
+    ] : []),
+  ], [columnHelper, hasEditPermission, editingId]);
 
   // Fetch voters function
   const fetchVoters = async () => {
     // No need to set loading true here if it's called by realtime updates
-    // setLoading(true); 
     setError(null);
 
     try {
-      // Select all required columns explicitly, removed created_at
+      // Select all required columns explicitly
       const { data, error: fetchError } = await supabase
         .from('avp_voters')
         .select('id, alliance, family, register, register_sect, gender, first_name, father_name, last_name, mother_name, full_name, situation, dob, sect, residence, has_voted')
@@ -277,30 +645,26 @@ const VoterList: React.FC = () => {
         throw fetchError;
       }
 
-      setVoters(data || []);
+      // Type assertion to tell TypeScript that this data matches our Voter interface
+      setVoters(data as Voter[] || []);
 
     } catch (err: any) {
+      console.error('Error fetching voters:', err);
       setError(err.message || 'Failed to fetch voters. Check RLS policies and network.');
       setVoters([]); // Clear voters on error
-    } finally {
-      // Only set loading false on initial load or explicit refresh
-      // setLoading(false); 
     }
   };
 
-  // Initial data fetch and real-time subscription setup
-  useEffect(() => {
-    if (profile?.voters_list_access === 'none') {
-      setError('You do not have permission to view this page.');
-      setLoading(false);
-      return;
+  // Setup realtime subscription function
+  const setupRealtimeSubscription = () => {
+    // Clean up existing subscription if it exists
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
     }
 
-    setLoading(true); // Set loading true for the initial fetch
-    fetchVoters().finally(() => setLoading(false)); // Fetch initial data and then set loading false
-
+    // Create new subscription
     const channel = supabase
-      .channel('voter-list-changes')
+      .channel('voter-list-changes-' + Date.now()) // Add timestamp to make each channel name unique
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'avp_voters' },
@@ -313,20 +677,72 @@ const VoterList: React.FC = () => {
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           console.log('Subscribed to voter list changes!');
+          subscriptionErrorCountRef.current = 0; // Reset error count on successful subscription
         }
         if (status === 'CHANNEL_ERROR') {
           console.error('Realtime channel error:', err);
-          setError(`Realtime connection failed: ${err?.message}`);
+          const errMessage = err?.message || 'Unknown error';
+          console.error(`Realtime connection error: ${errMessage}`);
+          
+          subscriptionErrorCountRef.current += 1;
+          
+          // If we've had multiple errors, show a toast to the user
+          if (subscriptionErrorCountRef.current >= 3) {
+            setToast({
+              message: 'Having trouble with live updates. You may need to refresh the page.',
+              type: 'warning',
+              visible: true
+            });
+          }
+          
+          // Try to reestablish connection after a delay
+          setTimeout(() => {
+            if (subscriptionErrorCountRef.current < 5) { // Don't keep trying forever
+              setupRealtimeSubscription();
+            }
+          }, 5000);
         }
         if (status === 'TIMED_OUT') {
           console.warn('Realtime connection timed out.');
-          setError('Realtime connection timed out. Please refresh.');
+          // Try to reconnect after timeout
+          setTimeout(() => {
+            setupRealtimeSubscription();
+          }, 5000);
         }
       });
 
-    // Cleanup function to remove the channel subscription
+    // Store the channel reference for cleanup
+    realtimeChannelRef.current = channel;
+  };
+
+  // Initial data fetch and real-time subscription setup
+  useEffect(() => {
+    if (profile?.voters_list_access === 'none') {
+      setError('You do not have permission to view this page.');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true); // Set loading true for the initial fetch
+    
+    // Fetch initial data
+    fetchVoters()
+      .then(() => {
+        // Setup realtime subscription after initial data fetch succeeds
+        setupRealtimeSubscription();
+      })
+      .catch(err => {
+        console.error('Initial data fetch error:', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+
+    // Cleanup function
     return () => {
-      supabase.removeChannel(channel);
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+      }
     };
 
   }, [profile]); // Rerun effect if profile changes
@@ -415,6 +831,15 @@ const VoterList: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 bg-white dark:bg-gray-900 min-h-screen">
+      {/* Toast notification */}
+      {toast && toast.visible && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={closeToast}
+        />
+      )}
+      
       <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Voter's List</h2>
       <p className="text-gray-600 dark:text-gray-400 mb-6">Manage and monitor registered voters</p>
       
@@ -824,6 +1249,18 @@ const VoterList: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal for delete */}
+      <ConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Voter"
+        message={voterToDelete ? `Are you sure you want to delete ${voterToDelete.full_name}? This action cannot be undone.` : 'Are you sure you want to delete this voter?'}
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmButtonClass="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
+      />
     </div>
   );
 };
@@ -912,7 +1349,7 @@ const YearFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, 
   const yearOptions = React.useMemo(() => {
     const dobValues = table.getPreFilteredRowModel().flatRows
       .map((row: any) => row.getValue(column.id))
-      .map((dob: string) => {
+      .map((dob: string | null) => {
         if (!dob) return '__EMPTY__';
         try {
           return new Date(`${dob}T12:00:00Z`).getUTCFullYear();
@@ -921,12 +1358,13 @@ const YearFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, 
         }
       });
     const set = new Set(dobValues);
-    return Array.from(set).sort((a, b) => {
+    return Array.from(set).sort((a: any, b: any) => {
       if (a === '__EMPTY__') return -1;
       if (b === '__EMPTY__') return 1;
       return Number(a) - Number(b);
     });
   }, [column.id, table.getPreFilteredRowModel().flatRows]);
+  
   return (
     <select
       value={columnFilterValue}
@@ -934,8 +1372,8 @@ const YearFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, 
       className="w-full px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
     >
       <option value="">All Years</option>
-      {yearOptions.map(year => (
-        <option key={year} value={year}>
+      {(yearOptions as Array<string | number>).map((year) => (
+        <option key={String(year)} value={String(year)}>
           {year === '__EMPTY__' ? '-' : year}
         </option>
       ))}
