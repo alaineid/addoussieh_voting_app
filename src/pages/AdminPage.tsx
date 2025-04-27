@@ -810,8 +810,8 @@ const ManageUsersTab = () => {
       {/* Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-blue-100 dark:border-blue-900">
-          <div className="rounded-full bg-blue-100 dark:bg-blue-900/50 p-3 mr-4">
-            <i className="fas fa-users h-6 w-6 text-blue-600 dark:text-blue-400"></i>
+          <div className="rounded-full bg-blue-100 dark:bg-blue-900/50 p-3 mr-4 flex items-center justify-center w-12 h-12">
+            <i className="fas fa-users text-blue-600 dark:text-blue-400"></i>
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Users</p>
@@ -820,8 +820,8 @@ const ManageUsersTab = () => {
         </div>
         
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-blue-100 dark:border-blue-900">
-          <div className="rounded-full bg-red-100 dark:bg-red-900/50 p-3 mr-4">
-            <i className="fas fa-user-shield h-6 w-6 text-red-600 dark:text-red-400"></i>
+          <div className="rounded-full bg-red-100 dark:bg-red-900/50 p-3 mr-4 flex items-center justify-center w-12 h-12">
+            <i className="fas fa-user-shield text-red-600 dark:text-red-400"></i>
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Admins</p>
@@ -830,8 +830,8 @@ const ManageUsersTab = () => {
         </div>
         
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-blue-100 dark:border-blue-900">
-          <div className="rounded-full bg-green-100 dark:bg-green-900/50 p-3 mr-4">
-            <i className="fas fa-user h-6 w-6 text-green-600 dark:text-green-400"></i>
+          <div className="rounded-full bg-green-100 dark:bg-green-900/50 p-3 mr-4 flex items-center justify-center w-12 h-12">
+            <i className="fas fa-user text-green-600 dark:text-green-400"></i>
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Regular Users</p>
