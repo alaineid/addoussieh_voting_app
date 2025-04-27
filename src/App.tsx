@@ -91,6 +91,17 @@ const Nav = () => {
         <span></span>
         <span></span>
       </button>
+      
+      {/* Dark Mode Toggle Button - Mobile (outside menu) */}
+      <button
+        onClick={toggleDarkMode}
+        className="md:hidden text-gray-600 dark:text-gray-300 hover:text-yellow-500 dark:hover:text-yellow-300 transition duration-150 ease-in-out absolute right-16"
+        title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+        aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+      >
+        <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'} fa-lg`}></i>
+      </button>
+      
       <div className={`nav-links-container ${isMenuOpen ? 'active' : ''}`}>
         <div className="menu-items">
           {canViewVoters && (
@@ -105,10 +116,10 @@ const Nav = () => {
           <NavLink to="/about" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>About</NavLink>
         </div>
         <div className="user-actions flex items-center gap-4">
-          {/* Dark Mode Toggle Button */}
+          {/* Dark Mode Toggle Button - only visible on desktop */}
           <button
             onClick={toggleDarkMode}
-            className="text-gray-600 dark:text-gray-300 hover:text-yellow-500 dark:hover:text-yellow-300 transition duration-150 ease-in-out"
+            className="hidden md:block text-gray-600 dark:text-gray-300 hover:text-yellow-500 dark:hover:text-yellow-300 transition duration-150 ease-in-out"
             title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
             aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
@@ -124,16 +135,15 @@ const Nav = () => {
               {isAdmin && (
                 <button
                   onClick={handleAdminClick}
-                  className="text-gray-600 dark:text-gray-300 hover:text-red-700 dark:hover:text-red-400 transition duration-150 ease-in-out"
+                  className="text-gray-600 dark:text-gray-300 hover:text-red-700 dark:hover:text-red-400"
                   title="Admin Settings"
-                  aria-label="Admin Settings"
                 >
                   <i className="fas fa-user-cog fa-lg"></i>
                 </button>
               )}
               <button
                 onClick={handleLogout}
-                className="logout-btn px-4 py-2 bg-red-600 text-white dark:bg-red-700 dark:hover:bg-red-800 rounded hover:bg-red-700 transition duration-150 ease-in-out"
+                className="logout-btn px-4 py-2 bg-red-600 text-white dark:bg-red-700 dark:hover:bg-red-800 rounded hover:bg-red-700"
               >
                 Logout
               </button>
@@ -141,7 +151,7 @@ const Nav = () => {
           ) : (
             <button
               onClick={() => { navigate('/login'); setIsMenuOpen(false); }}
-              className="login-btn px-4 py-2 bg-blue-600 text-white dark:bg-blue-700 dark:hover:bg-blue-800 rounded hover:bg-blue-700 transition duration-150 ease-in-out"
+              className="login-btn px-4 py-2 bg-blue-600 text-white dark:bg-blue-700 dark:hover:bg-blue-800 rounded hover:bg-blue-700"
             >
               Login
             </button>
