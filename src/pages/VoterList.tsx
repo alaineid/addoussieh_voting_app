@@ -144,6 +144,12 @@ const VoterList: React.FC = () => {
     type: 'success' | 'error' | 'info' | 'warning';
     visible: boolean;
   } | null>(null);
+  
+  // Add new voter state
+  const [isAddVoterModalOpen, setIsAddVoterModalOpen] = useState(false);
+  const [newVoterData, setNewVoterData] = useState<Partial<Voter>>({
+    has_voted: false
+  });
 
   // Permission check
   const hasEditPermission = profile?.voters_list_access === 'edit';
@@ -187,6 +193,125 @@ const VoterList: React.FC = () => {
       ...prev,
       [name]: processedValue
     }));
+  };
+
+  // Handle Add New Voter form input changes
+  const handleNewVoterInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    
+    let processedValue: any = value;
+
+    // Handle specific types
+    if (name === 'has_voted') {
+      processedValue = value === 'true';
+    } else if (type === 'number' && name === 'register') {
+      // Allow empty string for clearing, otherwise parse as number
+      processedValue = value === '' ? null : parseInt(value, 10);
+      if (isNaN(processedValue)) {
+        processedValue = null;
+      }
+    }
+
+    setNewVoterData(prev => ({
+      ...prev,
+      [name]: processedValue
+    }));
+  };
+
+  // Handle submitting the new voter form
+  const handleAddVoter = async () => {
+    try {
+      // Fetch the session and ensure type safety
+      const { data: sessionData } = await supabase.auth.getSession();
+
+      if (!sessionData || !sessionData.session || !sessionData.session.user) {
+        console.error('No authenticated user found.');
+        setToast({
+          message: 'You must be logged in to add voters.',
+          type: 'error',
+          visible: true
+        });
+        return;
+      }
+
+      console.log('Authenticated user ID:', sessionData.session.user.id);
+
+      // Check if user has permission
+      if (!hasEditPermission) {
+        setToast({
+          message: 'You do not have permission to add voters',
+          type: 'error',
+          visible: true
+        });
+        return;
+      }
+
+      // Validate required fields
+      if (!newVoterData.first_name || !newVoterData.last_name) {
+        setToast({
+          message: 'First name and last name are required',
+          type: 'error',
+          visible: true
+        });
+        return;
+      }
+
+      // Create full_name field if not provided
+      let voterToAdd = { ...newVoterData };
+      if (!voterToAdd.full_name && voterToAdd.first_name && voterToAdd.last_name) {
+        const fname = voterToAdd.first_name.trim();
+        const lname = voterToAdd.last_name.trim();
+        voterToAdd.full_name = `${fname} ${lname}`;
+      }
+
+      console.log('Adding new voter:', voterToAdd);
+
+      // Attempt to insert the voter
+      const { data, error } = await supabase
+        .from('avp_voters')
+        .insert(voterToAdd)
+        .select();
+
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
+
+      // Add the new voter to the local state
+      if (data && data.length > 0) {
+        setVoters(prev => [...prev, data[0] as Voter]);
+      }
+
+      // Close modal and reset form
+      setIsAddVoterModalOpen(false);
+      setNewVoterData({ has_voted: false });
+
+      // Show success toast
+      setToast({
+        message: 'Voter added successfully!',
+        type: 'success',
+        visible: true
+      });
+
+    } catch (err: any) {
+      console.error('Error adding voter:', err);
+      let errorMessage = err.message || 'Failed to add voter';
+
+      // Handle specific error codes
+      if (err.code === '42501') {
+        errorMessage = 'Permission denied. Ensure your profile has voters_list_access set to "edit".';
+      } else if (err.code === '22007') {
+        errorMessage = 'Invalid date format. Please ensure dates are YYYY-MM-DD.';
+      } else if (err.message) {
+        errorMessage = `Add failed: ${err.message}`;
+      }
+
+      setToast({
+        message: errorMessage,
+        type: 'error',
+        visible: true
+      });
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -1038,6 +1163,18 @@ const VoterList: React.FC = () => {
         />
       )}
       
+      {/* Floating Action Button (FAB) for adding voters */}
+      {hasEditPermission && (
+        <button
+          onClick={() => setIsAddVoterModalOpen(true)}
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex items-center justify-center z-20 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          title="Add New Voter"
+          aria-label="Add New Voter"
+        >
+          <i className="fas fa-plus text-xl"></i>
+        </button>
+      )}
+      
       <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Voter's List</h2>
       <p className="text-gray-600 dark:text-gray-400 mb-6">Manage and monitor registered voters</p>
       
@@ -1067,7 +1204,7 @@ const VoterList: React.FC = () => {
           </div>
         </div>
         
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-blue-100 dark:border-blue-900">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-blue-100 dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-2">Participation Rate</p>
           <div className="flex items-center justify-between mb-1">
             <p className="text-2xl font-bold text-gray-800 dark:text-white">{votedPercentage}%</p>
@@ -1459,6 +1596,282 @@ const VoterList: React.FC = () => {
         cancelText="Cancel"
         confirmButtonClass="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
       />
+      
+      {/* Add Voter Modal */}
+      {isAddVoterModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-80 transition-opacity" 
+              onClick={() => setIsAddVoterModalOpen(false)}
+            ></div>
+            
+            <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg md:max-w-2xl">
+              <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300">Add New Voter</h3>
+                  <button 
+                    onClick={() => setIsAddVoterModalOpen(false)}
+                    className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                    aria-label="Close"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* First Name */}
+                  <div className="form-group">
+                    <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      First Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="first_name"
+                      name="first_name"
+                      value={newVoterData.first_name || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                  
+                  {/* Last Name */}
+                  <div className="form-group">
+                    <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Last Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="last_name"
+                      name="last_name"
+                      value={newVoterData.last_name || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                  
+                  {/* Father Name */}
+                  <div className="form-group">
+                    <label htmlFor="father_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Father Name
+                    </label>
+                    <input
+                      type="text"
+                      id="father_name"
+                      name="father_name"
+                      value={newVoterData.father_name || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Mother Name */}
+                  <div className="form-group">
+                    <label htmlFor="mother_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Mother Name
+                    </label>
+                    <input
+                      type="text"
+                      id="mother_name"
+                      name="mother_name"
+                      value={newVoterData.mother_name || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Family */}
+                  <div className="form-group">
+                    <label htmlFor="family" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Family
+                    </label>
+                    <input
+                      type="text"
+                      id="family"
+                      name="family"
+                      value={newVoterData.family || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Alliance */}
+                  <div className="form-group">
+                    <label htmlFor="alliance" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Alliance
+                    </label>
+                    <input
+                      type="text"
+                      id="alliance"
+                      name="alliance"
+                      value={newVoterData.alliance || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Register */}
+                  <div className="form-group">
+                    <label htmlFor="register" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Register
+                    </label>
+                    <input
+                      type="number"
+                      id="register"
+                      name="register"
+                      value={newVoterData.register || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Register Sect */}
+                  <div className="form-group">
+                    <label htmlFor="register_sect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Register Sect
+                    </label>
+                    <input
+                      type="text"
+                      id="register_sect"
+                      name="register_sect"
+                      value={newVoterData.register_sect || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Gender */}
+                  <div className="form-group">
+                    <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Gender
+                    </label>
+                    <select
+                      id="gender"
+                      name="gender"
+                      value={newVoterData.gender || ''}
+                      onChange={handleNewVoterInputChange}
+                     
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select...</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      {/* Add other options if needed */}
+                    </select>
+                  </div>
+                  
+                  {/* Date of Birth */}
+                  <div className="form-group">
+                    <label htmlFor="dob" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Date of Birth
+                    </label>
+                    <input
+                      type="date"
+                      id="dob"
+                      name="dob"
+                      value={newVoterData.dob || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Sect */}
+                  <div className="form-group">
+                    <label htmlFor="sect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Sect
+                    </label>
+                    <input
+                      type="text"
+                      id="sect"
+                      name="sect"
+                      value={newVoterData.sect || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Residence */}
+                  <div className="form-group">
+                    <label htmlFor="residence" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Residence
+                    </label>
+                    <input
+                      type="text"
+                      id="residence"
+                      name="residence"
+                      value={newVoterData.residence || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Has Voted */}
+                  <div className="form-group">
+                    <label htmlFor="has_voted" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Has Voted
+                    </label>
+                    <select
+                      id="has_voted"
+                      name="has_voted"
+                      value={String(newVoterData.has_voted)}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+                  
+                  {/* Situation */}
+                  <div className="form-group">
+                    <label htmlFor="situation" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Situation
+                    </label>
+                    <select
+                      id="situation"
+                      name="situation"
+                      value={newVoterData.situation || ''}
+                      onChange={handleNewVoterInputChange}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select...</option>
+                      <option value="WITH">WITH</option>
+                      <option value="N+">N+</option>
+                      <option value="N">N</option>
+                      <option value="N-">N-</option>
+                      <option value="AGAINST">AGAINST</option>
+                      <option value="NOVOTE">NOVOTE</option>
+                      <option value="DEATH">DEATH</option>
+                      <option value="MILITARY">MILITARY</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 flex flex-row-reverse sm:px-6 gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddVoter}
+                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-blue-700 dark:hover:bg-blue-800"
+                >
+                  Add Voter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddVoterModalOpen(false)}
+                  className="inline-flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
