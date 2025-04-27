@@ -164,23 +164,29 @@ const VoterList: React.FC = () => {
 
   // Handle field change while editing
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     
-    // Add this field to the set of modified fields
     setModifiedFields(prev => new Set(prev).add(name));
     
-    // For has_voted we need to convert to boolean
+    let processedValue: any = value;
+
+    // Handle specific types
     if (name === 'has_voted') {
-      setEditFormData(prev => ({
-        ...prev,
-        [name]: value === 'true'
-      }));
-    } else {
-      setEditFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      processedValue = value === 'true';
+    } else if (type === 'number' && name === 'register') { // Assuming 'register' is the only number input for now
+      // Allow empty string for clearing, otherwise parse as number
+      processedValue = value === '' ? null : parseInt(value, 10); 
+      // Handle potential NaN if parsing fails, treat as null
+      if (isNaN(processedValue)) {
+          processedValue = null; 
+      }
     }
+    // Add handling for other numeric fields if necessary
+
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: processedValue
+    }));
   };
 
   const handleSaveEdit = async () => {
@@ -192,33 +198,40 @@ const VoterList: React.FC = () => {
         throw new Error('Voter not found');
       }
 
-      // Start with a clean slate for changes
       const changesToSend: Partial<Voter> = {};
+      console.log("Starting save process. Modified fields:", modifiedFields); // Log modified fields set
 
-      // Iterate through fields marked as modified by user input
       modifiedFields.forEach(fieldName => {
         const field = fieldName as keyof Voter;
         const newValue = editFormData[field];
         const originalValue = currentVoter[field];
 
-        // Check if the value has actually changed
+        console.log(`Checking field: ${field}, New: ${JSON.stringify(newValue)}, Original: ${JSON.stringify(originalValue)}`); // Log comparison
+
+        // Check if the value has actually changed (strict comparison)
         if (newValue !== originalValue) {
+          console.log(`  -> Field ${field} changed. Adding to payload.`); // Log change detection
+
           // Handle Date of Birth specifically
           if (field === 'dob') {
             if (newValue === '') {
-              // User cleared the date field, send null if it wasn't already null
               if (originalValue !== null) {
                 changesToSend[field] = null;
+                console.log(`    -> Setting ${field} to null`);
+              } else {
+                 console.log(`    -> ${field} was already null, not sending.`);
               }
-              // If original was already null, don't include 'dob' in the update
             } else {
-              // User entered a date, send it (assuming it's valid YYYY-MM-DD format)
               changesToSend[field] = newValue;
+               console.log(`    -> Setting ${field} to ${newValue}`);
             }
           } else {
             // For other fields, just send the new value
             changesToSend[field] = newValue;
+             console.log(`    -> Setting ${field} to ${newValue}`);
           }
+        } else {
+           console.log(`  -> Field ${field} did NOT change.`); // Log no change
         }
       });
 
@@ -418,7 +431,21 @@ const VoterList: React.FC = () => {
     }),
     columnHelper.accessor('family', { 
       header: 'Family', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="text"
+              name="family"
+              value={editFormData.family ?? voter.family ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
@@ -430,7 +457,21 @@ const VoterList: React.FC = () => {
     }),
     columnHelper.accessor('register', { 
       header: 'Register', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="number" // Use number type for register
+              name="register"
+              value={editFormData.register ?? voter.register ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
@@ -443,7 +484,21 @@ const VoterList: React.FC = () => {
     }),
     columnHelper.accessor('register_sect', { 
       header: 'Register Sect', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="text"
+              name="register_sect"
+              value={editFormData.register_sect ?? voter.register_sect ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
@@ -455,7 +510,26 @@ const VoterList: React.FC = () => {
     }),
     columnHelper.accessor('gender', { 
       header: 'Gender', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          // Assuming gender has specific values, a select might be better
+          return (
+            <select
+              name="gender"
+              value={editFormData.gender ?? voter.gender ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            >
+              <option value="">Select...</option> 
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              {/* Add other options if needed */}
+            </select>
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
@@ -467,42 +541,137 @@ const VoterList: React.FC = () => {
     }),
     columnHelper.accessor('first_name', { 
       header: 'First Name', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="text"
+              name="first_name"
+              value={editFormData.first_name ?? voter.first_name ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: 'includesString',
     }),
     columnHelper.accessor('father_name', { 
       header: 'Father Name', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="text"
+              name="father_name"
+              value={editFormData.father_name ?? voter.father_name ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: 'includesString',
     }),
     columnHelper.accessor('last_name', { 
       header: 'Last Name', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="text"
+              name="last_name"
+              value={editFormData.last_name ?? voter.last_name ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: 'includesString',
     }),
     columnHelper.accessor('mother_name', { 
       header: 'Mother Name', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="text"
+              name="mother_name"
+              value={editFormData.mother_name ?? voter.mother_name ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: 'includesString',
     }),
     columnHelper.accessor('situation', { 
       header: 'Situation', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          // Assuming situation has specific values, a select might be better
+          return (
+            <select
+              name="situation"
+              value={editFormData.situation ?? voter.situation ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            >
+              <option value="">Select...</option>
+              <option value="WITH">WITH</option>
+              <option value="N+">N+</option>
+              <option value="N">N</option>
+              <option value="N-">N-</option>
+              <option value="AGAINST">AGAINST</option>
+              <option value="NOVOTE">NOVOTE</option>
+              <option value="DEATH">DEATH</option>
+              <option value="MILITARY">MILITARY</option>
+              {/* Add other options if needed */}
+            </select>
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: 'includesString',
     }),
     columnHelper.accessor('dob', { 
       header: 'DOB', 
-      cell: info => formatDate(info.getValue() as string),
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="date" // Use date type for dob
+              name="dob"
+              value={editFormData.dob ?? voter.dob ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return formatDate(info.getValue() as string);
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
@@ -522,7 +691,21 @@ const VoterList: React.FC = () => {
     }),
     columnHelper.accessor('sect', { 
       header: 'Sect', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="text"
+              name="sect"
+              value={editFormData.sect ?? voter.sect ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
@@ -534,7 +717,21 @@ const VoterList: React.FC = () => {
     }),
     columnHelper.accessor('residence', { 
       header: 'Residence', 
-      cell: info => info.getValue() ?? '-',
+      cell: info => {
+        const voter = info.row.original;
+        if (editingId === voter.id) {
+          return (
+            <input
+              type="text"
+              name="residence"
+              value={editFormData.residence ?? voter.residence ?? ''}
+              onChange={handleInputChange}
+              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            />
+          );
+        }
+        return info.getValue() ?? '-';
+      },
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: 'includesString',
@@ -547,7 +744,8 @@ const VoterList: React.FC = () => {
           return (
             <select
               name="has_voted"
-              value={editFormData.has_voted !== undefined ? String(editFormData.has_voted) : String(voter.has_voted)}
+              // Ensure value is string for select comparison
+              value={editFormData.has_voted !== undefined ? String(editFormData.has_voted) : (voter.has_voted !== null ? String(voter.has_voted) : 'false')}
               onChange={handleInputChange}
               className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
             >
@@ -627,7 +825,7 @@ const VoterList: React.FC = () => {
         }
       })
     ] : []),
-  ], [columnHelper, hasEditPermission, editingId]);
+  ], [columnHelper, hasEditPermission, editingId, editFormData, handleInputChange]);
 
   // Fetch voters function
   const fetchVoters = async () => {
