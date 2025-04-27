@@ -10,6 +10,7 @@ const AUTH_LOADING_TIMEOUT = 15000;
 export interface UserProfile {
   id: string;
   name?: string;
+  full_name?: string;
   role: 'admin' | 'user';
   voters_list_access: 'none' | 'view' | 'edit';
   family_situation_access: 'none' | 'view' | 'edit';

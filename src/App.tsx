@@ -116,16 +116,6 @@ const Nav = () => {
           <NavLink to="/about" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>About</NavLink>
         </div>
         <div className="user-actions flex items-center gap-4">
-          {/* Dark Mode Toggle Button - only visible on desktop */}
-          <button
-            onClick={toggleDarkMode}
-            className="hidden md:block text-gray-600 dark:text-gray-300 hover:text-yellow-500 dark:hover:text-yellow-300 transition duration-150 ease-in-out"
-            title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
-            aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'} fa-lg`}></i>
-          </button>
-          
           {session ? (
             <>
               <div className="text-gray-700 dark:text-gray-300 font-medium hidden sm:block">
@@ -142,10 +132,20 @@ const Nav = () => {
                 </button>
               )}
               <button
-                onClick={handleLogout}
-                className="logout-btn px-4 py-2 bg-red-600 text-white dark:bg-red-700 dark:hover:bg-red-800 rounded hover:bg-red-700"
+                onClick={toggleDarkMode}
+                className="hidden md:block text-gray-600 dark:text-gray-300 hover:text-yellow-500 dark:hover:text-yellow-300 transition duration-150 ease-in-out px-2 py-2 rounded"
+                title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+                aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
               >
-                Logout
+                <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'} fa-lg`}></i>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="logout-btn text-gray-600 dark:text-gray-300 hover:text-red-700 dark:hover:text-red-400 px-2 py-2 rounded"
+                title="Logout"
+                aria-label="Logout"
+              >
+                <i className="fas fa-sign-out-alt fa-lg"></i>
               </button>
             </>
           ) : (
