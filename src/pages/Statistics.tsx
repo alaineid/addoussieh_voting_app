@@ -199,12 +199,22 @@ const Statistics: React.FC = () => {
 
   // Computed statistics for charts
   const genderStats = useMemo(() => {
-    const counts = { Male: 0, Female: 0 };
+    // Use Arabic terms for counting, but keep English labels for the chart
+    const counts = { Male: 0, Female: 0, Unknown: 0 }; 
     voters.forEach(voter => {
-      if (voter.gender === 'Male') counts.Male++;
-      else if (voter.gender === 'Female') counts.Female++;
+      if (voter.gender === 'الذكور') { // Arabic for Male
+        counts.Male++;
+      } else if (voter.gender === 'الإناث') { // Arabic for Female
+        counts.Female++;
+      } else {
+        counts.Unknown++; // Count any other or null values
+      }
     });
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+    // Filter out Unknown if its count is 0
+    return Object.entries(counts)
+      .filter(([name, value]) => value > 0 || (name !== 'Unknown')) 
+      .filter(([name, value]) => name !== 'Unknown' || value > 0) // Ensure Unknown is only shown if it has a count
+      .map(([name, value]) => ({ name, value }));
   }, [voters]);
 
   const registerSectStats = useMemo(() => {
