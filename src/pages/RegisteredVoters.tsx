@@ -1087,6 +1087,7 @@ const RegisteredVoters: React.FC = () => {
     getFilteredRowModel: getFilteredRowModel(),
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    autoResetPageIndex: false, // Prevent page reset when filters or sorting change
     initialState: {
       pagination: {
         pageSize: 10, // Default page size

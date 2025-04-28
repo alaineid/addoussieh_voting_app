@@ -588,6 +588,7 @@ const ManageUsersTab = () => {
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    autoResetPageIndex: false,
     state: {
       sorting,
     },
