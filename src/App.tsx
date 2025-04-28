@@ -14,6 +14,7 @@ import PrivateRoute from './components/PrivateRoute';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AdminPage from './pages/AdminPage';
+import RootRedirector from './components/RootRedirector'; // Import the new component
 
 const Banner = () => (
   <div className="banner-container">
@@ -80,7 +81,7 @@ const Nav = () => {
     };
   }, [isMenuOpen]);
 
-  const canViewVoters = profile?.voters_list_access !== 'none';
+  const canViewVoters = profile?.registered_voters_access !== 'none';
   const canViewFamily = profile?.family_situation_access !== 'none';
   const canViewStats = profile?.statistics_access === 'view';
 
@@ -105,7 +106,8 @@ const Nav = () => {
       <div className={`nav-links-container ${isMenuOpen ? 'active' : ''}`}>
         <div className="menu-items">
           {canViewVoters && (
-            <NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Registered Voters</NavLink>
+            // Update NavLink path to /registered-voters
+            <NavLink to="/registered-voters" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Registered Voters</NavLink>
           )}
           {canViewFamily && (
             <NavLink to="/family-situation" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Family Situation</NavLink>
@@ -183,14 +185,14 @@ const Footer = () => {
   );
 };
 
-const hasVoterAccess = (profile: UserProfile | null) => !!profile && profile.voters_list_access !== 'none';
+const hasVoterAccess = (profile: UserProfile | null) => !!profile && profile.registered_voters_access !== 'none';
 const hasFamilyAccess = (profile: UserProfile | null) => !!profile && profile.family_situation_access !== 'none';
 const hasStatsAccess = (profile: UserProfile | null) => !!profile && profile.statistics_access === 'view';
 const isAdminUser = (profile: UserProfile | null) => !!profile && profile.role === 'admin';
 
 export default function App() {
   const location = useLocation();
-  const { loading: authLoading, profile } = useAuthStore();
+  const { loading: authLoading, profile, session } = useAuthStore(); // Added session
   const { isDarkMode } = useThemeStore();
   const [hasTimedOut, setHasTimedOut] = useState(false);
   const navigate = useNavigate();
@@ -260,12 +262,27 @@ export default function App() {
         
         <div className={isAuthPage ? '' : 'p-4 md:p-8'}>
           <Routes>
+            {/* Authentication Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/unauthorized" element={<Unauthorized />} />
+
+            {/* Root Path Logic */}
+            {/* Use RootRedirector for '/' path, wrapped in a basic PrivateRoute (checks login) */}
             <Route
               path="/"
+              element={
+                <PrivateRoute>
+                  <RootRedirector />
+                </PrivateRoute>
+              }
+            />
+
+            {/* Specific Protected Routes */}
+            {/* Define the actual component for '/registered-voters' */}
+             <Route
+              path="/registered-voters" // Changed path from "/"
               element={
                 <PrivateRoute permissionCheck={() => hasVoterAccess(profile)}>
                   <RegisteredVoters />
@@ -296,6 +313,7 @@ export default function App() {
                 </PrivateRoute>
               }
             />
+            {/* About page is accessible to all logged-in users */}
             <Route
               path="/about"
               element={
@@ -304,6 +322,8 @@ export default function App() {
                 </PrivateRoute>
               }
             />
+            {/* Add a catch-all or redirect for unknown paths if needed */}
+            {/* <Route path="*" element={<Navigate to="/" replace />} /> */}
           </Routes>
         </div>
       </main>

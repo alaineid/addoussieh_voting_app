@@ -18,7 +18,7 @@ const About: React.FC = () => {
         </p>
         
         <p className="text-lg text-gray-800 dark:text-gray-200">
-          With features like real-time statistics, secure authentication, and customized voter list management, 
+          With features like real-time statistics, secure authentication, and customized registered voters management, 
           this application serves as a reliable solution for electoral needs.
         </p>
       </div>

@@ -152,7 +152,7 @@ const RegisteredVoters: React.FC = () => {
   });
 
   // Permission check
-  const hasEditPermission = profile?.voters_list_access === 'edit';
+  const hasEditPermission = profile?.registered_voters_access === 'edit';
   
   // Edit and delete functions
   const startEdit = (voter: Voter) => {
@@ -299,7 +299,7 @@ const RegisteredVoters: React.FC = () => {
 
       // Handle specific error codes
       if (err.code === '42501') {
-        errorMessage = 'Permission denied. Ensure your profile has voters_list_access set to "edit".';
+        errorMessage = 'Permission denied. Ensure your profile has registered_voters_access set to "edit".';
       } else if (err.code === '22007') {
         errorMessage = 'Invalid date format. Please ensure dates are YYYY-MM-DD.';
       } else if (err.message) {
@@ -1000,7 +1000,7 @@ const RegisteredVoters: React.FC = () => {
       )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
-          console.log('Subscribed to voter list changes!');
+          console.log('Subscribed to registered voters changes!');
           subscriptionErrorCountRef.current = 0; // Reset error count on successful subscription
         }
         if (status === 'CHANNEL_ERROR') {
@@ -1041,7 +1041,7 @@ const RegisteredVoters: React.FC = () => {
 
   // Initial data fetch and real-time subscription setup
   useEffect(() => {
-    if (profile?.voters_list_access === 'none') {
+    if (profile?.registered_voters_access === 'none') {
       setError('You do not have permission to view this page.');
       setLoading(false);
       return;
@@ -1176,7 +1176,7 @@ const RegisteredVoters: React.FC = () => {
         </button>
       )}
       
-      <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Registered Voters List</h2>
+      <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Registered Voters</h2>
       <p className="text-gray-600 dark:text-gray-400 mb-6">Manage and monitor registered voters</p>
       
       {/* Stats Section */}

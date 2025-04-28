@@ -82,7 +82,7 @@ const schema = z.object({
   full_name: z.string().min(1, { message: 'Full name is required' }),
   password: z.string().min(8, { message: 'Password must be at least 8 characters long' }),
   role: z.enum(['admin', 'user']),
-  voters_list_access: z.enum(['none', 'view', 'edit']),
+  registered_voters_access: z.enum(['none', 'view', 'edit']),
   family_situation_access: z.enum(['none', 'view', 'edit']),
   statistics_access: z.enum(['none', 'view']),
 });
@@ -94,7 +94,7 @@ const editSchema = z.object({
   id: z.string(),
   full_name: z.string().min(1, { message: 'Full name is required' }),
   role: z.enum(['admin', 'user']),
-  voters_list_access: z.enum(['none', 'view', 'edit']),
+  registered_voters_access: z.enum(['none', 'view', 'edit']),
   family_situation_access: z.enum(['none', 'view', 'edit']),
   statistics_access: z.enum(['none', 'view']),
 });
@@ -166,7 +166,7 @@ const CreateUserTab = () => {
     resolver: zodResolver(schema),
     defaultValues: {
       role: 'user',
-      voters_list_access: 'view',
+      registered_voters_access: 'view',
       family_situation_access: 'view',
       statistics_access: 'view',
     },
@@ -247,7 +247,7 @@ const CreateUserTab = () => {
           full_name: data.full_name,
           password: data.password,
           role: data.role,
-          voters_list_access: data.voters_list_access,
+          registered_voters_access: data.registered_voters_access,
           family_situation_access: data.family_situation_access,
           statistics_access: data.statistics_access,
         }),
@@ -355,7 +355,7 @@ const CreateUserTab = () => {
         </div>
 
         {renderSelect('role', 'Role', ['user', 'admin'])}
-        {renderSelect('voters_list_access', 'Voters List Access', ['none', 'view', 'edit'])}
+        {renderSelect('registered_voters_access', 'Registered Voters Access', ['none', 'view', 'edit'])}
         {renderSelect('family_situation_access', 'Family Situation Access', ['none', 'view', 'edit'])}
         {renderSelect('statistics_access', 'Statistics Access', ['none', 'view'])}
 
@@ -458,13 +458,13 @@ const ManageUsersTab = () => {
         ) : getValue(),
       enableSorting: true,
     }),
-    columnHelper.accessor(row => row.voters_list_access, {
-      id: 'voters_list_access',
-      header: 'Voters List Access',
+    columnHelper.accessor(row => row.registered_voters_access, {
+      id: 'registered_voters_access',
+      header: 'Registered Voters Access',
       cell: ({ row, getValue }) => 
         editingId === row.original.id ? (
           <select 
-            {...register('voters_list_access')} 
+            {...register('registered_voters_access')} 
             defaultValue={getValue() as string} 
             className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
           >
@@ -594,7 +594,7 @@ const ManageUsersTab = () => {
       id: user.id,
       full_name: user.full_name,
       role: user.role,
-      voters_list_access: user.voters_list_access,
+      registered_voters_access: user.registered_voters_access,
       family_situation_access: user.family_situation_access,
       statistics_access: user.statistics_access
     });
@@ -630,7 +630,7 @@ const ManageUsersTab = () => {
           userId: data.id,
           full_name: data.full_name,
           role: data.role,
-          voters_list_access: data.voters_list_access,
+          registered_voters_access: data.registered_voters_access,
           family_situation_access: data.family_situation_access,
           statistics_access: data.statistics_access
         }),
@@ -652,7 +652,7 @@ const ManageUsersTab = () => {
             ...user, 
             full_name: data.full_name,
             role: data.role,
-            voters_list_access: data.voters_list_access,
+            registered_voters_access: data.registered_voters_access,
             family_situation_access: data.family_situation_access,
             statistics_access: data.statistics_access
           } : user

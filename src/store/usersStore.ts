@@ -6,7 +6,7 @@ export interface UserProfileWithEmail {
   email?: string;
   full_name: string;
   role: string;
-  voters_list_access: string;
+  registered_voters_access: string;
   family_situation_access: string;
   statistics_access: string;
 }
