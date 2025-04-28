@@ -528,7 +528,7 @@ const FamilySituation: React.FC = () => {
           className="w-full flex items-center justify-between p-4 md:p-6 text-left focus:outline-none"
           aria-expanded={summaryExpanded}
         >
-          <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300">Voting Situation Summary</h3>
+          <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300">Family Situation Summary</h3>
           <div className="ml-2 flex items-center">
             {totalVoters > 0 && (
               <span className="mr-2 text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 py-1 px-2 rounded-md">

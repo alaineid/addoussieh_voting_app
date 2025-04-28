@@ -118,7 +118,7 @@ const formatDate = (dateString: string | null): string => {
   return `${day}/${month}/${year}`;
 };
 
-const VoterList: React.FC = () => {
+const RegisteredVoters: React.FC = () => {
   const [voters, setVoters] = useState<Voter[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -1176,7 +1176,7 @@ const VoterList: React.FC = () => {
         </button>
       )}
       
-      <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Voter's List</h2>
+      <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Registered Voters List</h2>
       <p className="text-gray-600 dark:text-gray-400 mb-6">Manage and monitor registered voters</p>
       
       {/* Stats Section */}
@@ -1876,7 +1876,7 @@ const VoterList: React.FC = () => {
   );
 };
 
-// Filter components moved outside VoterList to prevent re-creation on every render
+// Filter components moved outside RegisteredVoters to prevent re-creation on every render
 
 // Text Filter component for text-based columns
 const TextFilter: React.FC<{ column: any; table: any }> = React.memo(({ column }) => {
@@ -1992,4 +1992,4 @@ const YearFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, 
   );
 });
 
-export default VoterList;
+export default RegisteredVoters;

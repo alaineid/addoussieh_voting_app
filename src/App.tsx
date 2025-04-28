@@ -4,7 +4,7 @@ import { useAuthStore, UserProfile } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
 import { supabase } from './lib/supabaseClient';
 
-import VoterList from './pages/VoterList';
+import RegisteredVoters from './pages/RegisteredVoters';
 import FamilySituation from './pages/FamilySituation';
 import Statistics from './pages/Statistics';
 import About from './pages/About';
@@ -105,7 +105,7 @@ const Nav = () => {
       <div className={`nav-links-container ${isMenuOpen ? 'active' : ''}`}>
         <div className="menu-items">
           {canViewVoters && (
-            <NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voter List</NavLink>
+            <NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Registered Voters</NavLink>
           )}
           {canViewFamily && (
             <NavLink to="/family-situation" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Family Situation</NavLink>
@@ -268,7 +268,7 @@ export default function App() {
               path="/"
               element={
                 <PrivateRoute permissionCheck={() => hasVoterAccess(profile)}>
-                  <VoterList />
+                  <RegisteredVoters />
                 </PrivateRoute>
               }
             />
