@@ -329,7 +329,28 @@ const RegisteredVoters: React.FC = () => {
       const changesToSend: Partial<Voter> = {};
       console.log("Starting save process. Modified fields:", modifiedFields); // Log modified fields set
 
+      // Check if we need to regenerate the full_name based on modified name fields
+      if (modifiedFields.has('first_name') || modifiedFields.has('father_name') || modifiedFields.has('last_name')) {
+        // Take the new values if modified, otherwise use existing values from current voter
+        const firstName = editFormData.first_name ?? currentVoter.first_name ?? '';
+        const fatherName = editFormData.father_name ?? currentVoter.father_name ?? '';
+        const lastName = editFormData.last_name ?? currentVoter.last_name ?? '';
+        
+        // Generate full name by concatenating names with spaces between non-empty values
+        const nameParts = [firstName, fatherName, lastName].filter(part => part.trim().length > 0);
+        const generatedFullName = nameParts.join(' ');
+        
+        // Only update full_name if it actually changed
+        if (generatedFullName !== currentVoter.full_name) {
+          changesToSend.full_name = generatedFullName;
+          console.log(`  -> Generated full_name: "${generatedFullName}" from individual name fields`);
+        }
+      }
+
       modifiedFields.forEach(fieldName => {
+        // Skip full_name as we handle it separately
+        if (fieldName === 'full_name') return;
+        
         const field = fieldName as keyof Voter;
         const newValue = editFormData[field];
         const originalValue = currentVoter[field];
@@ -558,21 +579,63 @@ const RegisteredVoters: React.FC = () => {
             </div>
           );
         }
-      })
+      }),
+      columnHelper.accessor('situation', {
+        header: 'Situation',
+        cell: info => {
+          const voter = info.row.original;
+          if (editingId === voter.id) {
+            return (
+              <select
+                name="situation"
+                value={editFormData.situation ?? voter.situation ?? ''}
+                onChange={handleInputChange}
+                className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              >
+                <option value="">Select...</option>
+                {situationOptions.map(option => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            );
+          }
+
+          const value = info.getValue();
+          const colorClass = value === 'WITH' ? 'text-green-600 dark:text-green-400' :
+                            value === 'AGAINST' ? 'text-red-600 dark:text-red-400' :
+                            value === 'NEUTRAL' ? 'text-blue-500 dark:text-blue-300' :
+                            value === 'NEUTRAL+' ? 'text-indigo-500 dark:text-indigo-300' :
+                            value === 'DEATH' ? 'text-gray-600 dark:text-gray-400' :
+                            value === 'IMMIGRANT' ? 'text-yellow-600 dark:text-yellow-400' :
+                            value === 'MILITARY' ? 'text-purple-600 dark:text-purple-400' :
+                            value === 'NO_VOTE' ? 'text-orange-600 dark:text-orange-400' :
+                            value === 'UNKNOWN' ? 'text-gray-500 dark:text-gray-400' :
+                            'text-gray-700 dark:text-gray-300';
+
+          return (
+            <span className={`${colorClass} font-medium`}>{value || '-'}</span>
+          );
+        },
+        enableSorting: true,
+        enableColumnFilter: true,
+        filterFn: (row, columnId, filterValue) => {
+          if (!filterValue) return true;
+          const value = row.getValue(columnId);
+          return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+        },
+      }),
     ] : []),
     columnHelper.accessor('full_name', { 
       header: 'Full Name', 
       cell: info => {
         const voter = info.row.original;
+        // For full_name, we don't provide an edit input as it will be auto-generated
         if (editingId === voter.id) {
           return (
-            <input
-              type="text"
-              name="full_name"
-              value={editFormData.full_name ?? voter.full_name ?? ''}
-              onChange={handleInputChange}
-              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
-            />
+            <div className="text-gray-500 dark:text-gray-400 italic">
+              {editFormData.first_name ?? voter.first_name ?? ''} {editFormData.father_name ?? voter.father_name ?? ''} {editFormData.last_name ?? voter.last_name ?? ''}
+              <div className="text-xs">(Generated automatically)</div>
+            </div>
           );
         }
         return info.getValue();
@@ -788,10 +851,11 @@ const RegisteredVoters: React.FC = () => {
           return (
             <input
               type="text"
+              id="mother_name"
               name="mother_name"
-              value={editFormData.mother_name ?? voter.mother_name ?? ''}
-              onChange={handleInputChange}
-              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+              value={editFormData.mother_name || ''}
+              onChange={handleNewVoterInputChange}
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
             />
           );
         }
@@ -800,36 +864,6 @@ const RegisteredVoters: React.FC = () => {
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: 'includesString',
-    }),
-    columnHelper.accessor('situation', { 
-      header: 'Situation', 
-      cell: info => {
-        const voter = info.row.original;
-        if (editingId === voter.id) {
-          return (
-            <select
-              name="situation"
-              value={editFormData.situation ?? voter.situation ?? ''}
-              onChange={handleInputChange}
-              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
-            >
-              <option value="">Select...</option>
-              {situationOptions.map(option => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          );
-        }
-        return info.getValue() ?? '-';
-      },
-      enableSorting: true,
-      enableColumnFilter: true,
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        const value = row.getValue(columnId);
-        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
-        return String(value) === filterValue;
-      },
     }),
     columnHelper.accessor('dob', { 
       header: 'DOB', 
@@ -1781,8 +1815,8 @@ const RegisteredVoters: React.FC = () => {
                       className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select...</option>
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
+                      <option value="الذكور">الذكور</option>
+                      <option value="الإناث">الإناث</option>
                       {/* Add other options if needed */}
                     </select>
                   </div>
