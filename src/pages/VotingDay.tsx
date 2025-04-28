@@ -21,6 +21,7 @@ interface Voter {
   register_sect: string | null;
   comments: string | null;
   has_voted: boolean | null;
+  gender: string | null;
 }
 
 // Toast notification component for success/error messages
@@ -87,6 +88,24 @@ const VotingDay: React.FC = () => {
     visible: boolean;
   } | null>(null);
 
+  // Determine permissions and which voters to show
+  const hasEditPermission = profile?.voting_day_access?.includes('edit') || false;
+  
+  // Get gender filter based on permission
+  const getGenderFilter = () => {
+    if (!profile || !profile.voting_day_access) return null;
+    
+    const accessType = profile.voting_day_access;
+    
+    if (accessType === 'view female' || accessType === 'edit female') {
+      return 'الإناث'; // Female
+    } else if (accessType === 'view male' || accessType === 'edit male') {
+      return 'الذكور'; // Male
+    }
+    
+    return null; // For 'view both' and 'edit both', return null to show all
+  };
+
   // Define table columns
   const columnHelper = createColumnHelper<Voter>();
   const columns = useMemo(() => [
@@ -104,6 +123,12 @@ const VotingDay: React.FC = () => {
     }),
     columnHelper.accessor('register_sect', { 
       header: 'Register Sect', 
+      cell: info => info.getValue() ?? '-',
+      enableSorting: true,
+      enableColumnFilter: true,
+    }),
+    columnHelper.accessor('gender', { 
+      header: 'Gender', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
@@ -128,11 +153,101 @@ const VotingDay: React.FC = () => {
       enableSorting: true,
       enableColumnFilter: true,
     }),
-  ], [columnHelper]);
+    // Only add the actions column with Mark as Voted button if user has edit permission
+    ...(hasEditPermission ? [
+      columnHelper.display({
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const voter = row.original;
+          return (
+            <div className="flex space-x-2 justify-center">
+              {!voter.has_voted && (
+                <button
+                  onClick={() => handleMarkVoted(voter.id)}
+                  className="bg-green-100 hover:bg-green-200 text-green-800 font-medium py-1 px-2 rounded text-xs transition-colors"
+                >
+                  Mark as Voted
+                </button>
+              )}
+              {voter.has_voted && (
+                <button
+                  onClick={() => handleUnmarkVoted(voter.id)}
+                  className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-medium py-1 px-2 rounded text-xs transition-colors"
+                >
+                  Unmark
+                </button>
+              )}
+            </div>
+          );
+        }
+      })
+    ] : [])
+  ], [columnHelper, hasEditPermission]);
+
+  // Handle marking a voter as voted
+  const handleMarkVoted = async (voterId: number) => {
+    try {
+      const { error } = await supabase
+        .from('avp_voters')
+        .update({ has_voted: true })
+        .eq('id', voterId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setVoters(prev => prev.map(voter => 
+        voter.id === voterId ? { ...voter, has_voted: true } : voter
+      ));
+      
+      setToast({
+        message: 'Voter marked as voted',
+        type: 'success',
+        visible: true
+      });
+    } catch (err: any) {
+      console.error('Error updating voter status:', err);
+      setToast({
+        message: err.message || 'Error updating voter status',
+        type: 'error',
+        visible: true
+      });
+    }
+  };
+  
+  // Handle unmarking a voter (set has_voted to false)
+  const handleUnmarkVoted = async (voterId: number) => {
+    try {
+      const { error } = await supabase
+        .from('avp_voters')
+        .update({ has_voted: false })
+        .eq('id', voterId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setVoters(prev => prev.map(voter => 
+        voter.id === voterId ? { ...voter, has_voted: false } : voter
+      ));
+      
+      setToast({
+        message: 'Voter unmarked',
+        type: 'success',
+        visible: true
+      });
+    } catch (err: any) {
+      console.error('Error updating voter status:', err);
+      setToast({
+        message: err.message || 'Error updating voter status',
+        type: 'error',
+        visible: true
+      });
+    }
+  };
 
   useEffect(() => {
     // Check permission first
-    if (profile?.voting_day_access === 'none') {
+    if (!profile?.voting_day_access || profile.voting_day_access === 'none') {
       setError('You do not have permission to view this page.');
       setLoading(false);
       return;
@@ -170,11 +285,19 @@ const VotingDay: React.FC = () => {
   const fetchVoters = async () => {
     setVotersLoading(true);
     try {
-      // Select required columns from avp_voters
-      const { data, error: fetchError } = await supabase
+      // Build query with required columns
+      let query = supabase
         .from('avp_voters')
-        .select('id, full_name, register, register_sect, comments, has_voted')
-        .order('full_name', { ascending: true });
+        .select('id, full_name, register, register_sect, comments, has_voted, gender');
+      
+      // Apply gender filter based on permissions
+      const genderFilter = getGenderFilter();
+      if (genderFilter) {
+        query = query.eq('gender', genderFilter);
+      }
+      
+      // Execute query and sort by name
+      const { data, error: fetchError } = await query.order('full_name', { ascending: true });
 
       if (fetchError) {
         throw fetchError;
@@ -256,6 +379,11 @@ const VotingDay: React.FC = () => {
     );
   }
 
+  // Calculate voting statistics
+  const totalVoters = voters.length;
+  const votedCount = voters.filter(voter => voter.has_voted).length;
+  const votingRate = totalVoters > 0 ? Math.round((votedCount / totalVoters) * 100) : 0;
+
   // Main content
   return (
     <div className="p-4 sm:p-6 bg-white dark:bg-gray-900 min-h-screen">
@@ -272,6 +400,47 @@ const VotingDay: React.FC = () => {
         <div>
           <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Voting Day</h2>
           <p className="text-gray-600 dark:text-gray-400">Monitor and manage election day activities</p>
+        </div>
+      </div>
+
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-blue-100 dark:border-blue-900">
+          <div className="rounded-full bg-blue-100 dark:bg-blue-900 p-3 mr-4 flex items-center justify-center w-12 h-12">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Voters</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{totalVoters}</p>
+          </div>
+        </div>
+        
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-blue-100 dark:border-blue-900">
+          <div className="rounded-full bg-green-100 dark:bg-green-900 p-3 mr-4 flex items-center justify-center w-12 h-12">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 dark:text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Voted</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{votedCount}</p>
+          </div>
+        </div>
+        
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-blue-100 dark:border-blue-900">
+          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-2">Participation Rate</p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{votingRate}%</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{votedCount} of {totalVoters}</p>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+            <div 
+              className="bg-blue-600 dark:bg-blue-400 h-2.5 rounded-full" 
+              style={{ width: `${votingRate}%` }}
+            ></div>
+          </div>
         </div>
       </div>
 

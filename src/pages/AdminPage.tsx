@@ -85,7 +85,7 @@ const schema = z.object({
   registered_voters_access: z.enum(['none', 'view', 'edit']),
   family_situation_access: z.enum(['none', 'view', 'edit']),
   statistics_access: z.enum(['none', 'view']),
-  voting_day_access: z.enum(['none', 'view', 'edit']),
+  voting_day_access: z.enum(['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both']),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -98,7 +98,7 @@ const editSchema = z.object({
   registered_voters_access: z.enum(['none', 'view', 'edit']),
   family_situation_access: z.enum(['none', 'view', 'edit']),
   statistics_access: z.enum(['none', 'view']),
-  voting_day_access: z.enum(['none', 'view', 'edit']),
+  voting_day_access: z.enum(['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both']),
 });
 
 type EditFormValues = z.infer<typeof editSchema>;
@@ -360,7 +360,7 @@ const CreateUserTab = () => {
         {renderSelect('registered_voters_access', 'Registered Voters Access', ['none', 'view', 'edit'])}
         {renderSelect('family_situation_access', 'Family Situation Access', ['none', 'view', 'edit'])}
         {renderSelect('statistics_access', 'Statistics Access', ['none', 'view'])}
-        {renderSelect('voting_day_access', 'Voting Day Access', ['none', 'view', 'edit'])}
+        {renderSelect('voting_day_access', 'Voting Day Access', ['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both'])}
 
         <div>
           <button
@@ -522,8 +522,12 @@ const ManageUsersTab = () => {
             className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
           >
             <option value="none">None</option>
-            <option value="view">View</option>
-            <option value="edit">Edit</option>
+            <option value="view female">View Female</option>
+            <option value="view male">View Male</option>
+            <option value="view both">View Both</option>
+            <option value="edit female">Edit Female</option>
+            <option value="edit male">Edit Male</option>
+            <option value="edit both">Edit Both</option>
           </select>
         ) : getValue(),
       enableSorting: true,
