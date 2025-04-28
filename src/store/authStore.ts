@@ -28,7 +28,11 @@ interface AuthState {
   setProfile: (profile: UserProfile | null) => void;
   fetchProfile: (userId: string) => Promise<void>;
   clearAuth: () => void;
+  refreshUserProfile: () => Promise<void>;
 }
+
+// Create a custom event for permission changes
+export const PERMISSION_CHANGE_EVENT = 'permission_change_event';
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
@@ -40,7 +44,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ session, user: session?.user ?? null });
   },
   setProfile: (profile: UserProfile | null) => {
+    const prevProfile = get().profile;
     set({ profile, profileLoading: false });
+    
+    // Dispatch custom event if voting_day_access changed
+    if (prevProfile && profile && prevProfile.voting_day_access !== profile.voting_day_access) {
+      console.log('Voting day access changed:', profile.voting_day_access);
+      window.dispatchEvent(new CustomEvent(PERMISSION_CHANGE_EVENT, {
+        detail: { 
+          type: 'voting_day_access',
+          value: profile.voting_day_access
+        }
+      }));
+    }
   },
   fetchProfile: async (userId: string) => {
     const session = get().session;
@@ -107,6 +123,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     }
   },
+  refreshUserProfile: async () => {
+    const { user } = get();
+    if (user?.id) {
+      await get().fetchProfile(user.id);
+      return;
+    }
+  },
   clearAuth: () => {
     set({ session: null, user: null, profile: null, loading: false, profileLoading: false });
   },
@@ -167,4 +190,31 @@ export function initializeAuthListener() {
     return () => {
         authListener?.subscription.unsubscribe();
     };
+}
+
+// Set up a realtime subscription to monitor profile changes
+export function setupProfileChangeListener() {
+    const { user, refreshUserProfile } = useAuthStore.getState();
+    
+    if (!user) return null;
+    
+    // Subscribe to changes on the avp_profiles table for the current user
+    const channel = supabase
+        .channel('profile-changes')
+        .on(
+            'postgres_changes',
+            { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'avp_profiles',
+                filter: `id=eq.${user.id}`
+            },
+            (payload) => {
+                console.log('Profile updated:', payload);
+                refreshUserProfile();
+            }
+        )
+        .subscribe();
+        
+    return channel;
 }

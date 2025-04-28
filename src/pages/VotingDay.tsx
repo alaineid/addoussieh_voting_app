@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabaseClient';
 import { 
@@ -10,8 +10,10 @@ import {
   getSortedRowModel,
   SortingState,
   getFilteredRowModel,
-  ColumnFiltersState
+  ColumnFiltersState,
+  FilterFn
 } from '@tanstack/react-table';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Define interface for voter data
 interface Voter {
@@ -68,6 +70,89 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
   );
 };
 
+// Filter components for table columns
+// Text Filter component for text-based columns
+const TextFilter: React.FC<{ column: any; table: any }> = React.memo(({ column }) => {
+  const columnFilterValue = column.getFilterValue() ?? '';
+  return (
+    <input
+      type="text"
+      value={columnFilterValue}
+      onChange={e => column.setFilterValue(e.target.value)}
+      placeholder={`Filter...`}
+      className="w-full px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+    />
+  );
+});
+
+// Select Filter component for columns with finite options
+const SelectFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, table }) => {
+  const columnFilterValue = column.getFilterValue() ?? '';
+  const sortedUniqueValues = React.useMemo(() => {
+    if (!table) return [];
+    
+    const values = table.getPreFilteredRowModel().flatRows
+      .map((row: any) => row.getValue(column.id))
+      .map((v: any) => (v === null || v === undefined || v === '' ? '__EMPTY__' : v));
+    
+    const set = new Set(values);
+    const arr = Array.from(set);
+    
+    // For 'register', sort numerically (empty first)
+    if (column.id === 'register') {
+      return arr.sort((a, b) => {
+        if (a === '__EMPTY__') return -1;
+        if (b === '__EMPTY__') return 1;
+        return Number(a) - Number(b);
+      });
+    }
+    
+    // Default sort
+    return arr.sort((a, b) => {
+      if (a === '__EMPTY__') return -1;
+      if (b === '__EMPTY__') return 1;
+      return String(a).localeCompare(String(b));
+    });
+  }, [column.id, table]);
+  
+  return (
+    <select
+      value={columnFilterValue}
+      onChange={e => column.setFilterValue(e.target.value)}
+      className="w-full px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+    >
+      <option value="">All</option>
+      {sortedUniqueValues.map((value) => (
+        <option key={value as string} value={value as string}>
+          {value === '__EMPTY__' ? '-' : (value as string)}
+        </option>
+      ))}
+    </select>
+  );
+});
+
+// Boolean Filter component for has_voted
+const BooleanFilter: React.FC<{ column: any; table: any }> = React.memo(({ column }) => {
+  const columnFilterValue = column.getFilterValue();
+  
+  return (
+    <select
+      value={columnFilterValue === undefined ? "" : String(columnFilterValue)}
+      onChange={e => {
+        let value: boolean | undefined = undefined;
+        if (e.target.value === 'true') value = true;
+        if (e.target.value === 'false') value = false;
+        column.setFilterValue(value);
+      }}
+      className="w-full px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+    >
+      <option value="">All</option>
+      <option value="true">Yes</option>
+      <option value="false">No</option>
+    </select>
+  );
+});
+
 const VotingDay: React.FC = () => {
   const { profile, session } = useAuthStore();
   const [loading, setLoading] = useState<boolean>(true);
@@ -79,7 +164,8 @@ const VotingDay: React.FC = () => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
-  const [realtimeChannelRef] = useState<any>(null);
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const subscriptionErrorCountRef = useRef<number>(0);
   
   // Toast state
   const [toast, setToast] = useState<{
@@ -88,6 +174,11 @@ const VotingDay: React.FC = () => {
     visible: boolean;
   } | null>(null);
 
+  // Dropdown options for filter (populated on data load)
+  const [registerSectOptions, setRegisterSectOptions] = useState<string[]>([]);
+  const [genderOptions, setGenderOptions] = useState<string[]>([]);
+  const [registerOptions, setRegisterOptions] = useState<string[]>([]);
+  
   // Determine permissions and which voters to show
   const hasEditPermission = profile?.voting_day_access?.includes('edit') || false;
   
@@ -114,30 +205,51 @@ const VotingDay: React.FC = () => {
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('register', { 
       header: 'Register', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        // Compare as strings
+        return String(value) === filterValue;
+      },
     }),
     columnHelper.accessor('register_sect', { 
       header: 'Register Sect', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+      },
     }),
     columnHelper.accessor('gender', { 
       header: 'Gender', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        return String(value) === filterValue;
+      },
     }),
     columnHelper.accessor('comments', { 
       header: 'Comments', 
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
+      filterFn: 'includesString',
     }),
     columnHelper.accessor('has_voted', { 
       header: 'Has Voted', 
@@ -152,6 +264,14 @@ const VotingDay: React.FC = () => {
       ),
       enableSorting: true,
       enableColumnFilter: true,
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        if (filterValue === 'true') return value === true;
+        if (filterValue === 'false') return value === false;
+        return true;
+      },
     }),
     // Only add the actions column with Mark as Voted button if user has edit permission
     ...(hasEditPermission ? [
@@ -245,36 +365,85 @@ const VotingDay: React.FC = () => {
     }
   };
 
+  // Initial data fetch and real-time subscription setup
   useEffect(() => {
-    // Check permission first
-    if (!profile?.voting_day_access || profile.voting_day_access === 'none') {
+    if (profile?.voting_day_access === 'none') {
       setError('You do not have permission to view this page.');
       setLoading(false);
       return;
     }
 
-    // Initialize page data
-    const fetchVotingDayData = async () => {
-      try {
-        // Fetch voters data
-        const { data: votersData, error: votersError } = await supabase
-          .from('avp_voters')
-          .select('id, has_voted');
-        
-        if (votersError) {
-          throw votersError;
-        }
-        
+    setLoading(true); // Set loading true for the initial fetch
+    
+    // Fetch initial data
+    fetchVoters()
+      .then(() => {
+        // Setup realtime subscription after initial data fetch succeeds
+        setupRealtimeSubscription();
+      })
+      .catch(err => {
+        console.error('Initial data fetch error:', err);
+      })
+      .finally(() => {
         setLoading(false);
-      } catch (err: any) {
-        console.error('Error loading voting day data:', err);
-        setError(err.message || 'Failed to load voting day data');
-        setLoading(false);
+      });
+
+    // Cleanup function
+    return () => {
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
       }
     };
 
-    fetchVotingDayData();
-  }, [profile]);
+  }, [profile?.id]); // Only run on initial mount or when user changes
+
+  // Watch for changes in voting_day_access permission and perform a full reset
+  useEffect(() => {
+    if (!profile || loading) return;
+    
+    if (profile.voting_day_access === 'none') {
+      setError('You do not have permission to view this page.');
+      setLoading(false);
+      return;
+    }
+    
+    console.log('Permission changed to:', profile.voting_day_access);
+    setVotersLoading(true); // Show loading state
+
+    // Clear existing data to avoid showing incorrect filtered data momentarily
+    setVoters([]);
+    
+    // Clean up existing subscription if it exists
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
+    }
+    
+    // Fetch data with new filter
+    fetchVoters()
+      .then(() => {
+        setupRealtimeSubscription();
+        
+        // Show success toast for better UX feedback
+        setToast({
+          message: `Filter applied: ${profile.voting_day_access}`,
+          type: 'success',
+          visible: true
+        });
+      })
+      .catch(err => {
+        console.error('Error applying new filter:', err);
+        setToast({
+          message: 'Failed to apply new filter. Please refresh the page.',
+          type: 'error',
+          visible: true
+        });
+      })
+      .finally(() => {
+        setVotersLoading(false);
+      });
+      
+  }, [profile?.voting_day_access]);
 
   // Close toast notification
   const handleCloseToast = () => {
@@ -306,10 +475,115 @@ const VotingDay: React.FC = () => {
       // Set voters data
       setVoters(data as Voter[] || []);
       setVotersLoading(false);
+
+      // Extract unique values for dropdown filters
+      if (data) {
+        // Get unique register sect values
+        const sects = Array.from(new Set(data
+          .map(voter => voter.register_sect)
+          .filter(sect => sect !== null) as string[]
+        )).sort();
+        setRegisterSectOptions(sects);
+
+        // Get unique gender values
+        const genders = Array.from(new Set(data
+          .map(voter => voter.gender)
+          .filter(gender => gender !== null) as string[]
+        )).sort();
+        setGenderOptions(genders);
+        
+        // Get unique register values sorted in ascending order
+        const registers = Array.from(new Set(data
+          .map(voter => voter.register)
+          .filter(register => register !== null)
+          .map(register => String(register)) as string[]
+        )).sort((a, b) => Number(a) - Number(b));
+        setRegisterOptions(registers);
+      }
     } catch (err: any) {
       console.error('Error fetching voters:', err);
       setVotersLoading(false);
     }
+  };
+
+  // Setup realtime subscription function
+  const setupRealtimeSubscription = () => {
+    // Clean up existing subscription if it exists
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+    }
+
+    // Create new subscription
+    const channel = supabase
+      .channel('voting-day-changes-' + Date.now()) // Add timestamp to make each channel name unique
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'avp_voters' },
+        (payload) => {
+          console.log('Voter change detected!', payload);
+          
+          // Get the current gender filter based on permissions
+          const genderFilter = getGenderFilter();
+          
+          // Handle INSERT and DELETE events with a full refetch to maintain permission filters
+          if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+            fetchVoters();
+            return;
+          }
+
+          // For UPDATE events, check if the voter should be included based on gender filter
+          if (payload.eventType === 'UPDATE' && payload.new && payload.new.id) {
+            // If we have a gender filter and the voter doesn't match, skip the update
+            if (genderFilter && payload.new.gender !== genderFilter) {
+              return;
+            }
+            
+            // Otherwise update the voter in our local state
+            setVoters(currentVoters => 
+              currentVoters.map(voter => 
+                voter.id === payload.new.id ? { ...voter, ...payload.new } : voter
+              )
+            );
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Subscribed to voting day changes!');
+          subscriptionErrorCountRef.current = 0; // Reset error count on successful subscription
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Realtime channel error:', err);
+          
+          subscriptionErrorCountRef.current += 1;
+          
+          // If we've had multiple errors, show a toast to the user
+          if (subscriptionErrorCountRef.current >= 3) {
+            setToast({
+              message: 'Having trouble with live updates. You may need to refresh the page.',
+              type: 'error',
+              visible: true
+            });
+          }
+          
+          // Try to reestablish connection after a delay
+          setTimeout(() => {
+            if (subscriptionErrorCountRef.current < 5) { // Don't keep trying forever
+              setupRealtimeSubscription();
+            }
+          }, 5000);
+        }
+        if (status === 'TIMED_OUT') {
+          console.warn('Realtime connection timed out.');
+          // Try to reconnect after timeout
+          setTimeout(() => {
+            setupRealtimeSubscription();
+          }, 5000);
+        }
+      });
+
+    // Store the channel reference for cleanup
+    realtimeChannelRef.current = channel;
   };
 
   // Initialize the table instance
@@ -531,7 +805,49 @@ const VotingDay: React.FC = () => {
                       ))}
                     </tr>
                   ))}
+
+                  {/* Column Filters Row */}
+                  <tr>
+                    {table.getHeaderGroups()[0].headers.map(header => {
+                      const columnId = header.column.id;
+
+                      return (
+                        <th key={header.id} className="px-6 py-2 bg-gray-100 dark:bg-gray-700">
+                          {/* Only add filters for data columns, not action column */}
+                          {columnId !== 'actions' && (
+                            <>
+                              {/* Register Dropdown */}
+                              {columnId === 'register' && (
+                                <SelectFilter column={header.column} table={table} />
+                              )}
+                              
+                              {/* Register Sect Dropdown */}
+                              {columnId === 'register_sect' && (
+                                <SelectFilter column={header.column} table={table} />
+                              )}
+                              
+                              {/* Gender Dropdown */}
+                              {columnId === 'gender' && (
+                                <SelectFilter column={header.column} table={table} />
+                              )}
+
+                              {/* Has Voted Dropdown */}
+                              {columnId === 'has_voted' && (
+                                <BooleanFilter column={header.column} table={table} />
+                              )}
+
+                              {/* Text Search for Full Name and Comments */}
+                              {['full_name', 'comments'].includes(columnId) && (
+                                <TextFilter column={header.column} table={table} />
+                              )}
+                            </>
+                          )}
+                        </th>
+                      );
+                    })}
+                  </tr>
                 </thead>
+
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {table.getRowModel().rows.map(row => (
                     <tr key={row.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">

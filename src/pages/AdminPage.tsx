@@ -642,6 +642,11 @@ const ManageUsersTab = () => {
         throw new Error('Configuration error: Supabase URL not found.');
       }
       
+      // Get the user being edited to check if permissions change
+      const userBeingEdited = users.find(user => user.id === data.id);
+      const votingDayAccessChanged = userBeingEdited && 
+                                     userBeingEdited.voting_day_access !== data.voting_day_access;
+      
       // Call our custom serverless function instead of directly updating
       const functionUrl = `${supabaseUrl}/functions/v1/update_user_as_admin`;
       
@@ -685,6 +690,32 @@ const ManageUsersTab = () => {
           } : user
         )
       }));
+
+      // If this is the current user and voting_day_access changed, dispatch a custom event
+      const currentUserId = session?.user?.id;
+      if (currentUserId === data.id && votingDayAccessChanged) {
+        console.log('Current user voting_day_access changed, dispatching event');
+        
+        // Directly trigger profile reload for the current user
+        const { refreshUserProfile } = useAuthStore.getState();
+        refreshUserProfile();
+        
+        // Also dispatch a custom event that components can listen for
+        window.dispatchEvent(new CustomEvent('permission_change_event', {
+          detail: { 
+            type: 'voting_day_access',
+            value: data.voting_day_access
+          }
+        }));
+      }
+      
+      // Show toast notification for success
+      setToast({
+        message: 'User updated successfully',
+        type: 'success',
+        visible: true
+      });
+
     } catch (error: any) {
       console.error('Error updating user:', error);
       
