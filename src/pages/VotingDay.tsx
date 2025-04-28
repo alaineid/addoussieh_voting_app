@@ -13,14 +13,6 @@ import {
   ColumnFiltersState
 } from '@tanstack/react-table';
 
-// Define interfaces for voting day data
-interface VotingDayData {
-  id: string;
-  total_eligible_voters: number;
-  votes_cast: number;
-  last_updated: string;
-}
-
 // Define interface for voter data
 interface Voter {
   id: number;
@@ -79,10 +71,6 @@ const VotingDay: React.FC = () => {
   const { profile, session } = useAuthStore();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [votingDayData, setVotingDayData] = useState<VotingDayData | null>(null);
-  const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [editData, setEditData] = useState<Partial<VotingDayData>>({});
-  const [isSaving, setIsSaving] = useState<boolean>(false);
   
   // Voters table state
   const [voters, setVoters] = useState<Voter[]>([]);
@@ -142,14 +130,6 @@ const VotingDay: React.FC = () => {
     }),
   ], [columnHelper]);
 
-  // Calculate derived values
-  const turnoutRate = votingDayData && votingDayData.total_eligible_voters > 0 
-    ? Math.round((votingDayData.votes_cast / votingDayData.total_eligible_voters) * 100) 
-    : 0;
-
-  // Check if user has edit permission
-  const canEdit = profile?.voting_day_access === 'edit';
-
   useEffect(() => {
     // Check permission first
     if (profile?.voting_day_access === 'none') {
@@ -161,7 +141,7 @@ const VotingDay: React.FC = () => {
     // Initialize page data
     const fetchVotingDayData = async () => {
       try {
-        // Fetch voters data and calculate voting day stats from it
+        // Fetch voters data
         const { data: votersData, error: votersError } = await supabase
           .from('avp_voters')
           .select('id, has_voted');
@@ -169,24 +149,6 @@ const VotingDay: React.FC = () => {
         if (votersError) {
           throw votersError;
         }
-
-        // Calculate voting day statistics
-        const totalEligibleVoters = votersData?.length || 0;
-        const votesCast = votersData?.filter(voter => voter.has_voted === true).length || 0;
-        
-        // Create a voting day data object from the calculated values
-        const calculatedVotingDayData = {
-          id: 'generated',
-          total_eligible_voters: totalEligibleVoters,
-          votes_cast: votesCast,
-          last_updated: new Date().toISOString()
-        };
-        
-        setVotingDayData(calculatedVotingDayData);
-        setEditData({
-          total_eligible_voters: calculatedVotingDayData.total_eligible_voters,
-          votes_cast: calculatedVotingDayData.votes_cast
-        });
         
         setLoading(false);
       } catch (err: any) {
@@ -198,95 +160,6 @@ const VotingDay: React.FC = () => {
 
     fetchVotingDayData();
   }, [profile]);
-
-  // Handle edit form input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    // Ensure we're only accepting positive numbers
-    const numValue = parseInt(value);
-    if (isNaN(numValue) || numValue < 0) return;
-    
-    setEditData({
-      ...editData,
-      [name]: numValue
-    });
-  };
-
-  // Start editing mode
-  const handleEditClick = () => {
-    if (!canEdit) return;
-    
-    setIsEditing(true);
-    // Initialize edit form with current data
-    if (votingDayData) {
-      setEditData({
-        total_eligible_voters: votingDayData.total_eligible_voters,
-        votes_cast: votingDayData.votes_cast
-      });
-    }
-  };
-
-  // Cancel editing and revert changes
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    // Reset edit data to current values
-    if (votingDayData) {
-      setEditData({
-        total_eligible_voters: votingDayData.total_eligible_voters,
-        votes_cast: votingDayData.votes_cast
-      });
-    }
-  };
-
-  // Save changes to database
-  const handleSaveChanges = async () => {
-    if (!votingDayData || !canEdit) return;
-    
-    setIsSaving(true);
-    
-    try {
-      // Validate data
-      if (editData.votes_cast! > editData.total_eligible_voters!) {
-        throw new Error("Votes cast cannot exceed total eligible voters");
-      }
-      
-      const updates = {
-        ...editData,
-        last_updated: new Date().toISOString()
-      };
-      
-      // Update the database
-      const { data, error } = await supabase
-        .from('voting_day')
-        .update(updates)
-        .eq('id', votingDayData.id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // Update local state with saved data
-      setVotingDayData(data);
-      setIsEditing(false);
-      
-      // Show success message
-      setToast({
-        message: 'Changes saved successfully',
-        type: 'success',
-        visible: true
-      });
-    } catch (err: any) {
-      console.error('Error saving voting day data:', err);
-      // Show error message
-      setToast({
-        message: err.message || 'Failed to save changes',
-        type: 'error',
-        visible: true
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   // Close toast notification
   const handleCloseToast = () => {
@@ -399,133 +272,6 @@ const VotingDay: React.FC = () => {
         <div>
           <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Voting Day</h2>
           <p className="text-gray-600 dark:text-gray-400">Monitor and manage election day activities</p>
-        </div>
-        
-        {/* Edit button - only show if user has edit permission */}
-        {canEdit && !isEditing && (
-          <button
-            onClick={handleEditClick}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-sm transition-colors flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-            </svg>
-            Edit Data
-          </button>
-        )}
-        
-        {/* Save/Cancel buttons - only show when editing */}
-        {isEditing && (
-          <div className="flex space-x-3">
-            <button
-              onClick={handleCancelEdit}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              disabled={isSaving}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveChanges}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm transition-colors flex items-center disabled:opacity-70 disabled:cursor-not-allowed"
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  Save Changes
-                </>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {/* Stats Cards */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-blue-100 dark:border-blue-900">
-          <div className="flex items-center mb-4">
-            <div className="rounded-full bg-blue-100 dark:bg-blue-900 p-3 mr-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-            <div className="w-full">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">Total Eligible Voters</h3>
-              {isEditing ? (
-                <div className="mt-2">
-                  <input
-                    type="number"
-                    name="total_eligible_voters"
-                    value={editData.total_eligible_voters}
-                    onChange={handleInputChange}
-                    min="0"
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  />
-                </div>
-              ) : (
-                <p className="text-3xl font-bold text-blue-600 dark:text-blue-300">
-                  {votingDayData?.total_eligible_voters || 0}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-green-100 dark:border-green-900">
-          <div className="flex items-center mb-4">
-            <div className="rounded-full bg-green-100 dark:bg-green-900 p-3 mr-4">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 dark:text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="w-full">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">Votes Cast</h3>
-              {isEditing ? (
-                <div className="mt-2">
-                  <input
-                    type="number"
-                    name="votes_cast"
-                    value={editData.votes_cast}
-                    onChange={handleInputChange}
-                    min="0"
-                    max={editData.total_eligible_voters}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  />
-                  {editData.votes_cast! > editData.total_eligible_voters! && (
-                    <p className="text-xs text-red-500 mt-1">Votes cannot exceed eligible voters</p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-3xl font-bold text-green-600 dark:text-green-300">
-                  {votingDayData?.votes_cast || 0}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-blue-100 dark:border-gray-700">
-          <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">Turnout Rate</h3>
-          <p className="text-3xl font-bold text-gray-800 dark:text-white mb-2">{turnoutRate}%</p>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-4">
-            <div 
-              className="bg-blue-600 dark:bg-blue-400 h-2.5 rounded-full" 
-              style={{ width: `${turnoutRate}%` }}
-            ></div>
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {votingDayData?.votes_cast || 0} of {votingDayData?.total_eligible_voters || 0} voters
-          </p>
         </div>
       </div>
 
@@ -719,18 +465,6 @@ const VotingDay: React.FC = () => {
             </div>
           </>
         )}
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-blue-100 dark:border-gray-700">
-        <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Voting Progress</h3>
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <p>Voting data will be displayed here</p>
-          {votingDayData?.last_updated && (
-            <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-              Last updated: {new Date(votingDayData.last_updated).toLocaleString()}
-            </p>
-          )}
-        </div>
       </div>
     </div>
   );
