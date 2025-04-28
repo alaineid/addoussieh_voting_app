@@ -74,7 +74,7 @@ const Login = () => {
   };
 
   return (
-    <div className="flex justify-center pt-16 pb-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex justify-center pt-6 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-lg w-full space-y-8 p-10 bg-white dark:bg-gray-800 shadow-xl rounded-xl transition-colors duration-300">
         <div>
           <h2 className="mt-6 text-center text-3xl font-bold text-blue-800 dark:text-blue-300">

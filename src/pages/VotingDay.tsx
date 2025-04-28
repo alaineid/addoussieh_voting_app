@@ -355,12 +355,9 @@ const VotingDay: React.FC = () => {
       enableSorting: true,
       enableColumnFilter: true,
       filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
+        if (filterValue === undefined) return true;
         const value = row.getValue(columnId);
-        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
-        if (filterValue === 'true') return value === true;
-        if (filterValue === 'false') return value === false;
-        return true;
+        return value === filterValue;
       },
     }),
   ], [columnHelper, hasEditPermission]);
@@ -662,6 +659,8 @@ const VotingDay: React.FC = () => {
     getFilteredRowModel: getFilteredRowModel(),
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    // Prevent pagination reset on data update
+    autoResetPageIndex: false, 
     initialState: {
       pagination: {
         pageSize: 10, // Default page size

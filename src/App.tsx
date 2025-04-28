@@ -247,13 +247,11 @@ export default function App() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Create a fixed position header */}
-      {!isAuthPage && !authLoading && (
-        <header className={`fixed top-0 left-0 right-0 z-50 ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white'} shadow-lg`}>
-          <Banner />
-          <Nav />
-        </header>
-      )}
+      {/* Create a fixed position header - Now showing Banner for all pages, but Nav only for non-auth pages */}
+      <header className={`fixed top-0 left-0 right-0 z-50 ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white'} shadow-lg`}>
+        <Banner />
+        {!isAuthPage && !authLoading && <Nav />}
+      </header>
       
       {/* Main content with proper spacing */}
       <main className={`flex-grow w-full transition-colors duration-300 ${
@@ -261,10 +259,8 @@ export default function App() {
           ? isDarkMode ? 'bg-gray-800' : 'bg-gray-50'
           : isDarkMode ? 'bg-gray-900' : 'bg-white'
       }`}>
-        {/* Add spacer div only when header is shown */}
-        {!isAuthPage && !authLoading && (
-          <div className="w-full h-[170px] md:h-[180px]"></div>
-        )}
+        {/* Add spacer div for all pages now that banner is always shown */}
+        <div className="w-full h-[170px]"></div>
         
         <div className={isAuthPage ? '' : 'p-4 md:p-8'}>
           <Routes>
