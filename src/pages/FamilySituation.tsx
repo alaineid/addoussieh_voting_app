@@ -196,6 +196,8 @@ const FamilySituation: React.FC = () => {
     type: 'success' | 'error' | 'info' | 'warning';
     visible: boolean;
   } | null>(null);
+  // Add state for accordion
+  const [summaryExpanded, setSummaryExpanded] = useState<boolean>(true);
   
   // Reference for realtime subscription
   const realtimeChannelRef = useRef<any>(null);
@@ -203,6 +205,11 @@ const FamilySituation: React.FC = () => {
 
   // Check if user has permission to view the page
   const hasPermission = profile?.family_situation_access === 'view' || profile?.family_situation_access === 'edit';
+
+  // Function to toggle accordion
+  const toggleSummary = () => {
+    setSummaryExpanded(!summaryExpanded);
+  };
 
   // Function to fetch family statistics
   const fetchFamilyStatistics = async () => {
@@ -513,49 +520,183 @@ const FamilySituation: React.FC = () => {
       <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Family Situation</h2>
       <p className="text-gray-600 dark:text-gray-400 mb-6">Overview of family voting situations and statistics</p>
       
-      {/* Stats Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-green-100 dark:border-green-900">
-          <div className="rounded-full bg-green-100 dark:bg-green-900 p-3 mr-4 flex items-center justify-center w-12 h-12">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 dark:text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      {/* Unified Stats Summary Card as Accordion */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-blue-100 dark:border-gray-700 mb-6">
+        {/* Accordion Header */}
+        <button
+          onClick={toggleSummary}
+          className="w-full flex items-center justify-between p-4 md:p-6 text-left focus:outline-none"
+          aria-expanded={summaryExpanded}
+        >
+          <h3 className="text-lg font-medium text-blue-800 dark:text-blue-300">Voting Situation Summary</h3>
+          <div className="ml-2 flex items-center">
+            {totalVoters > 0 && (
+              <span className="mr-2 text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 py-1 px-2 rounded-md">
+                {totalVoters} voters
+              </span>
+            )}
+            <svg 
+              className={`w-5 h-5 text-blue-600 dark:text-blue-400 transform transition-transform duration-200 ${summaryExpanded ? 'rotate-180' : ''}`} 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">With Us</p>
-            <div className="flex items-center">
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400 mr-2">{totalStats?.WITH_FLAG || 0}</p>
-              <span className="text-sm text-green-500 dark:text-green-400">({withPercentage}%)</span>
-            </div>
-          </div>
-        </div>
+        </button>
         
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-red-100 dark:border-red-900">
-          <div className="rounded-full bg-red-100 dark:bg-red-900 p-3 mr-4 flex items-center justify-center w-12 h-12">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600 dark:text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Against</p>
-            <div className="flex items-center">
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400 mr-2">{totalStats?.AGAINST || 0}</p>
-              <span className="text-sm text-red-500 dark:text-red-400">({againstPercentage}%)</span>
+        {/* Accordion Content */}
+        <div 
+          className={`overflow-hidden transition-all duration-300 ${summaryExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}
+        >
+          <div className="border-t dark:border-gray-700 p-4 md:p-6">
+            {/* Primary Voting Stats */}
+            <div className="flex flex-wrap gap-4 mb-6">
+              <div className="flex-1 min-w-[120px] bg-green-50 dark:bg-green-900/30 rounded-lg p-4 flex items-center">
+                <div className="rounded-full bg-green-100 dark:bg-green-800 p-2 mr-3 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600 dark:text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">With Us</p>
+                  <div className="flex items-baseline">
+                    <p className="text-xl font-bold text-green-600 dark:text-green-400 mr-1.5">{totalStats?.WITH_FLAG || 0}</p>
+                    <span className="text-xs text-green-500 dark:text-green-400">({withPercentage}%)</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex-1 min-w-[120px] bg-red-50 dark:bg-red-900/30 rounded-lg p-4 flex items-center">
+                <div className="rounded-full bg-red-100 dark:bg-red-800 p-2 mr-3 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600 dark:text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Against</p>
+                  <div className="flex items-baseline">
+                    <p className="text-xl font-bold text-red-600 dark:text-red-400 mr-1.5">{totalStats?.AGAINST || 0}</p>
+                    <span className="text-xs text-red-500 dark:text-red-400">({againstPercentage}%)</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex-1 min-w-[120px] bg-blue-50 dark:bg-blue-900/30 rounded-lg p-4 flex items-center">
+                <div className="rounded-full bg-blue-100 dark:bg-blue-800 p-2 mr-3 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Neutral</p>
+                  <div className="flex items-baseline">
+                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mr-1.5">{(totalStats?.N || 0) + (totalStats?.N_PLUS || 0)}</p>
+                    <span className="text-xs text-blue-500 dark:text-blue-400">({neutralPercentage}%)</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-blue-100 dark:border-blue-900">
-          <div className="rounded-full bg-blue-100 dark:bg-blue-900 p-3 mr-4 flex items-center justify-center w-12 h-12">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Neutral</p>
-            <div className="flex items-center">
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mr-2">{(totalStats?.N || 0) + (totalStats?.N_PLUS || 0)}</p>
-              <span className="text-sm text-blue-500 dark:text-blue-400">({neutralPercentage}%)</span>
+            
+            {/* Secondary Voting Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {/* Death */}
+              <div className="bg-gray-50 dark:bg-gray-700/30 rounded-md p-3 flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-gray-500 dark:bg-gray-400 mr-2.5"></div>
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Death</p>
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{totalStats?.DEATH || 0}</p>
+                  </div>
+                  <div className="text-right text-xs text-gray-500 dark:text-gray-400">
+                    {totalVoters > 0 ? Math.round((totalStats?.DEATH || 0) / totalVoters * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+              
+              {/* Immigrant */}
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-md p-3 flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 dark:bg-yellow-400 mr-2.5"></div>
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Immigrant</p>
+                    <p className="text-sm font-semibold text-yellow-700 dark:text-yellow-300">{totalStats?.IMMIGRANT || 0}</p>
+                  </div>
+                  <div className="text-right text-xs text-yellow-600 dark:text-yellow-400">
+                    {totalVoters > 0 ? Math.round((totalStats?.IMMIGRANT || 0) / totalVoters * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+              
+              {/* Military */}
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-md p-3 flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-purple-500 dark:bg-purple-400 mr-2.5"></div>
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Military</p>
+                    <p className="text-sm font-semibold text-purple-700 dark:text-purple-300">{totalStats?.MILITARY || 0}</p>
+                  </div>
+                  <div className="text-right text-xs text-purple-600 dark:text-purple-400">
+                    {totalVoters > 0 ? Math.round((totalStats?.MILITARY || 0) / totalVoters * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+              
+              {/* No Vote */}
+              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-md p-3 flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-orange-500 dark:bg-orange-400 mr-2.5"></div>
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">No Vote</p>
+                    <p className="text-sm font-semibold text-orange-700 dark:text-orange-300">{totalStats?.NO_VOTE || 0}</p>
+                  </div>
+                  <div className="text-right text-xs text-orange-600 dark:text-orange-400">
+                    {totalVoters > 0 ? Math.round((totalStats?.NO_VOTE || 0) / totalVoters * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+              
+              {/* Neutral+ */}
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-md p-3 flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 dark:bg-indigo-300 mr-2.5"></div>
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Neutral+</p>
+                    <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">{totalStats?.N_PLUS || 0}</p>
+                  </div>
+                  <div className="text-right text-xs text-indigo-600 dark:text-indigo-400">
+                    {totalVoters > 0 ? Math.round((totalStats?.N_PLUS || 0) / totalVoters * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+              
+              {/* Unknown */}
+              <div className="bg-gray-50 dark:bg-gray-700/30 rounded-md p-3 flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-gray-400 dark:bg-gray-500 mr-2.5"></div>
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Unknown</p>
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{totalStats?.UNKNOWN || 0}</p>
+                  </div>
+                  <div className="text-right text-xs text-gray-500 dark:text-gray-400">
+                    {totalVoters > 0 ? Math.round((totalStats?.UNKNOWN || 0) / totalVoters * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+              
+              {/* Total Voters */}
+              <div className="sm:col-span-3 lg:col-span-6 bg-white dark:bg-gray-800 border border-blue-100 dark:border-blue-900/30 rounded-md p-3 mt-2 flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className="rounded-full bg-blue-100 dark:bg-blue-900/30 p-1.5 mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Total Registered Voters</p>
+                </div>
+                <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{totalVoters}</p>
+              </div>
             </div>
           </div>
         </div>
