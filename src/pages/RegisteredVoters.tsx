@@ -697,8 +697,8 @@ const RegisteredVoters: React.FC = () => {
               className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
             >
               <option value="">Select...</option> 
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
+              <option value="الذكور">الذكور</option>
+              <option value="الإناث">الإناث</option>
               {/* Add other options if needed */}
             </select>
           );
