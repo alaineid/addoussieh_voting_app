@@ -151,6 +151,9 @@ const RegisteredVoters: React.FC = () => {
     has_voted: false
   });
 
+  // Dropdown options for filters (populated on data load)
+  const [situationOptions, setSituationOptions] = useState<string[]>([]);
+
   // Permission check
   const hasEditPermission = profile?.registered_voters_access === 'edit';
   
@@ -803,7 +806,6 @@ const RegisteredVoters: React.FC = () => {
       cell: info => {
         const voter = info.row.original;
         if (editingId === voter.id) {
-          // Assuming situation has specific values, a select might be better
           return (
             <select
               name="situation"
@@ -812,15 +814,9 @@ const RegisteredVoters: React.FC = () => {
               className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
             >
               <option value="">Select...</option>
-              <option value="WITH">WITH</option>
-              <option value="N+">N+</option>
-              <option value="N">N</option>
-              <option value="N-">N-</option>
-              <option value="AGAINST">AGAINST</option>
-              <option value="NOVOTE">NOVOTE</option>
-              <option value="DEATH">DEATH</option>
-              <option value="MILITARY">MILITARY</option>
-              {/* Add other options if needed */}
+              {situationOptions.map(option => (
+                <option key={option} value={option}>{option}</option>
+              ))}
             </select>
           );
         }
@@ -828,7 +824,12 @@ const RegisteredVoters: React.FC = () => {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        return String(value) === filterValue;
+      },
     }),
     columnHelper.accessor('dob', { 
       header: 'DOB', 
@@ -909,7 +910,13 @@ const RegisteredVoters: React.FC = () => {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        // Use exact matching instead of substring matching
+        return String(value) === filterValue;
+      },
     }),
     columnHelper.accessor('has_voted', { 
       header: 'Has Voted', 
@@ -971,6 +978,20 @@ const RegisteredVoters: React.FC = () => {
 
       // Type assertion to tell TypeScript that this data matches our Voter interface
       setVoters(data as Voter[] || []);
+      
+      // Fetch distinct situation values
+      const { data: situationData, error: situationError } = await supabase
+        .from('avp_voters')
+        .select('situation')
+        .not('situation', 'is', null);
+        
+      if (!situationError && situationData) {
+        // Extract unique situation values
+        const uniqueSituations = Array.from(
+          new Set(situationData.map(item => item.situation).filter(Boolean))
+        ).sort() as string[];
+        setSituationOptions(uniqueSituations);
+      }
 
     } catch (err: any) {
       console.error('Error fetching voters:', err);
@@ -1240,24 +1261,8 @@ const RegisteredVoters: React.FC = () => {
           <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 shadow-inner">
             <button
               onClick={() => {
-                setViewMode('table');
                 userSelectedViewMode.current = true;
-              }}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                viewMode === 'table'
-                  ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 shadow-sm'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-              }`}
-            >
-              <div className="flex items-center">
-                <i className="fas fa-table mr-1.5"></i>
-                Table
-              </div>
-            </button>
-            <button
-              onClick={() => {
                 setViewMode('card');
-                userSelectedViewMode.current = true;
               }}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                 viewMode === 'card'
@@ -1268,6 +1273,23 @@ const RegisteredVoters: React.FC = () => {
               <div className="flex items-center">
                 <i className="fas fa-th-large mr-1.5"></i>
                 Cards
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                userSelectedViewMode.current = true;
+                setViewMode('table');
+              }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                viewMode === 'table'
+                  ? 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 shadow-sm'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+              }`}
+            >
+              <div className="flex items-center">
+                <i className="fas fa-table mr-1.5"></i>
+                Table
               </div>
             </button>
           </div>
@@ -1314,7 +1336,7 @@ const RegisteredVoters: React.FC = () => {
                         {header.column.getCanFilter() ? (
                           <div className="mt-2">
                             {/* Use SelectFilter for 'family', 'register', etc. */}
-                            {header.column.id === 'family' || header.column.id === 'register' || header.column.id === 'gender' || header.column.id === 'sect' || header.column.id === 'register_sect' || header.column.id === 'alliance' ? (
+                            {header.column.id === 'family' || header.column.id === 'register' || header.column.id === 'gender' || header.column.id === 'sect' || header.column.id === 'register_sect' || header.column.id === 'alliance' || header.column.id === 'situation' || header.column.id === 'residence' ? (
                               <SelectFilter column={header.column} table={table} />
                             ) : header.column.id === 'has_voted' ? (
                               <BooleanFilter column={header.column} table={table} />
@@ -1732,7 +1754,7 @@ const RegisteredVoters: React.FC = () => {
                   </div>
                   
                   {/* Register Sect */}
-                  <div className="form-group">
+                  <div className="register_sect-group">
                     <label htmlFor="register_sect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Register Sect
                     </label>
@@ -1840,14 +1862,9 @@ const RegisteredVoters: React.FC = () => {
                       className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select...</option>
-                      <option value="WITH">WITH</option>
-                      <option value="N+">N+</option>
-                      <option value="N">N</option>
-                      <option value="N-">N-</option>
-                      <option value="AGAINST">AGAINST</option>
-                      <option value="NOVOTE">NOVOTE</option>
-                      <option value="DEATH">DEATH</option>
-                      <option value="MILITARY">MILITARY</option>
+                      {situationOptions.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
                     </select>
                   </div>
                 </div>

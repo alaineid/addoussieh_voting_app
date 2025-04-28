@@ -319,7 +319,8 @@ const VotingDay: React.FC = () => {
         if (!filterValue) return true;
         const value = row.getValue(columnId);
         if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
-        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+        // Use exact matching instead of substring matching
+        return String(value) === filterValue;
       },
     }),
     columnHelper.accessor('gender', { 
@@ -339,7 +340,13 @@ const VotingDay: React.FC = () => {
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        // Use exact matching instead of substring matching
+        return String(value) === filterValue;
+      },
     }),
     columnHelper.accessor('has_voted', { 
       header: 'Has Voted', 
