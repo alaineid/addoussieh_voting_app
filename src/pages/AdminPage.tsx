@@ -252,6 +252,7 @@ const CreateUserTab = () => {
           registered_voters_access: data.registered_voters_access,
           family_situation_access: data.family_situation_access,
           statistics_access: data.statistics_access,
+          voting_day_access: data.voting_day_access,
         }),
       });
 

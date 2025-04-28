@@ -167,6 +167,11 @@ const VotingDay: React.FC = () => {
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
   
+  // Comment modal state
+  const [commentModalOpen, setCommentModalOpen] = useState(false);
+  const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
+  const [commentText, setCommentText] = useState('');
+  
   // Toast state
   const [toast, setToast] = useState<{
     message: string;
@@ -197,6 +202,55 @@ const VotingDay: React.FC = () => {
     return null; // For 'view both' and 'edit both', return null to show all
   };
 
+  // Open comment modal for a voter
+  const handleOpenCommentModal = (voter: Voter) => {
+    setSelectedVoter(voter);
+    setCommentText(voter.comments || '');
+    setCommentModalOpen(true);
+  };
+
+  // Close comment modal
+  const handleCloseCommentModal = () => {
+    setCommentModalOpen(false);
+    setSelectedVoter(null);
+    setCommentText('');
+  };
+
+  // Save comment for voter
+  const handleSaveComment = async () => {
+    if (!selectedVoter) return;
+
+    try {
+      const { error } = await supabase
+        .from('avp_voters')
+        .update({ comments: commentText })
+        .eq('id', selectedVoter.id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setVoters(prev => prev.map(voter => 
+        voter.id === selectedVoter.id ? { ...voter, comments: commentText } : voter
+      ));
+      
+      setToast({
+        message: 'Comment saved successfully',
+        type: 'success',
+        visible: true
+      });
+      
+      // Close the modal
+      handleCloseCommentModal();
+    } catch (err: any) {
+      console.error('Error saving comment:', err);
+      setToast({
+        message: err.message || 'Error saving comment',
+        type: 'error',
+        visible: true
+      });
+    }
+  };
+
   // Define table columns
   const columnHelper = createColumnHelper<Voter>();
   const columns = useMemo(() => [
@@ -208,7 +262,7 @@ const VotingDay: React.FC = () => {
         cell: ({ row }) => {
           const voter = row.original;
           return (
-            <div className="flex space-x-2 justify-center">
+            <div className="flex space-x-2 justify-start">
               {!voter.has_voted && (
                 <button
                   onClick={() => handleMarkVoted(voter.id)}
@@ -225,6 +279,12 @@ const VotingDay: React.FC = () => {
                   Unmark
                 </button>
               )}
+              <button
+                onClick={() => handleOpenCommentModal(voter)}
+                className="bg-blue-100 hover:bg-blue-200 text-blue-800 font-medium py-1 px-2 rounded text-xs transition-colors"
+              >
+                Add Comment
+              </button>
             </div>
           );
         }
@@ -496,7 +556,7 @@ const VotingDay: React.FC = () => {
         const registers = Array.from(new Set(data
           .map(voter => voter.register)
           .filter(register => register !== null)
-          .map(register => String(register)) as string[]
+          .map(register => String(register))
         )).sort((a, b) => Number(a) - Number(b));
         setRegisterOptions(registers);
       }
@@ -668,6 +728,61 @@ const VotingDay: React.FC = () => {
           type={toast.type}
           onClose={handleCloseToast}
         />
+      )}
+      
+      {/* Comment Modal */}
+      {commentModalOpen && selectedVoter && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 dark:bg-gray-900 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div 
+              className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
+            >
+              <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900 sm:mx-0 sm:h-10 sm:w-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    </svg>
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
+                      Add Comment for {selectedVoter.full_name}
+                    </h3>
+                    <div className="mt-4">
+                      <textarea
+                        className="w-full px-3 py-2 text-gray-700 dark:text-white border rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                        rows={4}
+                        placeholder="Enter your comment here..."
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={handleSaveComment}
+                >
+                  Save Comment
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={handleCloseCommentModal}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       
       <div className="flex justify-between items-center mb-6">
@@ -850,11 +965,25 @@ const VotingDay: React.FC = () => {
 
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {table.getRowModel().rows.map(row => (
-                    <tr key={row.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
+                    <tr 
+                      key={row.id} 
+                      className={`
+                        transition-colors
+                        ${row.original.has_voted 
+                          ? 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30' 
+                          : 'bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/30'}
+                      `}
+                    >
                       {row.getVisibleCells().map(cell => (
                         <td 
                           key={cell.id} 
-                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300"
+                          className={`px-6 py-4 whitespace-nowrap text-sm ${
+                            row.original.has_voted
+                            ? 'text-gray-800 dark:text-gray-200'
+                            : 'text-gray-700 dark:text-gray-300'
+                          } ${
+                            cell.column.id === 'actions' ? 'text-left' : ''
+                          }`}
                         >
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
