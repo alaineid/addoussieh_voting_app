@@ -50,7 +50,7 @@ serve(async (req) => {
     }
 
     // Parse the request body to get the user update data
-    const { userId, full_name, role, registered_voters_access, family_situation_access, statistics_access } = await req.json();
+    const { userId, full_name, role, registered_voters_access, family_situation_access, statistics_access, voting_day_access } = await req.json();
     
     if (!userId) {
       throw new Error('User ID is required');
@@ -64,7 +64,8 @@ serve(async (req) => {
         role,
         registered_voters_access,
         family_situation_access,
-        statistics_access
+        statistics_access,
+        voting_day_access
       })
       .eq('id', userId);
     

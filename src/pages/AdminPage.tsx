@@ -85,6 +85,7 @@ const schema = z.object({
   registered_voters_access: z.enum(['none', 'view', 'edit']),
   family_situation_access: z.enum(['none', 'view', 'edit']),
   statistics_access: z.enum(['none', 'view']),
+  voting_day_access: z.enum(['none', 'view', 'edit']),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -97,6 +98,7 @@ const editSchema = z.object({
   registered_voters_access: z.enum(['none', 'view', 'edit']),
   family_situation_access: z.enum(['none', 'view', 'edit']),
   statistics_access: z.enum(['none', 'view']),
+  voting_day_access: z.enum(['none', 'view', 'edit']),
 });
 
 type EditFormValues = z.infer<typeof editSchema>;
@@ -358,6 +360,7 @@ const CreateUserTab = () => {
         {renderSelect('registered_voters_access', 'Registered Voters Access', ['none', 'view', 'edit'])}
         {renderSelect('family_situation_access', 'Family Situation Access', ['none', 'view', 'edit'])}
         {renderSelect('statistics_access', 'Statistics Access', ['none', 'view'])}
+        {renderSelect('voting_day_access', 'Voting Day Access', ['none', 'view', 'edit'])}
 
         <div>
           <button
@@ -508,6 +511,23 @@ const ManageUsersTab = () => {
         ) : getValue(),
       enableSorting: true,
     }),
+    columnHelper.accessor(row => row.voting_day_access, {
+      id: 'voting_day_access',
+      header: 'Voting Day Access',
+      cell: ({ row, getValue }) => 
+        editingId === row.original.id ? (
+          <select 
+            {...register('voting_day_access')} 
+            defaultValue={getValue() as string} 
+            className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          >
+            <option value="none">None</option>
+            <option value="view">View</option>
+            <option value="edit">Edit</option>
+          </select>
+        ) : getValue(),
+      enableSorting: true,
+    }),
     columnHelper.display({
       id: 'actions',
       header: 'Actions',
@@ -596,7 +616,8 @@ const ManageUsersTab = () => {
       role: user.role,
       registered_voters_access: user.registered_voters_access,
       family_situation_access: user.family_situation_access,
-      statistics_access: user.statistics_access
+      statistics_access: user.statistics_access,
+      voting_day_access: user.voting_day_access || 'none' // Include voting_day_access with fallback
     });
   };
 
@@ -632,7 +653,8 @@ const ManageUsersTab = () => {
           role: data.role,
           registered_voters_access: data.registered_voters_access,
           family_situation_access: data.family_situation_access,
-          statistics_access: data.statistics_access
+          statistics_access: data.statistics_access,
+          voting_day_access: data.voting_day_access
         }),
       });
       
@@ -654,7 +676,8 @@ const ManageUsersTab = () => {
             role: data.role,
             registered_voters_access: data.registered_voters_access,
             family_situation_access: data.family_situation_access,
-            statistics_access: data.statistics_access
+            statistics_access: data.statistics_access,
+            voting_day_access: data.voting_day_access
           } : user
         )
       }));

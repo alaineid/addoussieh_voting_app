@@ -14,6 +14,7 @@ import PrivateRoute from './components/PrivateRoute';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AdminPage from './pages/AdminPage';
+import VotingDay from './pages/VotingDay';
 import RootRedirector from './components/RootRedirector'; // Import the new component
 
 const Banner = () => (
@@ -84,6 +85,7 @@ const Nav = () => {
   const canViewVoters = profile?.registered_voters_access !== 'none';
   const canViewFamily = profile?.family_situation_access !== 'none';
   const canViewStats = profile?.statistics_access === 'view';
+  const canViewVotingDay = profile?.voting_day_access !== 'none';
 
   return (
     <div className="nav-menu">
@@ -105,6 +107,9 @@ const Nav = () => {
       
       <div className={`nav-links-container ${isMenuOpen ? 'active' : ''}`}>
         <div className="menu-items">
+          {canViewVotingDay && (
+            <NavLink to="/voting-day" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Day</NavLink>
+          )}
           {canViewVoters && (
             // Update NavLink path to /registered-voters
             <NavLink to="/registered-voters" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Registered Voters</NavLink>
@@ -188,6 +193,7 @@ const Footer = () => {
 const hasVoterAccess = (profile: UserProfile | null) => !!profile && profile.registered_voters_access !== 'none';
 const hasFamilyAccess = (profile: UserProfile | null) => !!profile && profile.family_situation_access !== 'none';
 const hasStatsAccess = (profile: UserProfile | null) => !!profile && profile.statistics_access === 'view';
+const hasVotingDayAccess = (profile: UserProfile | null) => !!profile && profile.voting_day_access !== 'none';
 const isAdminUser = (profile: UserProfile | null) => !!profile && profile.role === 'admin';
 
 export default function App() {
@@ -280,6 +286,16 @@ export default function App() {
             />
 
             {/* Specific Protected Routes */}
+            {/* Voting Day route should be first as requested */}
+            <Route
+              path="/voting-day"
+              element={
+                <PrivateRoute permissionCheck={() => hasVotingDayAccess(profile)}>
+                  <VotingDay />
+                </PrivateRoute>
+              }
+            />
+            
             {/* Define the actual component for '/registered-voters' */}
              <Route
               path="/registered-voters" // Changed path from "/"

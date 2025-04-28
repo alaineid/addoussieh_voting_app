@@ -5,6 +5,7 @@ import { useAuthStore, UserProfile } from '../store/authStore';
 const hasVoterAccess = (profile: UserProfile | null) => !!profile && profile.registered_voters_access !== 'none';
 const hasFamilyAccess = (profile: UserProfile | null) => !!profile && profile.family_situation_access !== 'none';
 const hasStatsAccess = (profile: UserProfile | null) => !!profile && profile.statistics_access === 'view';
+const hasVotingDayAccess = (profile: UserProfile | null) => !!profile && profile.voting_day_access !== 'none';
 
 const RootRedirector = () => {
   const navigate = useNavigate();
@@ -13,12 +14,17 @@ const RootRedirector = () => {
   useEffect(() => {
     // Wait until auth loading is finished and profile is available
     if (!loading && profile) {
+      const canViewVotingDay = hasVotingDayAccess(profile);
       const canViewVoters = hasVoterAccess(profile);
       const canViewFamily = hasFamilyAccess(profile);
       const canViewStats = hasStatsAccess(profile);
 
       // Determine the target path based on permissions
-      if (canViewVoters) {
+      if (canViewVotingDay) {
+        // Navigate to voting day as the highest priority page
+        console.log("Redirecting from RootRedirector to /voting-day");
+        navigate('/voting-day', { replace: true });
+      } else if (canViewVoters) {
         // Navigate to the dedicated route for voters
         console.log("Redirecting from RootRedirector to /registered-voters");
         navigate('/registered-voters', { replace: true });

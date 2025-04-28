@@ -103,23 +103,30 @@ serve(async (req) => {
       .select('*');
 
     if (profilesError) {
+      console.error("Error fetching profiles:", profilesError);
       throw profilesError;
     }
 
     // Fetch corresponding auth users to get emails
     const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
     if (authUsersError) {
+      console.error("Error fetching auth users:", authUsersError);
       throw authUsersError;
     }
 
     // Merge the profile and auth data
     const mergedUsers = profiles.map(profile => {
       const authUser = authUsers.users.find(user => user.id === profile.id);
+      if (!authUser) {
+        console.warn(`No auth user found for profile ID: ${profile.id}`);
+      }
       return {
         ...profile,
         email: authUser?.email || 'Unknown email'
       };
     });
+
+    console.log("Merged users:", mergedUsers);
 
     // Return the list of users
     return new Response(
