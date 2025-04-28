@@ -200,6 +200,36 @@ const VotingDay: React.FC = () => {
   // Define table columns
   const columnHelper = createColumnHelper<Voter>();
   const columns = useMemo(() => [
+    // Only add the actions column with Mark as Voted button if user has edit permission
+    ...(hasEditPermission ? [
+      columnHelper.display({
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const voter = row.original;
+          return (
+            <div className="flex space-x-2 justify-center">
+              {!voter.has_voted && (
+                <button
+                  onClick={() => handleMarkVoted(voter.id)}
+                  className="bg-green-100 hover:bg-green-200 text-green-800 font-medium py-1 px-2 rounded text-xs transition-colors"
+                >
+                  Mark as Voted
+                </button>
+              )}
+              {voter.has_voted && (
+                <button
+                  onClick={() => handleUnmarkVoted(voter.id)}
+                  className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-medium py-1 px-2 rounded text-xs transition-colors"
+                >
+                  Unmark
+                </button>
+              )}
+            </div>
+          );
+        }
+      })
+    ] : []),
     columnHelper.accessor('full_name', { 
       header: 'Full Name', 
       cell: info => info.getValue() ?? '-',
@@ -273,36 +303,6 @@ const VotingDay: React.FC = () => {
         return true;
       },
     }),
-    // Only add the actions column with Mark as Voted button if user has edit permission
-    ...(hasEditPermission ? [
-      columnHelper.display({
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => {
-          const voter = row.original;
-          return (
-            <div className="flex space-x-2 justify-center">
-              {!voter.has_voted && (
-                <button
-                  onClick={() => handleMarkVoted(voter.id)}
-                  className="bg-green-100 hover:bg-green-200 text-green-800 font-medium py-1 px-2 rounded text-xs transition-colors"
-                >
-                  Mark as Voted
-                </button>
-              )}
-              {voter.has_voted && (
-                <button
-                  onClick={() => handleUnmarkVoted(voter.id)}
-                  className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-medium py-1 px-2 rounded text-xs transition-colors"
-                >
-                  Unmark
-                </button>
-              )}
-            </div>
-          );
-        }
-      })
-    ] : [])
   ], [columnHelper, hasEditPermission]);
 
   // Handle marking a voter as voted
