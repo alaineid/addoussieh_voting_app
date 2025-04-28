@@ -1,6 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabaseClient';
+import { 
+  createColumnHelper, 
+  flexRender, 
+  getCoreRowModel, 
+  useReactTable,
+  getPaginationRowModel,
+  getSortedRowModel,
+  SortingState,
+  getFilteredRowModel,
+  ColumnFiltersState
+} from '@tanstack/react-table';
 
 // Define interfaces for voting day data
 interface VotingDayData {
@@ -8,6 +19,16 @@ interface VotingDayData {
   total_eligible_voters: number;
   votes_cast: number;
   last_updated: string;
+}
+
+// Define interface for voter data
+interface Voter {
+  id: number;
+  full_name: string | null;
+  register: number | null;
+  register_sect: string | null;
+  comments: string | null;
+  has_voted: boolean | null;
 }
 
 // Toast notification component for success/error messages
@@ -63,12 +84,63 @@ const VotingDay: React.FC = () => {
   const [editData, setEditData] = useState<Partial<VotingDayData>>({});
   const [isSaving, setIsSaving] = useState<boolean>(false);
   
+  // Voters table state
+  const [voters, setVoters] = useState<Voter[]>([]);
+  const [votersLoading, setVotersLoading] = useState<boolean>(true);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [realtimeChannelRef] = useState<any>(null);
+  
   // Toast state
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error';
     visible: boolean;
   } | null>(null);
+
+  // Define table columns
+  const columnHelper = createColumnHelper<Voter>();
+  const columns = useMemo(() => [
+    columnHelper.accessor('full_name', { 
+      header: 'Full Name', 
+      cell: info => info.getValue() ?? '-',
+      enableSorting: true,
+      enableColumnFilter: true,
+    }),
+    columnHelper.accessor('register', { 
+      header: 'Register', 
+      cell: info => info.getValue() ?? '-',
+      enableSorting: true,
+      enableColumnFilter: true,
+    }),
+    columnHelper.accessor('register_sect', { 
+      header: 'Register Sect', 
+      cell: info => info.getValue() ?? '-',
+      enableSorting: true,
+      enableColumnFilter: true,
+    }),
+    columnHelper.accessor('comments', { 
+      header: 'Comments', 
+      cell: info => info.getValue() ?? '-',
+      enableSorting: true,
+      enableColumnFilter: true,
+    }),
+    columnHelper.accessor('has_voted', { 
+      header: 'Has Voted', 
+      cell: info => (
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          info.getValue() 
+            ? 'bg-green-100 text-green-800' 
+            : 'bg-red-100 text-red-800'
+        }`}>
+          {info.getValue() ? 'Yes' : 'No'}
+        </span>
+      ),
+      enableSorting: true,
+      enableColumnFilter: true,
+    }),
+  ], [columnHelper]);
 
   // Calculate derived values
   const turnoutRate = votingDayData && votingDayData.total_eligible_voters > 0 
@@ -89,46 +161,32 @@ const VotingDay: React.FC = () => {
     // Initialize page data
     const fetchVotingDayData = async () => {
       try {
-        // Fetch voting day data from the database
-        const { data, error } = await supabase
-          .from('voting_day')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+        // Fetch voters data and calculate voting day stats from it
+        const { data: votersData, error: votersError } = await supabase
+          .from('avp_voters')
+          .select('id, has_voted');
         
-        if (error) {
-          throw error;
+        if (votersError) {
+          throw votersError;
         }
 
-        if (data) {
-          setVotingDayData(data);
-          setEditData({
-            total_eligible_voters: data.total_eligible_voters,
-            votes_cast: data.votes_cast
-          });
-        } else {
-          // If no data exists yet, create initial record
-          const initialData = {
-            total_eligible_voters: 0,
-            votes_cast: 0,
-            last_updated: new Date().toISOString()
-          };
-          
-          const { data: newData, error: createError } = await supabase
-            .from('voting_day')
-            .insert([initialData])
-            .select()
-            .single();
-            
-          if (createError) throw createError;
-          
-          setVotingDayData(newData);
-          setEditData({
-            total_eligible_voters: newData.total_eligible_voters,
-            votes_cast: newData.votes_cast
-          });
-        }
+        // Calculate voting day statistics
+        const totalEligibleVoters = votersData?.length || 0;
+        const votesCast = votersData?.filter(voter => voter.has_voted === true).length || 0;
+        
+        // Create a voting day data object from the calculated values
+        const calculatedVotingDayData = {
+          id: 'generated',
+          total_eligible_voters: totalEligibleVoters,
+          votes_cast: votesCast,
+          last_updated: new Date().toISOString()
+        };
+        
+        setVotingDayData(calculatedVotingDayData);
+        setEditData({
+          total_eligible_voters: calculatedVotingDayData.total_eligible_voters,
+          votes_cast: calculatedVotingDayData.votes_cast
+        });
         
         setLoading(false);
       } catch (err: any) {
@@ -235,6 +293,59 @@ const VotingDay: React.FC = () => {
     setToast(null);
   };
 
+  // Fetch voters function
+  const fetchVoters = async () => {
+    setVotersLoading(true);
+    try {
+      // Select required columns from avp_voters
+      const { data, error: fetchError } = await supabase
+        .from('avp_voters')
+        .select('id, full_name, register, register_sect, comments, has_voted')
+        .order('full_name', { ascending: true });
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      // Set voters data
+      setVoters(data as Voter[] || []);
+      setVotersLoading(false);
+    } catch (err: any) {
+      console.error('Error fetching voters:', err);
+      setVotersLoading(false);
+    }
+  };
+
+  // Initialize the table instance
+  const table = useReactTable({
+    data: voters,
+    columns,
+    state: {
+      sorting,
+      columnFilters,
+      globalFilter,
+    },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: 10, // Default page size
+      },
+    },
+  });
+
+  // Fetch voters data on component mount
+  useEffect(() => {
+    if (profile?.voting_day_access !== 'none') {
+      fetchVoters();
+    }
+  }, [profile]);
+  
   // Loading state
   if (loading) {
     return (
@@ -418,12 +529,196 @@ const VotingDay: React.FC = () => {
         </div>
       </div>
 
+      {/* Voters Table Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-blue-100 dark:border-gray-700 mb-6">
-        <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Recent Activity</h3>
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <p>No recent voting activity to display</p>
-          <p className="mt-2 text-sm">Activity will appear here as voters cast their ballots</p>
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
+          <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2 sm:mb-0">Registered Voters</h3>
+          
+          {/* Search Input */}
+          <div className="relative w-full sm:max-w-xs">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="search"
+              className="block w-full pl-10 pr-4 py-2 text-gray-900 dark:text-white dark:bg-gray-700 border border-blue-200 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+              placeholder="Search voters..."
+              value={globalFilter ?? ''}
+              onChange={e => setGlobalFilter(e.target.value)}
+            />
+          </div>
         </div>
+        
+        {votersLoading ? (
+          // Loading skeleton for table
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-md w-full mb-4"></div>
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded-md w-full"></div>
+              ))}
+            </div>
+          </div>
+        ) : voters.length === 0 ? (
+          // No voters found
+          <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 20a8 8 0 100-16 8 8 0 000 16z" />
+            </svg>
+            <p className="text-lg font-medium">No voters found</p>
+            <p className="text-sm mt-1">Try adjusting your search or filters</p>
+          </div>
+        ) : (
+          // Voters table
+          <>
+            <div className="overflow-x-auto shadow-sm rounded-lg border border-blue-200 dark:border-gray-700">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  {table.getHeaderGroups().map(headerGroup => (
+                    <tr key={headerGroup.id}>
+                      {headerGroup.headers.map(header => (
+                        <th 
+                          key={header.id} 
+                          scope="col" 
+                          className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider whitespace-nowrap min-w-[100px]"
+                        >
+                          <div
+                            className="cursor-pointer whitespace-nowrap flex items-center"
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                            {/* Sorting indicators */}
+                            {header.column.getIsSorted() === 'asc' && (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            )}
+                            {header.column.getIsSorted() === 'desc' && (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            )}
+                            {/* Indicator for sortable columns that are not currently sorted */}
+                            {header.column.getCanSort() && !header.column.getIsSorted() && (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-gray-400 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                              </svg>
+                            )}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {table.getRowModel().rows.map(row => (
+                    <tr key={row.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
+                      {row.getVisibleCells().map(cell => (
+                        <td 
+                          key={cell.id} 
+                          className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300"
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <span>
+                  Showing <span className="font-semibold text-blue-900 dark:text-blue-300">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
+                  <span className="font-semibold text-blue-900 dark:text-blue-300">
+                    {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, voters.length)}
+                  </span> of{" "}
+                  <span className="font-semibold text-blue-900 dark:text-blue-300">{voters.length}</span> voters
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => table.setPageIndex(0)}
+                  disabled={!table.getCanPreviousPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to first page"
+                  title="First page"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to previous page"
+                  title="Previous page"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                <span className="px-3 py-2 text-sm text-blue-700 dark:text-blue-300 font-medium">
+                  Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                </span>
+
+                <button
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to next page"
+                  title="Next page"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                  disabled={!table.getCanNextPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to last page"
+                  title="Last page"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  Per page:
+                  <select
+                    value={table.getState().pagination.pageSize}
+                    onChange={e => {
+                      table.setPageSize(Number(e.target.value));
+                    }}
+                    className="ml-2 px-3 py-1.5 text-sm border border-blue-200 dark:border-blue-800 rounded-md bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {[5, 10, 20, 30, 50].map(pageSize => (
+                      <option key={pageSize} value={pageSize}>
+                        {pageSize}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-blue-100 dark:border-gray-700">
