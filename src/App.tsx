@@ -15,6 +15,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AdminPage from './pages/AdminPage';
 import VotingDay from './pages/VotingDay';
+import VotingStatistics from './pages/VotingStatistics';
 import RootRedirector from './components/RootRedirector'; // Import the new component
 
 const Banner = () => (
@@ -110,8 +111,10 @@ const Nav = () => {
           {canViewVotingDay && (
             <NavLink to="/voting-day" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Day</NavLink>
           )}
+          {canViewVotingDay && (
+            <NavLink to="/voting-statistics" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Statistics</NavLink>
+          )}
           {canViewVoters && (
-            // Update NavLink path to /registered-voters
             <NavLink to="/registered-voters" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Registered Voters</NavLink>
           )}
           {canViewFamily && (
@@ -288,6 +291,16 @@ export default function App() {
               element={
                 <PrivateRoute permissionCheck={() => hasVotingDayAccess(profile)}>
                   <VotingDay />
+                </PrivateRoute>
+              }
+            />
+            
+            {/* VotingStatistics route uses the same permissions as VotingDay */}
+            <Route
+              path="/voting-statistics"
+              element={
+                <PrivateRoute permissionCheck={() => hasVotingDayAccess(profile)}>
+                  <VotingStatistics />
                 </PrivateRoute>
               }
             />
