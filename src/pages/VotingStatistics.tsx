@@ -4,7 +4,7 @@ import { useThemeStore } from '../store/themeStore';
 import { supabase } from '../lib/supabaseClient';
 import {
   PieChart, Pie, BarChart, Bar, CartesianGrid, Tooltip, Legend, 
-  ResponsiveContainer, Cell, XAxis, YAxis
+  ResponsiveContainer, Cell, XAxis, YAxis, LineChart, Line, AreaChart, Area
 } from 'recharts';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import HorizontalPercentageBarChart from '../components/HorizontalPercentageBarChart';
@@ -80,6 +80,7 @@ const VotingStatistics: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [voteTimestamps, setVoteTimestamps] = useState<Date[]>([]);
   const [lastHourVotes, setLastHourVotes] = useState<number>(0);
+  const [votingTrendData, setVotingTrendData] = useState<any[]>([]);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const votingStartTimeRef = useRef<Date | null>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
@@ -472,24 +473,126 @@ const VotingStatistics: React.FC = () => {
 
   // Format for the pie chart custom label
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }: any) => {
+    // Don't render label if percentage is too small (e.g., less than 1%)
+    if (percent < 0.01) { // Lower threshold to 1%
+      return null;
+    }
+    
     const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    // Adjust radius to place label slightly further out for better visibility
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.6; 
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
-    return percent * 100 > 5 ? (
+    // Display the label for all slices
+    return (
       <text 
         x={x} 
         y={y} 
-        fill={isDarkMode ? "white" : "black"}
+        fill="white" // Use black text for now, assuming it contrasts well enough with both red and green
         textAnchor={x > cx ? 'start' : 'end'} 
         dominantBaseline="central"
         fontSize="12"
+        fontWeight="bold" // Keep text bold
       >
-        {`${name}: ${(percent * 100).toFixed(0)}%`}
+        {`${(percent * 100).toFixed(0)}%`} {/* Show the percentage */}
       </text>
-    ) : null;
+    );
   };
+
+  useEffect(() => {
+    if (voters.length > 0) {
+      // Process voting_time data to create trend chart
+      const votesWithTime = voters.filter(voter => voter.has_voted && voter.voting_time);
+      
+      if (votesWithTime.length > 0) {
+        // Sort by voting time
+        votesWithTime.sort((a, b) => {
+          if (!a.voting_time || !b.voting_time) return 0;
+          return new Date(a.voting_time).getTime() - new Date(b.voting_time).getTime();
+        });
+
+        // Get today's date in Beirut timezone for filtering
+        const todayInBeirut = new Intl.DateTimeFormat('en-US', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          timeZone: 'Asia/Beirut'
+        }).format(new Date());
+        
+        // Filter votes that happened today
+        const todayVotes = votesWithTime.filter(voter => {
+          if (!voter.voting_time) return false;
+          
+          const voteDate = new Date(voter.voting_time);
+          const voteDateStr = new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            timeZone: 'Asia/Beirut'
+          }).format(voteDate);
+          
+          return voteDateStr === todayInBeirut;
+        });
+        
+        if (todayVotes.length > 0) {
+          // Find the earliest vote of today to use as reference
+          const earliestVote = new Date(todayVotes[0].voting_time!);
+          votingStartTimeRef.current = earliestVote;
+          
+          // Get the earliest hour in Beirut timezone
+          const firstHour = parseInt(new Intl.DateTimeFormat('en-US', {
+            hour: 'numeric',
+            hour12: false,
+            timeZone: 'Asia/Beirut'
+          }).format(earliestVote), 10);
+          
+          // Get the current hour in Beirut timezone
+          const currentHour = parseInt(new Intl.DateTimeFormat('en-US', {
+            hour: 'numeric',
+            hour12: false,
+            timeZone: 'Asia/Beirut'
+          }).format(new Date()), 10);
+          
+          // Initialize hourly buckets from first vote hour to current hour
+          const hourlyVotes = new Map<number, number>();
+          for (let i = firstHour; i <= currentHour; i++) {
+            hourlyVotes.set(i, 0);
+          }
+          
+          // Count votes per hour
+          todayVotes.forEach(voter => {
+            if (!voter.voting_time) return;
+            
+            const voteDate = new Date(voter.voting_time);
+            const hourInBeirut = parseInt(new Intl.DateTimeFormat('en-US', {
+              hour: 'numeric',
+              hour12: false,
+              timeZone: 'Asia/Beirut'
+            }).format(voteDate), 10);
+            
+            hourlyVotes.set(hourInBeirut, (hourlyVotes.get(hourInBeirut) || 0) + 1);
+          });
+          
+          // Transform the map into an array for the chart
+          let cumulativeVotes = 0;
+          const trendData = Array.from(hourlyVotes.entries())
+            .sort(([hourA], [hourB]) => hourA - hourB)
+            .map(([hour, votes]) => {
+              cumulativeVotes += votes;
+              return {
+                hour: `${hour}:00`,
+                hourDisplay: hour < 10 ? `0${hour}:00` : `${hour}:00`,
+                votes,
+                cumulative: cumulativeVotes
+              };
+            });
+          
+          setVotingTrendData(trendData);
+        }
+      }
+    }
+  }, [voters]);
 
   if (loading) {
     return (
@@ -659,6 +762,68 @@ const VotingStatistics: React.FC = () => {
             isDarkMode={isDarkMode}
           />
         </div>
+      </div>
+
+      {/* Voting Trend Chart */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700 mb-6">
+        <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Voting Trend Over Time</h3>
+        <div style={{ height: '300px', minHeight: '300px' }} className="w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={votingTrendData}
+              margin={{
+                top: 10,
+                right: 30,
+                left: 0,
+                bottom: 0,
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="hour" 
+                stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
+              />
+              <YAxis 
+                stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
+                label={{ 
+                  value: 'Cumulative Votes', 
+                  angle: -90, 
+                  position: 'insideLeft',
+                  style: { 
+                    textAnchor: 'middle',
+                    fill: isDarkMode ? '#9ca3af' : '#6b7280'
+                  }
+                }}
+              />
+              <Tooltip
+                contentStyle={{ 
+                  backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+                  borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                  color: isDarkMode ? '#f3f4f6' : '#1f2937'
+                }}
+              />
+              <Legend />
+              <Area 
+                type="monotone" 
+                dataKey="cumulative" 
+                name="Cumulative Votes"
+                stroke="#3b82f6" 
+                fill="#3b82f6" 
+                fillOpacity={0.3} 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        {votingStartTimeRef.current && (
+          <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-2">
+            First vote recorded at: {new Intl.DateTimeFormat('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+              timeZone: 'Asia/Beirut'
+            }).format(votingStartTimeRef.current)}
+          </p>
+        )}
       </div>
 
       <div className="text-center text-gray-500 dark:text-gray-400 text-xs">
