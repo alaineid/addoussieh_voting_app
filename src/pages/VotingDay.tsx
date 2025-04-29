@@ -167,6 +167,27 @@ const VotingDay: React.FC = () => {
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
   
+  // Save filter state to localStorage
+  useEffect(() => {
+    // Don't save empty filters
+    if (columnFilters.length > 0) {
+      localStorage.setItem('votingDayColumnFilters', JSON.stringify(columnFilters));
+    }
+  }, [columnFilters]);
+
+  // Load filter state from localStorage
+  useEffect(() => {
+    const savedFilters = localStorage.getItem('votingDayColumnFilters');
+    if (savedFilters) {
+      try {
+        const parsedFilters = JSON.parse(savedFilters);
+        setColumnFilters(parsedFilters);
+      } catch (err) {
+        console.error('Error parsing saved filters:', err);
+      }
+    }
+  }, []);
+  
   // Comment modal state
   const [commentModalOpen, setCommentModalOpen] = useState(false);
   const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
@@ -719,10 +740,11 @@ const VotingDay: React.FC = () => {
     );
   }
 
-  // Calculate voting statistics
-  const totalVoters = voters.length;
-  const votedCount = voters.filter(voter => voter.has_voted).length;
-  const votingRate = totalVoters > 0 ? Math.round((votedCount / totalVoters) * 100) : 0;
+  // Calculate voting statistics based on filtered data
+  const filteredRows = table.getFilteredRowModel().rows;
+  const filteredVotersCount = filteredRows.length;
+  const filteredVotedCount = filteredRows.filter(row => row.original.has_voted).length;
+  const filteredVotingRate = filteredVotersCount > 0 ? Math.round((filteredVotedCount / filteredVotersCount) * 100) : 0;
 
   // Main content
   return (
@@ -808,7 +830,7 @@ const VotingDay: React.FC = () => {
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Voters</p>
-            <p className="text-2xl font-bold text-gray-800 dark:text-white">{totalVoters}</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{filteredVotersCount}</p>
           </div>
         </div>
         
@@ -820,20 +842,20 @@ const VotingDay: React.FC = () => {
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Voted</p>
-            <p className="text-2xl font-bold text-gray-800 dark:text-white">{votedCount}</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{filteredVotedCount}</p>
           </div>
         </div>
         
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-blue-100 dark:border-blue-900">
           <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-2">Participation Rate</p>
           <div className="flex items-center justify-between mb-1">
-            <p className="text-2xl font-bold text-gray-800 dark:text-white">{votingRate}%</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{votedCount} of {totalVoters}</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{filteredVotingRate}%</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{filteredVotedCount} of {filteredVotersCount}</p>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
             <div 
               className="bg-blue-600 dark:bg-blue-400 h-2.5 rounded-full" 
-              style={{ width: `${votingRate}%` }}
+              style={{ width: `${filteredVotingRate}%` }}
             ></div>
           </div>
         </div>
@@ -1006,9 +1028,9 @@ const VotingDay: React.FC = () => {
                 <span>
                   Showing <span className="font-semibold text-blue-900 dark:text-blue-300">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
                   <span className="font-semibold text-blue-900 dark:text-blue-300">
-                    {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, voters.length)}
+                    {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, filteredVotersCount)}
                   </span> of{" "}
-                  <span className="font-semibold text-blue-900 dark:text-blue-300">{voters.length}</span> voters
+                  <span className="font-semibold text-blue-900 dark:text-blue-300">{filteredVotersCount}</span> voters
                 </span>
               </div>
 
