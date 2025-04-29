@@ -7,6 +7,7 @@ import {
   ResponsiveContainer, Cell, XAxis, YAxis
 } from 'recharts';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import HorizontalPercentageBarChart from '../components/HorizontalPercentageBarChart';
 
 // Interface representing a voter from the avp_voters table
 interface Voter {
@@ -524,44 +525,19 @@ const VotingStatistics: React.FC = () => {
           </div>
         </div>
         
-        {/* Gender Distribution with Voting Status */}
+        {/* Gender Voting Status */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Gender Voting Status</h3>
-          <div style={{ height: '250px', minHeight: '250px' }} className="w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={[
-                  { name: 'Voted', Male: genderVotingStats.find(item => item.name === 'Male Voted')?.value || 0, Female: genderVotingStats.find(item => item.name === 'Female Voted')?.value || 0 },
-                  { name: 'Not Voted', Male: genderVotingStats.find(item => item.name === 'Male Not Voted')?.value || 0, Female: genderVotingStats.find(item => item.name === 'Female Not Voted')?.value || 0 }
-                ]}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
-                <XAxis 
-                  type="number" 
-                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
-                />
-                <YAxis 
-                  dataKey="name" 
-                  type="category"
-                  width={100}
-                  tick={{ fontSize: 12 }}
-                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-                    borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                    color: isDarkMode ? '#f3f4f6' : '#1f2937'
-                  }} 
-                />
-                <Legend />
-                <Bar dataKey="Male" stackId="a" fill="#2196F3" name="Male" />
-                <Bar dataKey="Female" stackId="a" fill="#E91E63" name="Female" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <HorizontalPercentageBarChart
+            data={[
+              { name: 'Male', Voted: genderVotingStats.find(item => item.name === 'Male Voted')?.value || 0, NotVoted: genderVotingStats.find(item => item.name === 'Male Not Voted')?.value || 0 },
+              { name: 'Female', Voted: genderVotingStats.find(item => item.name === 'Female Voted')?.value || 0, NotVoted: genderVotingStats.find(item => item.name === 'Female Not Voted')?.value || 0 }
+            ]}
+            stackKeys={['Voted', 'NotVoted']}
+            barColors={{ Voted: '#4CAF50', NotVoted: '#F44336' }}
+            height={250}
+            isDarkMode={isDarkMode}
+          />
         </div>
         
         {/* Situation Voting Status */}
