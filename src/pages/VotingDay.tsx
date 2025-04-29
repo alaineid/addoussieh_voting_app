@@ -24,6 +24,7 @@ interface Voter {
   comments: string | null;
   has_voted: boolean | null;
   gender: string | null;
+  voting_time?: string | null;
 }
 
 // Toast notification component for success/error messages
@@ -166,27 +167,6 @@ const VotingDay: React.FC = () => {
   const [globalFilter, setGlobalFilter] = useState('');
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
-  
-  // Save filter state to localStorage
-  useEffect(() => {
-    // Don't save empty filters
-    if (columnFilters.length > 0) {
-      localStorage.setItem('votingDayColumnFilters', JSON.stringify(columnFilters));
-    }
-  }, [columnFilters]);
-
-  // Load filter state from localStorage
-  useEffect(() => {
-    const savedFilters = localStorage.getItem('votingDayColumnFilters');
-    if (savedFilters) {
-      try {
-        const parsedFilters = JSON.parse(savedFilters);
-        setColumnFilters(parsedFilters);
-      } catch (err) {
-        console.error('Error parsing saved filters:', err);
-      }
-    }
-  }, []);
   
   // Comment modal state
   const [commentModalOpen, setCommentModalOpen] = useState(false);
@@ -388,6 +368,33 @@ const VotingDay: React.FC = () => {
         return value === filterValue;
       },
     }),
+    columnHelper.accessor('voting_time', { 
+      header: 'Voting Time', 
+      cell: info => {
+        const value = info.getValue();
+        if (!value) return '-';
+        const date = new Date(value);
+        return date.toLocaleString('en-US', {
+          timeZone: 'Asia/Beirut',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (typeof value === 'string') {
+          return value.includes(filterValue);
+        }
+        return false;
+      },
+    }),
   ], [columnHelper, hasEditPermission]);
 
   // Handle marking a voter as voted
@@ -395,14 +402,14 @@ const VotingDay: React.FC = () => {
     try {
       const { error } = await supabase
         .from('avp_voters')
-        .update({ has_voted: true })
+        .update({ has_voted: true, voting_time: new Date().toISOString() })
         .eq('id', voterId);
       
       if (error) throw error;
       
       // Update local state
       setVoters(prev => prev.map(voter => 
-        voter.id === voterId ? { ...voter, has_voted: true } : voter
+        voter.id === voterId ? { ...voter, has_voted: true, voting_time: new Date().toISOString() } : voter
       ));
       
       setToast({
@@ -425,14 +432,14 @@ const VotingDay: React.FC = () => {
     try {
       const { error } = await supabase
         .from('avp_voters')
-        .update({ has_voted: false })
+        .update({ has_voted: false, voting_time: null })
         .eq('id', voterId);
       
       if (error) throw error;
       
       // Update local state
       setVoters(prev => prev.map(voter => 
-        voter.id === voterId ? { ...voter, has_voted: false } : voter
+        voter.id === voterId ? { ...voter, has_voted: false, voting_time: null } : voter
       ));
       
       setToast({
@@ -542,7 +549,7 @@ const VotingDay: React.FC = () => {
       // Build query with required columns
       let query = supabase
         .from('avp_voters')
-        .select('id, full_name, register, register_sect, comments, has_voted, gender');
+        .select('id, full_name, register, register_sect, comments, has_voted, gender, voting_time');
       
       // Apply gender filter based on permissions
       const genderFilter = getGenderFilter();
@@ -742,6 +749,7 @@ const VotingDay: React.FC = () => {
 
   // Calculate voting statistics based on filtered data
   const filteredRows = table.getFilteredRowModel().rows;
+  const filteredVoters = filteredRows.map(row => row.original);
   const filteredVotersCount = filteredRows.length;
   const filteredVotedCount = filteredRows.filter(row => row.original.has_voted).length;
   const filteredVotingRate = filteredVotersCount > 0 ? Math.round((filteredVotedCount / filteredVotersCount) * 100) : 0;
@@ -983,6 +991,11 @@ const VotingDay: React.FC = () => {
                               {['full_name', 'comments'].includes(columnId) && (
                                 <TextFilter column={header.column} table={table} />
                               )}
+
+                              {/* Voting Time Text Filter */}
+                              {columnId === 'voting_time' && (
+                                <TextFilter column={header.column} table={table} />
+                              )}
                             </>
                           )}
                         </th>
@@ -1034,11 +1047,16 @@ const VotingDay: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
+                {/* First Page Button */}
                 <button
                   onClick={() => table.setPageIndex(0)}
                   disabled={!table.getCanPreviousPage()}
-                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  className={`w-12 h-12 flex items-center justify-center rounded-md border ${
+                    !table.getCanPreviousPage() 
+                      ? 'border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-600' 
+                      : 'border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                  }`}
                   aria-label="Go to first page"
                   title="First page"
                 >
@@ -1046,10 +1064,16 @@ const VotingDay: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
                   </svg>
                 </button>
+                
+                {/* Previous Page Button */}
                 <button
                   onClick={() => table.previousPage()}
                   disabled={!table.getCanPreviousPage()}
-                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  className={`w-12 h-12 flex items-center justify-center rounded-md border ${
+                    !table.getCanPreviousPage() 
+                      ? 'border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-600' 
+                      : 'border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                  }`}
                   aria-label="Go to previous page"
                   title="Previous page"
                 >
@@ -1057,15 +1081,57 @@ const VotingDay: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-
-                <span className="px-3 py-2 text-sm text-blue-700 dark:text-blue-300 font-medium">
-                  Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-                </span>
-
+                
+                {/* Page Numbers */}
+                {Array.from({ length: Math.min(5, table.getPageCount()) }, (_, i) => {
+                  let pageIndex;
+                  const currentPage = table.getState().pagination.pageIndex;
+                  const totalPages = table.getPageCount();
+                  
+                  // Calculate which page numbers to show
+                  if (totalPages <= 5) {
+                    // If 5 or fewer pages, show all pages
+                    pageIndex = i;
+                  } else if (currentPage < 3) {
+                    // If near the beginning, show first 5 pages
+                    pageIndex = i;
+                  } else if (currentPage > totalPages - 3) {
+                    // If near the end, show last 5 pages
+                    pageIndex = totalPages - 5 + i;
+                  } else {
+                    // Otherwise show 2 before and 2 after current page
+                    pageIndex = currentPage - 2 + i;
+                  }
+                  
+                  // Ensure pageIndex is valid
+                  if (pageIndex < 0 || pageIndex >= totalPages) return null;
+                  
+                  return (
+                    <button
+                      key={pageIndex}
+                      onClick={() => table.setPageIndex(pageIndex)}
+                      className={`w-12 h-12 flex items-center justify-center rounded-md border ${
+                        currentPage === pageIndex
+                          ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-700 dark:border-blue-700'
+                          : 'border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                      }`}
+                      aria-label={`Go to page ${pageIndex + 1}`}
+                      aria-current={currentPage === pageIndex ? 'page' : undefined}
+                    >
+                      {pageIndex + 1}
+                    </button>
+                  );
+                })}
+                
+                {/* Next Page Button */}
                 <button
                   onClick={() => table.nextPage()}
                   disabled={!table.getCanNextPage()}
-                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  className={`w-12 h-12 flex items-center justify-center rounded-md border ${
+                    !table.getCanNextPage() 
+                      ? 'border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-600' 
+                      : 'border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                  }`}
                   aria-label="Go to next page"
                   title="Next page"
                 >
@@ -1073,10 +1139,16 @@ const VotingDay: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
+                
+                {/* Last Page Button */}
                 <button
                   onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                   disabled={!table.getCanNextPage()}
-                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  className={`w-12 h-12 flex items-center justify-center rounded-md border ${
+                    !table.getCanNextPage() 
+                      ? 'border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-600' 
+                      : 'border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                  }`}
                   aria-label="Go to last page"
                   title="Last page"
                 >

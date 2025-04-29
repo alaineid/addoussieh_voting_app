@@ -20,6 +20,7 @@ interface Voter {
   has_voted: boolean | null;
   dob: string | null;
   alliance: string | null;
+  voting_time: string | null; // Added voting_time field
 }
 
 interface ToastProps {
@@ -118,7 +119,7 @@ const VotingStatistics: React.FC = () => {
       // Build query with required columns
       let query = supabase
         .from('avp_voters')
-        .select('id, full_name, gender, register_sect, residence, situation, family, has_voted, dob, alliance');
+        .select('id, full_name, gender, register_sect, residence, situation, family, has_voted, dob, alliance, voting_time');
       
       // Apply gender filter based on permissions
       const genderFilter = getGenderFilter();
@@ -132,29 +133,8 @@ const VotingStatistics: React.FC = () => {
       
       setVoters(data || []);
       
-      // Track each voter's timestamp when first loaded (only for those who already voted)
-      const now = new Date();
-      const votedVoters = data?.filter(voter => voter.has_voted) || [];
-      
-      // If this is the first load and we have voted voters,
-      // we'll distribute their votes across the last hour for initialization
-      if (votedVoters.length > 0 && voteTimestamps.length === 0) {
-        const simulatedTimestamps = [];
-        // Distribute the already-voted voters across the past hour
-        for (let i = 0; i < votedVoters.length; i++) {
-          const randomMinutesAgo = Math.floor(Math.random() * 60);
-          const timestamp = new Date(now.getTime() - randomMinutesAgo * 60000);
-          simulatedTimestamps.push(timestamp);
-        }
-        setVoteTimestamps(simulatedTimestamps);
-      }
-
-      // Initialize voting start time if not already set
-      if (!votingStartTimeRef.current) {
-        votingStartTimeRef.current = new Date();
-      }
-      
-      calculateLastHourVotes();
+      // Calculate last hour votes based on voting_time
+      calculateLastHourVotes(data || []);
       
     } catch (err: any) {
       console.error('Error fetching voter data:', err);
@@ -164,14 +144,24 @@ const VotingStatistics: React.FC = () => {
     }
   };
 
-  // Calculate last hour votes
-  const calculateLastHourVotes = () => {
+  // Calculate last hour votes based on actual voting_time from the database
+  const calculateLastHourVotes = (votersData: Voter[] = voters) => {
+    // Use provided votersData or fall back to current voters state
+    if (!votersData || votersData.length === 0) return;
+    
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
     
-    const votesInLastHour = voteTimestamps.filter(
-      timestamp => timestamp >= oneHourAgo
-    ).length;
+    const votesInLastHour = votersData.filter(voter => {
+      // Only count voters who have voted and have a valid voting_time
+      if (!voter.has_voted || !voter.voting_time) return false;
+      
+      // Parse the voting_time string to a Date object
+      const voteTime = new Date(voter.voting_time);
+      
+      // Check if the vote was cast within the last hour
+      return voteTime >= oneHourAgo && voteTime <= now;
+    }).length;
     
     setLastHourVotes(votesInLastHour);
   };
@@ -502,11 +492,11 @@ const VotingStatistics: React.FC = () => {
       </div>
 
       {/* Main Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {/* Overall Voter Turnout */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Voter Turnout</h3>
-          <div className="h-64">
+          <div style={{ height: '250px', minHeight: '250px' }} className="w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -537,7 +527,7 @@ const VotingStatistics: React.FC = () => {
         {/* Gender Distribution with Voting Status */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Gender Voting Status</h3>
-          <div className="h-64">
+          <div style={{ height: '250px', minHeight: '250px' }} className="w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={[
@@ -545,7 +535,7 @@ const VotingStatistics: React.FC = () => {
                   { name: 'Not Voted', Male: genderVotingStats.find(item => item.name === 'Male Not Voted')?.value || 0, Female: genderVotingStats.find(item => item.name === 'Female Not Voted')?.value || 0 }
                 ]}
                 layout="vertical"
-                margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
                 <XAxis 
@@ -577,7 +567,7 @@ const VotingStatistics: React.FC = () => {
         {/* Situation Voting Status */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Situation Voting Status</h3>
-          <div className="h-96">
+          <div style={{ height: '300px', minHeight: '300px' }} className="w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={[
@@ -592,7 +582,7 @@ const VotingStatistics: React.FC = () => {
                   { name: 'N+', Voted: voters.filter(voter => voter.situation === 'N+' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.situation === 'N+' && !voter.has_voted).length }
                 ]}
                 layout="vertical"
-                margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
                 <XAxis 
@@ -624,7 +614,7 @@ const VotingStatistics: React.FC = () => {
         {/* Residence Voting Status */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Residence Voting Status</h3>
-          <div className="h-96">
+          <div style={{ height: '250px', minHeight: '250px' }} className="w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={[
@@ -633,7 +623,7 @@ const VotingStatistics: React.FC = () => {
                   { name: 'IMMIGRANT', Voted: voters.filter(voter => voter.residence === 'IMMIGRANT' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.residence === 'IMMIGRANT' && !voter.has_voted).length }
                 ]}
                 layout="vertical"
-                margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
                 <XAxis 
@@ -653,6 +643,108 @@ const VotingStatistics: React.FC = () => {
                     borderColor: isDarkMode ? '#374151' : '#e5e7eb',
                     color: isDarkMode ? '#f3f4f6' : '#1f2937'
                   }} 
+                />
+                <Legend />
+                <Bar dataKey="Voted" stackId="a" fill="#4CAF50" name="Voted" />
+                <Bar dataKey="NotVoted" stackId="a" fill="#F44336" name="Not Voted" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Family Voting Status */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Family Voting Status</h3>
+          <div style={{ height: '300px', minHeight: '300px' }} className="w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={
+                  // Get unique family values and create data for each
+                  [...new Set(voters.filter(voter => voter.family !== null && voter.family !== undefined).map(voter => voter.family))]
+                    .map(family => ({
+                      name: family || 'Unknown',
+                      Voted: voters.filter(voter => voter.family === family && voter.has_voted).length,
+                      NotVoted: voters.filter(voter => voter.family === family && !voter.has_voted).length,
+                      Total: voters.filter(voter => voter.family === family).length
+                    }))
+                    // Sort by total count descending to show largest families first
+                    .sort((a, b) => b.Total - a.Total)
+                    // Limit to top 10 families for readability
+                    .slice(0, 10)
+                }
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
+                <XAxis 
+                  type="number" 
+                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
+                />
+                <YAxis 
+                  dataKey="name" 
+                  type="category"
+                  width={100}
+                  tick={{ fontSize: 12 }}
+                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+                    borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                    color: isDarkMode ? '#f3f4f6' : '#1f2937'
+                  }} 
+                  formatter={(value, name) => [`${value} voters`, name]}
+                  labelFormatter={(label) => `Family: ${label}`}
+                />
+                <Legend />
+                <Bar dataKey="Voted" stackId="a" fill="#4CAF50" name="Voted" />
+                <Bar dataKey="NotVoted" stackId="a" fill="#F44336" name="Not Voted" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* Register Sect Voting Status */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Register Sect Voting Status</h3>
+          <div style={{ height: '300px', minHeight: '300px' }} className="w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={
+                  // Get unique register_sect values directly from the data
+                  [...new Set(voters.filter(voter => voter.register_sect !== null && voter.register_sect !== '').map(voter => voter.register_sect))]
+                    .map(sect => ({
+                      name: sect,
+                      Voted: voters.filter(voter => voter.register_sect === sect && voter.has_voted).length,
+                      NotVoted: voters.filter(voter => voter.register_sect === sect && !voter.has_voted).length,
+                      Total: voters.filter(voter => voter.register_sect === sect).length
+                    }))
+                    // Sort by total count descending
+                    .sort((a, b) => b.Total - a.Total)
+                }
+                layout="vertical"
+                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
+                <XAxis 
+                  type="number" 
+                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
+                />
+                <YAxis 
+                  dataKey="name" 
+                  type="category"
+                  width={100}
+                  tick={{ fontSize: 12 }}
+                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+                    borderColor: isDarkMode ? '#374151' : '#e5e7eb',
+                    color: isDarkMode ? '#f3f4f6' : '#1f2937'
+                  }} 
+                  formatter={(value, name) => [`${value} voters`, name]}
+                  labelFormatter={(label) => `${label}`}
                 />
                 <Legend />
                 <Bar dataKey="Voted" stackId="a" fill="#4CAF50" name="Voted" />

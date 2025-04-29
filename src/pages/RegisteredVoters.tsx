@@ -132,27 +132,6 @@ const RegisteredVoters: React.FC = () => {
   const realtimeChannelRef = useRef<any>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
   
-  // Save filter state to localStorage
-  useEffect(() => {
-    // Don't save empty filters
-    if (columnFilters.length > 0) {
-      localStorage.setItem('registeredVotersColumnFilters', JSON.stringify(columnFilters));
-    }
-  }, [columnFilters]);
-
-  // Load filter state from localStorage
-  useEffect(() => {
-    const savedFilters = localStorage.getItem('registeredVotersColumnFilters');
-    if (savedFilters) {
-      try {
-        const parsedFilters = JSON.parse(savedFilters);
-        setColumnFilters(parsedFilters);
-      } catch (err) {
-        console.error('Error parsing saved filters:', err);
-      }
-    }
-  }, []);
-  
   // Edit and delete state
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<Voter>>({});
