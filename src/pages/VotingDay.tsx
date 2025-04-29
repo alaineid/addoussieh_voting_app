@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { useThemeStore } from '../store/themeStore';
 import { supabase } from '../lib/supabaseClient';
 import { 
   createColumnHelper, 
@@ -14,6 +15,9 @@ import {
   FilterFn
 } from '@tanstack/react-table';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import ExportPDFModal from '../components/ExportPDFModal';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable'; // Import autoTable directly
 
 // Define interface for voter data
 interface Voter {
@@ -156,6 +160,7 @@ const BooleanFilter: React.FC<{ column: any; table: any }> = React.memo(({ colum
 
 const VotingDay: React.FC = () => {
   const { profile, session } = useAuthStore();
+  const { isDarkMode } = useThemeStore();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -168,6 +173,9 @@ const VotingDay: React.FC = () => {
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
   
+  // Export PDF modal state
+  const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
+
   // Comment modal state
   const [commentModalOpen, setCommentModalOpen] = useState(false);
   const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
@@ -251,6 +259,113 @@ const VotingDay: React.FC = () => {
       });
     }
   };
+
+  // Generate and download PDF function
+  const handleExportPDF = (selectedRegisters: string[], selectedColumns: string[]) => {
+    try {
+      // Filter voters based on selected registers and has_voted=false
+      const filteredData = voters.filter(voter => 
+        selectedRegisters.includes(String(voter.register)) && voter.has_voted === false
+      );
+
+      if (filteredData.length === 0) {
+        setToast({
+          message: 'No unvoted voters found for the selected registers',
+          type: 'error',
+          visible: true
+        });
+        return;
+      }
+
+      // Create column headers for the PDF
+      const headers = selectedColumns.map(col => {
+        const column = availableColumns.find(c => c.id === col);
+        return column ? column.label : col;
+      });
+
+      // Get column data
+      const rows = filteredData.map(voter => {
+        return selectedColumns.map(col => {
+          switch (col) {
+            case 'full_name':
+              return voter.full_name || '-';
+            case 'register':
+              return voter.register?.toString() || '-';
+            case 'register_sect':
+              return voter.register_sect || '-';
+            case 'gender':
+              return voter.gender || '-';
+            case 'comments':
+              return voter.comments || '-';
+            case 'has_voted':
+              return voter.has_voted ? 'Yes' : 'No';
+            case 'voting_time':
+              if (!voter.voting_time) return '-';
+              try {
+                const date = new Date(voter.voting_time);
+                return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth()+1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+              } catch (e) {
+                return '-';
+              }
+            default:
+              return '-';
+          }
+        });
+      });
+
+      // Create PDF document
+      const pdf = new jsPDF('landscape');
+
+      // Add title
+      pdf.setFontSize(16);
+      pdf.text('Non-Voted Voters Report', 14, 15);
+
+      // Add date and filter info
+      const now = new Date();
+      pdf.setFontSize(10);
+      pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
+      pdf.text(`Filters: Registers ${selectedRegisters.join(', ')}`, 14, 27);
+
+      // Create the table using the imported autoTable function
+      autoTable(pdf, {
+        head: [headers],
+        body: rows,
+        startY: 32,
+        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        alternateRowStyles: { fillColor: [240, 240, 240] },
+        styles: { fontSize: 9 },
+        margin: { top: 32 },
+      });
+
+      // Save the PDF
+      pdf.save(`Non_Voted_Voters_Report_${now.getDate().toString().padStart(2, '0')}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getFullYear()}.pdf`);
+
+      // Show success message
+      setToast({
+        message: 'PDF exported successfully',
+        type: 'success',
+        visible: true
+      });
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      setToast({
+        message: err.message || 'Error generating PDF',
+        type: 'error',
+        visible: true
+      });
+    }
+  };
+
+  // Available columns for export
+  const availableColumns = [
+    { id: 'full_name', label: 'Full Name' },
+    { id: 'register', label: 'Register' },
+    { id: 'register_sect', label: 'Register Sect' },
+    { id: 'gender', label: 'Gender' },
+    { id: 'comments', label: 'Comments' },
+    { id: 'has_voted', label: 'Has Voted' },
+    { id: 'voting_time', label: 'Voting Time' },
+  ];
 
   // Define table columns
   const columnHelper = createColumnHelper<Voter>();
@@ -766,6 +881,14 @@ const VotingDay: React.FC = () => {
         />
       )}
       
+      {/* Export PDF Modal */}
+      <ExportPDFModal
+        isOpen={exportPdfModalOpen}
+        onClose={() => setExportPdfModalOpen(false)}
+        registerOptions={registerOptions}
+        onExport={handleExportPDF}
+      />
+      
       {/* Comment Modal */}
       {commentModalOpen && selectedVoter && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -874,20 +997,49 @@ const VotingDay: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
           <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2 sm:mb-0">Registered Voters</h3>
           
-          {/* Search Input */}
-          <div className="relative w-full sm:max-w-xs">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            {/* Export PDF Button */}
+            <button
+              className="flex items-center justify-center min-w-[150px] px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 text-sm font-medium"
+              onClick={() => setExportPdfModalOpen(true)}
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-5 w-5 mr-2" 
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M5 12v-1h4v1" />
+                <path d="M9 12v6" />
+                <path d="M5 18v-1h4v1" />
+                <path d="M14 12h1v6h-1z" />
+                <path d="M19 12h-4" />
+                <path d="M19 15h-4" />
               </svg>
+              Export PDF
+            </button>
+            
+            {/* Search Input */}
+            <div className="relative w-full sm:max-w-xs">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="search"
+                className="block w-full pl-10 pr-4 py-2 text-gray-900 dark:text-white dark:bg-gray-700 border border-blue-200 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                placeholder="Search voters..."
+                value={globalFilter ?? ''}
+                onChange={e => setGlobalFilter(e.target.value)}
+              />
             </div>
-            <input
-              type="search"
-              className="block w-full pl-10 pr-4 py-2 text-gray-900 dark:text-white dark:bg-gray-700 border border-blue-200 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              placeholder="Search voters..."
-              value={globalFilter ?? ''}
-              onChange={e => setGlobalFilter(e.target.value)}
-            />
           </div>
         </div>
         
