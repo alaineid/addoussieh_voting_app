@@ -397,6 +397,74 @@ const VotingStatistics: React.FC = () => {
     ];
   }, [voters]);
 
+  const situationVotingStats = useMemo(() => {
+    const situations = [
+      'AGAINST', 'WITH', 'MILITARY', 'IMMIGRANT', 
+      'DEATH', 'NO VOTE', 'UNKNOWN', 'N', 'N+'
+    ];
+    return situations.map(situation => ({
+      name: situation,
+      Voted: voters.filter(v => v.situation === situation && v.has_voted).length,
+      NotVoted: voters.filter(v => v.situation === situation && !v.has_voted).length
+    })).filter(item => item.Voted > 0 || item.NotVoted > 0); // Only include situations with voters
+  }, [voters]);
+
+  const residenceVotingStats = useMemo(() => {
+    const residences = ['RESIDENT', 'Non RESIDENT', 'IMMIGRANT'];
+    return residences.map(residence => ({
+      name: residence,
+      Voted: voters.filter(v => v.residence === residence && v.has_voted).length,
+      NotVoted: voters.filter(v => v.residence === residence && !v.has_voted).length
+    })).filter(item => item.Voted > 0 || item.NotVoted > 0); // Only include residences with voters
+  }, [voters]);
+
+  const familyVotingStats = useMemo(() => {
+    const familyMap = new Map<string, { Voted: number; NotVoted: number; Total: number }>();
+
+    voters.forEach(voter => {
+      const familyName = voter.family || 'Unknown';
+      if (!familyMap.has(familyName)) {
+        familyMap.set(familyName, { Voted: 0, NotVoted: 0, Total: 0 });
+      }
+      const stats = familyMap.get(familyName)!;
+      stats.Total++;
+      if (voter.has_voted) {
+        stats.Voted++;
+      } else {
+        stats.NotVoted++;
+      }
+    });
+
+    return Array.from(familyMap.entries())
+      .map(([name, counts]) => ({ name, ...counts }))
+      .sort((a, b) => b.Total - a.Total) // Sort by total count descending
+      .slice(0, 10); // Limit to top 10 families
+  }, [voters]);
+
+  const registerSectVotingStats = useMemo(() => {
+    const sectMap = new Map<string, { Voted: number; NotVoted: number; Total: number }>();
+
+    voters.forEach(voter => {
+      const sectName = voter.register_sect || 'Unknown';
+      if (sectName === '') return; // Skip empty strings
+
+      if (!sectMap.has(sectName)) {
+        sectMap.set(sectName, { Voted: 0, NotVoted: 0, Total: 0 });
+      }
+      const stats = sectMap.get(sectName)!;
+      stats.Total++;
+      if (voter.has_voted) {
+        stats.Voted++;
+      } else {
+        stats.NotVoted++;
+      }
+    });
+
+    return Array.from(sectMap.entries())
+      .map(([name, counts]) => ({ name, ...counts }))
+      .sort((a, b) => b.Total - a.Total); // Sort by total count descending
+  }, [voters]);
+
   const votedPercentage = useMemo(() => {
     if (voters.length === 0) return 0;
     return Math.round((voters.filter(v => v.has_voted).length / voters.length) * 100);
@@ -543,191 +611,53 @@ const VotingStatistics: React.FC = () => {
         {/* Situation Voting Status */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Situation Voting Status</h3>
-          <div style={{ height: '300px', minHeight: '300px' }} className="w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={[
-                  { name: 'AGAINST', Voted: voters.filter(voter => voter.situation === 'AGAINST' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.situation === 'AGAINST' && !voter.has_voted).length },
-                  { name: 'WITH', Voted: voters.filter(voter => voter.situation === 'WITH' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.situation === 'WITH' && !voter.has_voted).length },
-                  { name: 'MILITARY', Voted: voters.filter(voter => voter.situation === 'MILITARY' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.situation === 'MILITARY' && !voter.has_voted).length },
-                  { name: 'IMMIGRANT', Voted: voters.filter(voter => voter.situation === 'IMMIGRANT' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.situation === 'IMMIGRANT' && !voter.has_voted).length },
-                  { name: 'DEATH', Voted: voters.filter(voter => voter.situation === 'DEATH' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.situation === 'DEATH' && !voter.has_voted).length },
-                  { name: 'NO VOTE', Voted: voters.filter(voter => voter.situation === 'NO VOTE' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.situation === 'NO VOTE' && !voter.has_voted).length },
-                  { name: 'UNKNOWN', Voted: voters.filter(voter => voter.situation === 'UNKNOWN' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.situation === 'UNKNOWN' && !voter.has_voted).length },
-                  { name: 'N', Voted: voters.filter(voter => voter.situation === 'N' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.situation === 'N' && !voter.has_voted).length },
-                  { name: 'N+', Voted: voters.filter(voter => voter.situation === 'N+' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.situation === 'N+' && !voter.has_voted).length }
-                ]}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
-                <XAxis 
-                  type="number" 
-                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
-                />
-                <YAxis 
-                  dataKey="name" 
-                  type="category"
-                  width={100}
-                  tick={{ fontSize: 12 }}
-                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-                    borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                    color: isDarkMode ? '#f3f4f6' : '#1f2937'
-                  }} 
-                />
-                <Legend />
-                <Bar dataKey="Voted" stackId="a" fill="#4CAF50" name="Voted" />
-                <Bar dataKey="NotVoted" stackId="a" fill="#F44336" name="Not Voted" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Replace the old BarChart with HorizontalPercentageBarChart */}
+          <HorizontalPercentageBarChart
+            data={situationVotingStats} // Use the calculated stats
+            stackKeys={['Voted', 'NotVoted']}
+            barColors={{ Voted: '#4CAF50', NotVoted: '#F44336' }}
+            height={300} // Adjust height as needed
+            isDarkMode={isDarkMode}
+          />
         </div>
 
         {/* Residence Voting Status */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Residence Voting Status</h3>
-          <div style={{ height: '250px', minHeight: '250px' }} className="w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={[
-                  { name: 'RESIDENT', Voted: voters.filter(voter => voter.residence === 'RESIDENT' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.residence === 'RESIDENT' && !voter.has_voted).length },
-                  { name: 'Non RESIDENT', Voted: voters.filter(voter => voter.residence === 'Non RESIDENT' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.residence === 'Non RESIDENT' && !voter.has_voted).length },
-                  { name: 'IMMIGRANT', Voted: voters.filter(voter => voter.residence === 'IMMIGRANT' && voter.has_voted).length, NotVoted: voters.filter(voter => voter.residence === 'IMMIGRANT' && !voter.has_voted).length }
-                ]}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
-                <XAxis 
-                  type="number" 
-                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
-                />
-                <YAxis 
-                  dataKey="name" 
-                  type="category"
-                  width={100}
-                  tick={{ fontSize: 12 }}
-                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-                    borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                    color: isDarkMode ? '#f3f4f6' : '#1f2937'
-                  }} 
-                />
-                <Legend />
-                <Bar dataKey="Voted" stackId="a" fill="#4CAF50" name="Voted" />
-                <Bar dataKey="NotVoted" stackId="a" fill="#F44336" name="Not Voted" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Replace the old BarChart with HorizontalPercentageBarChart */}
+          <HorizontalPercentageBarChart
+            data={residenceVotingStats} // Use the calculated stats
+            stackKeys={['Voted', 'NotVoted']}
+            barColors={{ Voted: '#4CAF50', NotVoted: '#F44336' }}
+            height={250} // Adjust height as needed
+            isDarkMode={isDarkMode}
+          />
         </div>
 
-        {/* Family Voting Status */}
+        {/* Family Voting Status (Top 10) */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Family Voting Status</h3>
-          <div style={{ height: '300px', minHeight: '300px' }} className="w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={
-                  // Get unique family values and create data for each
-                  [...new Set(voters.filter(voter => voter.family !== null && voter.family !== undefined).map(voter => voter.family))]
-                    .map(family => ({
-                      name: family || 'Unknown',
-                      Voted: voters.filter(voter => voter.family === family && voter.has_voted).length,
-                      NotVoted: voters.filter(voter => voter.family === family && !voter.has_voted).length,
-                      Total: voters.filter(voter => voter.family === family).length
-                    }))
-                    // Sort by total count descending to show largest families first
-                    .sort((a, b) => b.Total - a.Total)
-                    // Limit to top 10 families for readability
-                    .slice(0, 10)
-                }
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
-                <XAxis 
-                  type="number" 
-                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
-                />
-                <YAxis 
-                  dataKey="name" 
-                  type="category"
-                  width={100}
-                  tick={{ fontSize: 12 }}
-                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-                    borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                    color: isDarkMode ? '#f3f4f6' : '#1f2937'
-                  }} 
-                  formatter={(value, name) => [`${value} voters`, name]}
-                  labelFormatter={(label) => `Family: ${label}`}
-                />
-                <Legend />
-                <Bar dataKey="Voted" stackId="a" fill="#4CAF50" name="Voted" />
-                <Bar dataKey="NotVoted" stackId="a" fill="#F44336" name="Not Voted" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Family Voting Status (Top 10)</h3>
+          {/* Replace the old BarChart with HorizontalPercentageBarChart */}
+          <HorizontalPercentageBarChart
+            data={familyVotingStats} // Use the calculated stats
+            stackKeys={['Voted', 'NotVoted']}
+            barColors={{ Voted: '#4CAF50', NotVoted: '#F44336' }}
+            height={300} // Adjust height as needed
+            isDarkMode={isDarkMode}
+          />
         </div>
         
         {/* Register Sect Voting Status */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Register Sect Voting Status</h3>
-          <div style={{ height: '300px', minHeight: '300px' }} className="w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={
-                  // Get unique register_sect values directly from the data
-                  [...new Set(voters.filter(voter => voter.register_sect !== null && voter.register_sect !== '').map(voter => voter.register_sect))]
-                    .map(sect => ({
-                      name: sect,
-                      Voted: voters.filter(voter => voter.register_sect === sect && voter.has_voted).length,
-                      NotVoted: voters.filter(voter => voter.register_sect === sect && !voter.has_voted).length,
-                      Total: voters.filter(voter => voter.register_sect === sect).length
-                    }))
-                    // Sort by total count descending
-                    .sort((a, b) => b.Total - a.Total)
-                }
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#e5e7eb'} />
-                <XAxis 
-                  type="number" 
-                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
-                />
-                <YAxis 
-                  dataKey="name" 
-                  type="category"
-                  width={100}
-                  tick={{ fontSize: 12 }}
-                  stroke={isDarkMode ? '#9ca3af' : '#6b7280'} 
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
-                    borderColor: isDarkMode ? '#374151' : '#e5e7eb',
-                    color: isDarkMode ? '#f3f4f6' : '#1f2937'
-                  }} 
-                  formatter={(value, name) => [`${value} voters`, name]}
-                  labelFormatter={(label) => `${label}`}
-                />
-                <Legend />
-                <Bar dataKey="Voted" stackId="a" fill="#4CAF50" name="Voted" />
-                <Bar dataKey="NotVoted" stackId="a" fill="#F44336" name="Not Voted" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Replace the old BarChart with HorizontalPercentageBarChart */}
+          <HorizontalPercentageBarChart
+            data={registerSectVotingStats} // Use the calculated stats
+            stackKeys={['Voted', 'NotVoted']}
+            barColors={{ Voted: '#4CAF50', NotVoted: '#F44336' }}
+            height={300} // Adjust height as needed
+            isDarkMode={isDarkMode}
+          />
         </div>
       </div>
 
