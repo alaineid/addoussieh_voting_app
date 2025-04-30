@@ -29,6 +29,7 @@ interface Voter {
   has_voted: boolean | null;
   gender: string | null;
   voting_time?: string | null;
+  situation?: string | null; // Add situation field
 }
 
 // Toast notification component for success/error messages
@@ -274,7 +275,8 @@ const VotingDay: React.FC = () => {
         .from('avp_voters')
         .select(selectedColumns.join(', ')) // Only select the columns we need
         .in('register', selectedRegisters.map(r => Number(r))) // Filter by the selected registers
-        .eq('has_voted', false); // Only get voters who haven't voted yet
+        .eq('has_voted', false) // Only get voters who haven't voted yet
+        .not('situation', 'in', '(MILITARY,DEATH,IMMIGRANT,NO VOTE)'); // Exclude specific situations
       
       // Apply gender filter based on permissions if needed
       const genderFilter = getGenderFilter();
@@ -288,7 +290,7 @@ const VotingDay: React.FC = () => {
 
       if (!filteredData || filteredData.length === 0) {
         setToast({
-          message: 'No unvoted voters found for the selected registers',
+          message: 'No eligible voters found for the selected registers',
           type: 'error',
           visible: true
         });
@@ -378,12 +380,12 @@ const VotingDay: React.FC = () => {
       // Set default font for title and metadata (optional, could use Amiri too)
       pdf.setFont('helvetica'); // Or another default font
       pdf.setFontSize(16);
-      pdf.text('Non-Voted Voters Report', 14, 15);
+      pdf.text('Eligible Voters Report', 14, 15);
 
       const now = new Date();
       pdf.setFontSize(10);
       pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
-      pdf.text(`Filters: Registers ${selectedRegisters.join(', ')}`, 14, 27);
+      pdf.text(`Filters: Registers ${selectedRegisters.join(', ')} | Non-voted and eligible voters only`, 14, 27);
 
       // Create the table using autoTable, applying the Amiri font to the body
       autoTable(pdf, {
@@ -398,7 +400,7 @@ const VotingDay: React.FC = () => {
       });
 
       // Save the PDF
-      pdf.save(`Non_Voted_Voters_Report_${now.getDate().toString().padStart(2, '0')}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getFullYear()}.pdf`);
+      pdf.save(`Eligible_Voters_Report_${now.getDate().toString().padStart(2, '0')}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getFullYear()}.pdf`);
 
       // Show success message
       setToast({
@@ -466,6 +468,34 @@ const VotingDay: React.FC = () => {
         }
       })
     ] : []),
+    columnHelper.accessor('situation', {
+      header: 'Situation',
+      cell: info => {
+        const value = info.getValue();
+        const colorClass = value === 'WITH' ? 'text-green-600 dark:text-green-400' :
+                          value === 'AGAINST' ? 'text-red-600 dark:text-red-400' :
+                          value === 'NEUTRAL' ? 'text-blue-500 dark:text-blue-300' :
+                          value === 'NEUTRAL+' ? 'text-indigo-500 dark:text-indigo-300' :
+                          value === 'DEATH' ? 'text-gray-600 dark:text-gray-400' :
+                          value === 'IMMIGRANT' ? 'text-yellow-600 dark:text-yellow-400' :
+                          value === 'MILITARY' ? 'text-purple-600 dark:text-purple-400' :
+                          value === 'NO VOTE' ? 'text-orange-600 dark:text-orange-400' :
+                          value === 'UNKNOWN' ? 'text-gray-500 dark:text-gray-400' :
+                          'text-gray-700 dark:text-gray-300';
+
+        return (
+          <span className={`${colorClass} font-medium`}>{value || '-'}</span>
+        );
+      },
+      enableSorting: true,
+      enableColumnFilter: true,
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+      },
+    }),
     columnHelper.accessor('full_name', { 
       header: 'Full Name', 
       cell: info => info.getValue() ?? '-',
@@ -724,8 +754,9 @@ const VotingDay: React.FC = () => {
       // Build query with required columns
       let query = supabase
         .from('avp_voters')
-        .select('id, full_name, register, register_sect, comments, has_voted, gender, voting_time');
-      
+        .select('id, full_name, register, register_sect, comments, has_voted, gender, voting_time, situation')
+        .not('situation', 'in', '(MILITARY,DEATH)');    
+              
       // Apply gender filter based on permissions
       const genderFilter = getGenderFilter();
       if (genderFilter) {
@@ -1173,71 +1204,114 @@ const VotingDay: React.FC = () => {
             </div>
 
             {/* Pagination Controls */}
-            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
               <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <span>Page</span>
-                <strong>
-                  {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-                </strong>
-                <span className="hidden sm:inline">| Go to page:</span>
-                <input
-                  type="number"
-                  defaultValue={table.getState().pagination.pageIndex + 1}
-                  onChange={e => {
-                    const page = e.target.value ? Number(e.target.value) - 1 : 0;
-                    table.setPageIndex(page);
-                  }}
-                  className="border border-blue-200 dark:border-gray-600 rounded-md w-16 px-2 py-1 text-center dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
+                <span>
+                  Showing <span className="font-semibold text-blue-900 dark:text-blue-300">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
+                  <span className="font-semibold text-blue-900 dark:text-blue-300">
+                    {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, filteredVotersCount)}
+                  </span> of{" "}
+                  <span className="font-semibold text-blue-900 dark:text-blue-300">{filteredVotersCount}</span> voters
+                </span>
               </div>
-
-              <div className="flex items-center gap-2">
+              
+              <div className="flex items-center gap-1">
                 <button
-                  className="px-3 py-1 border border-blue-200 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => table.setPageIndex(0)}
                   disabled={!table.getCanPreviousPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to first page"
+                  title="First page"
                 >
-                  First
+                  <i className="fas fa-angle-double-left w-5 h-5"></i>
                 </button>
                 <button
-                  className="px-3 py-1 border border-blue-200 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => table.previousPage()}
                   disabled={!table.getCanPreviousPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to previous page"
+                  title="Previous page"
                 >
-                  Previous
+                  <i className="fas fa-angle-left w-5 h-5"></i>
                 </button>
+
+                <div className="hidden sm:flex items-center">
+                  {Array.from({length: Math.min(5, table.getPageCount())}, (_, i) => {
+                    const pageIndex = table.getState().pagination.pageIndex;
+                    let showPage: number;
+                    
+                    if (table.getPageCount() <= 5) {
+                      showPage = i;
+                    } else if (pageIndex < 3) {
+                      showPage = i;
+                    } else if (pageIndex > table.getPageCount() - 4) {
+                      showPage = table.getPageCount() - 5 + i;
+                    } else {
+                      showPage = pageIndex - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={showPage}
+                        onClick={() => table.setPageIndex(showPage)}
+                        disabled={pageIndex === showPage}
+                        className={`px-3.5 py-2 mx-1 rounded-md text-sm font-medium border transition-colors ${
+                          pageIndex === showPage 
+                            ? 'bg-blue-600 dark:bg-blue-800 text-white border-blue-600 dark:border-blue-800' 
+                            : 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                        }`}
+                        aria-label={`Go to page ${showPage + 1}`}
+                        aria-current={pageIndex === showPage ? 'page' : undefined}
+                      >
+                        {showPage + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <div className="sm:hidden flex items-center">
+                  <span className="px-3 py-1.5 text-sm text-blue-700 dark:text-blue-300 font-medium">
+                    Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                  </span>
+                </div>
+
                 <button
-                  className="px-3 py-1 border border-blue-200 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => table.nextPage()}
                   disabled={!table.getCanNextPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to next page"
+                  title="Next page"
                 >
-                  Next
+                  <i className="fas fa-angle-right w-5 h-5"></i>
                 </button>
                 <button
-                  className="px-3 py-1 border border-blue-200 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                   disabled={!table.getCanNextPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to last page"
+                  title="Last page"
                 >
-                  Last
+                  <i className="fas fa-angle-double-right w-5 h-5"></i>
                 </button>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">Show</span>
-                <select
-                  value={table.getState().pagination.pageSize}
-                  onChange={e => {
-                    table.setPageSize(Number(e.target.value));
-                  }}
-                  className="border border-blue-200 dark:border-gray-600 rounded-md px-2 py-1 text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  {[10, 20, 30, 40, 50].map(pageSize => (
-                    <option key={pageSize} value={pageSize}>
-                      {pageSize}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">entries</span>
+                <label className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  Per page:
+                  <select
+                    value={table.getState().pagination.pageSize}
+                    onChange={e => {
+                      table.setPageSize(Number(e.target.value));
+                    }}
+                    className="ml-2 px-3 py-1.5 text-sm border border-blue-200 dark:border-blue-800 rounded-md bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {[5, 10, 20, 30, 50].map(pageSize => (
+                      <option key={pageSize} value={pageSize}>
+                        {pageSize}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </div>
           </>
