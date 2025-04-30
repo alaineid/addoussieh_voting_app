@@ -6,7 +6,8 @@ interface ExportPDFModalProps {
   isOpen: boolean;
   onClose: () => void;
   registerOptions: string[];
-  onExport: (selectedRegisters: string[], selectedColumns: string[]) => void;
+  registerSectOptions: string[]; // Add prop for register sect options
+  onExport: (selectedRegisters: string[], selectedRegisterSects: string[], selectedColumns: string[], fileName: string) => void; // Update onExport signature
 }
 
 // Define available columns for export
@@ -31,16 +32,24 @@ const availableColumns = [
 const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
   isOpen,
   onClose,
-  registerOptions,
+  registerOptions = [], // Default to empty array
+  registerSectOptions = [], // Default to empty array
   onExport,
 }) => {
   const [selectedRegisters, setSelectedRegisters] = useState<string[]>([]);
+  const [selectedRegisterSects, setSelectedRegisterSects] = useState<string[]>([]); // Add state for selected register sects
   const [selectedColumns, setSelectedColumns] = useState<string[]>(['full_name', 'situation', 'register', 'register_sect']);
 
   // Format register options for react-select
   const registerSelectOptions = registerOptions.map(register => ({
     value: register,
     label: register
+  }));
+
+  // Format register sect options for react-select
+  const registerSectSelectOptions = registerSectOptions.map(sect => ({
+    value: sect,
+    label: sect
   }));
 
   // Format column options for react-select
@@ -53,6 +62,7 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setSelectedRegisters([]);
+      setSelectedRegisterSects([]); // Reset selected register sects
       setSelectedColumns(['full_name', 'situation', 'register', 'register_sect']);
     }
   }, [isOpen]);
@@ -61,6 +71,12 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
   const handleRegisterChange = (selected: any) => {
     const selectedValues = selected ? selected.map((item: any) => item.value) : [];
     setSelectedRegisters(selectedValues);
+  };
+
+  // Handle register sect selection change
+  const handleRegisterSectChange = (selected: any) => {
+    const selectedValues = selected ? selected.map((item: any) => item.value) : [];
+    setSelectedRegisterSects(selectedValues);
   };
 
   // Handle column selection change
@@ -76,6 +92,13 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
     );
   };
 
+  // Get currently selected register sect options for the Select component
+  const getSelectedRegisterSectOptions = () => {
+    return registerSectSelectOptions.filter(option =>
+      selectedRegisterSects.includes(option.value)
+    );
+  };
+
   // Get currently selected column options for the Select component
   const getSelectedColumnOptions = () => {
     return columnSelectOptions.filter(option => 
@@ -85,7 +108,12 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
 
   // Handle export button click
   const handleExport = () => {
-    onExport(selectedRegisters, selectedColumns);
+    const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14); // Format timestamp as ddMMyyyyhhmmss
+    const formattedTimestamp = `${timestamp.slice(6, 8)}${timestamp.slice(4, 6)}${timestamp.slice(0, 4)}_${timestamp.slice(8, 10)}${timestamp.slice(10, 12)}${timestamp.slice(12, 14)}`;
+    const registerNames = selectedRegisters.join('-');
+    const fileName = `Register_${registerNames}_${formattedTimestamp}.pdf`;
+
+    onExport(selectedRegisters, selectedRegisterSects, selectedColumns, fileName); // Pass selectedRegisterSects
     onClose();
   };
 
@@ -167,6 +195,28 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
           )}
         </div>
 
+        {/* Add Register Sect Selector */}
+        <div>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Register Sects</h4>
+          <Select
+            isMulti
+            isClearable
+            isSearchable
+            placeholder="Select register sects..."
+            options={registerSectSelectOptions}
+            value={getSelectedRegisterSectOptions()}
+            onChange={handleRegisterSectChange}
+            className="react-select-container"
+            classNamePrefix="react-select"
+            styles={customStyles}
+            aria-label="Select register sects"
+          />
+          {/* Optional: Add validation message if needed */}
+          {/* {selectedRegisterSects.length === 0 && (
+            <p className="mt-1 text-xs text-red-500 dark:text-red-400">Please select at least one register sect.</p>
+          )} */}
+        </div>
+
         <div>
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Columns</h4>
           <Select
@@ -197,36 +247,18 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
           <button
             onClick={handleExport}
             disabled={selectedRegisters.length === 0 || selectedColumns.length === 0}
-            className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center ${
+            className={`px-5 py-2.5 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 ${
               selectedRegisters.length === 0 || selectedColumns.length === 0
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
-                : 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 transition-colors'
+                : 'bg-gradient-to-br from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white dark:from-red-600 dark:to-red-800 dark:hover:from-red-700 dark:hover:to-red-900'
             }`}
           >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-4 w-4 mr-2" 
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <path d="M14 2v6h6" />
-              <path d="M5 12v-1h4v1" />
-              <path d="M9 12v6" />
-              <path d="M5 18v-1h4v1" />
-              <path d="M14 12h1v6h-1z" />
-              <path d="M19 12h-4" />
-              <path d="M19 15h-4" />
-            </svg>
-            Export PDF
+            <i className="fas fa-file-pdf text-red-100 mr-2 text-lg"></i>
+            <span className="font-medium">Export PDF</span>
           </button>
-        </div>
-      </div>
-    </Modal>
+        </div> {/* Correctly closed div */}
+      </div> {/* Correctly closed div */}
+    </Modal> /* Correctly closed Modal */
   );
 };
 
