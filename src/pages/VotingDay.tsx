@@ -1,23 +1,23 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
-import { supabase } from '../lib/supabaseClient';
 import { 
   createColumnHelper, 
-  flexRender, 
+  useReactTable, 
   getCoreRowModel, 
-  useReactTable,
-  getPaginationRowModel,
-  getSortedRowModel,
-  SortingState,
-  getFilteredRowModel,
+  getFilteredRowModel, 
+  getSortedRowModel, 
+  getPaginationRowModel, 
+  SortingState, 
   ColumnFiltersState,
-  FilterFn
+  flexRender // Import flexRender
 } from '@tanstack/react-table';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import ExportPDFModal from '../components/ExportPDFModal';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable'; // Import autoTable directly
+import { amiriRegularBase64 } from '../assets/fonts/Amiri-Regular-normal'; // Import the font
 
 // Define interface for voter data
 interface Voter {
@@ -277,32 +277,33 @@ const VotingDay: React.FC = () => {
         return;
       }
 
-      // Create column headers for the PDF
+      // Create column headers for the PDF (remain in default font)
       const headers = selectedColumns.map(col => {
         const column = availableColumns.find(c => c.id === col);
         return column ? column.label : col;
       });
 
-      // Get column data
+      // Get column data (will be rendered using Amiri font)
       const rows = filteredData.map(voter => {
         return selectedColumns.map(col => {
           switch (col) {
             case 'full_name':
-              return voter.full_name || '-';
+              return voter.full_name || '-'; // Arabic text
             case 'register':
-              return voter.register?.toString() || '-';
+              return voter.register?.toString() || '-'; // Number
             case 'register_sect':
-              return voter.register_sect || '-';
+              return voter.register_sect || '-'; // Arabic text
             case 'gender':
-              return voter.gender || '-';
+              return voter.gender || '-'; // Arabic text
             case 'comments':
-              return voter.comments || '-';
+              return voter.comments || '-'; // Potentially mixed
             case 'has_voted':
-              return voter.has_voted ? 'Yes' : 'No';
+              return voter.has_voted ? 'Yes' : 'No'; // English text
             case 'voting_time':
               if (!voter.voting_time) return '-';
               try {
                 const date = new Date(voter.voting_time);
+                // Keep date format in English/Numbers
                 return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth()+1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
               } catch (e) {
                 return '-';
@@ -316,25 +317,32 @@ const VotingDay: React.FC = () => {
       // Create PDF document
       const pdf = new jsPDF('landscape');
 
-      // Add title
+      // Add the Amiri font
+      pdf.addFileToVFS('Amiri-Regular.ttf', amiriRegularBase64);
+      pdf.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+
+      // Set default font for title and metadata (optional, could use Amiri too)
+      pdf.setFont('helvetica'); // Or another default font
       pdf.setFontSize(16);
       pdf.text('Non-Voted Voters Report', 14, 15);
 
-      // Add date and filter info
       const now = new Date();
       pdf.setFontSize(10);
       pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
       pdf.text(`Filters: Registers ${selectedRegisters.join(', ')}`, 14, 27);
 
-      // Create the table using the imported autoTable function
+      // Create the table using autoTable, applying the Amiri font to the body
       autoTable(pdf, {
         head: [headers],
         body: rows,
         startY: 32,
-        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, font: 'helvetica' }, // Keep headers in default font
+        bodyStyles: { font: 'Amiri', fontStyle: 'normal' }, // Use Amiri for body content
         alternateRowStyles: { fillColor: [240, 240, 240] },
         styles: { fontSize: 9 },
         margin: { top: 32 },
+        // Note: jsPDF and autoTable handle Arabic rendering, but complex layout (like mixing LTR/RTL within cells) might have limitations.
+        // This setup applies Amiri font to all body cells.
       });
 
       // Save the PDF
@@ -902,23 +910,18 @@ const VotingDay: React.FC = () => {
             >
               <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900 sm:mx-0 sm:h-10 sm:w-10">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                    </svg>
-                  </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">
-                      Add Comment for {selectedVoter.full_name}
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white" id="modal-title">
+                      Add/Edit Comment for {selectedVoter.full_name}
                     </h3>
                     <div className="mt-4">
                       <textarea
-                        className="w-full px-3 py-2 text-gray-700 dark:text-white border rounded-lg focus:outline-none focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600"
                         rows={4}
-                        placeholder="Enter your comment here..."
+                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 mt-1 block w-full sm:text-sm border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"
+                        placeholder="Enter comment here..."
                         value={commentText}
                         onChange={(e) => setCommentText(e.target.value)}
-                      ></textarea>
+                      />
                     </div>
                   </div>
                 </div>
@@ -1028,8 +1031,8 @@ const VotingDay: React.FC = () => {
             {/* Search Input */}
             <div className="relative w-full sm:max-w-xs">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                 </svg>
               </div>
               <input
@@ -1049,7 +1052,7 @@ const VotingDay: React.FC = () => {
             <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-md w-full mb-4"></div>
             <div className="space-y-3">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded-md w-full"></div>
+                <div key={i} className="h-10 bg-gray-200 dark:bg-gray-700 rounded-md"></div>
               ))}
             </div>
           </div>
@@ -1067,117 +1070,47 @@ const VotingDay: React.FC = () => {
           <>
             <div className="overflow-x-auto shadow-sm rounded-lg border border-blue-200 dark:border-gray-700">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800">
+                <thead className="bg-blue-50 dark:bg-gray-700">
                   {table.getHeaderGroups().map(headerGroup => (
                     <tr key={headerGroup.id}>
                       {headerGroup.headers.map(header => (
                         <th 
                           key={header.id} 
                           scope="col" 
-                          className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider whitespace-nowrap min-w-[100px]"
+                          className="px-4 py-3 text-left text-xs font-medium text-blue-700 dark:text-blue-300 uppercase tracking-wider"
+                          style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
                         >
-                          <div
-                            className="cursor-pointer whitespace-nowrap flex items-center"
+                          <div 
+                            className={`flex items-center ${header.column.getCanSort() ? 'cursor-pointer select-none' : ''}`}
                             onClick={header.column.getToggleSortingHandler()}
                           >
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(
-                                  header.column.columnDef.header,
-                                  header.getContext()
-                                )}
-                            {/* Sorting indicators */}
-                            {header.column.getIsSorted() === 'asc' && (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                              </svg>
-                            )}
-                            {header.column.getIsSorted() === 'desc' && (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                              </svg>
-                            )}
-                            {/* Indicator for sortable columns that are not currently sorted */}
-                            {header.column.getCanSort() && !header.column.getIsSorted() && (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="ml-1.5 h-4 w-4 text-gray-400 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                              </svg>
-                            )}
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                            {{
+                              asc: ' 🔼',
+                              desc: ' 🔽',
+                            }[header.column.getIsSorted() as string] ?? null}
                           </div>
+                          {header.column.getCanFilter() ? (
+                            <div className="mt-1">
+                              {header.column.id === 'full_name' || header.column.id === 'comments' || header.column.id === 'voting_time' ? (
+                                <TextFilter column={header.column} table={table} />
+                              ) : header.column.id === 'has_voted' ? (
+                                <BooleanFilter column={header.column} table={table} />
+                              ) : (
+                                <SelectFilter column={header.column} table={table} />
+                              )}
+                            </div>
+                          ) : null}
                         </th>
                       ))}
                     </tr>
                   ))}
-
-                  {/* Column Filters Row */}
-                  <tr>
-                    {table.getHeaderGroups()[0].headers.map(header => {
-                      const columnId = header.column.id;
-
-                      return (
-                        <th key={header.id} className="px-6 py-2 bg-gray-100 dark:bg-gray-700">
-                          {/* Only add filters for data columns, not action column */}
-                          {columnId !== 'actions' && (
-                            <>
-                              {/* Register Dropdown */}
-                              {columnId === 'register' && (
-                                <SelectFilter column={header.column} table={table} />
-                              )}
-                              
-                              {/* Register Sect Dropdown */}
-                              {columnId === 'register_sect' && (
-                                <SelectFilter column={header.column} table={table} />
-                              )}
-                              
-                              {/* Gender Dropdown */}
-                              {columnId === 'gender' && (
-                                <SelectFilter column={header.column} table={table} />
-                              )}
-
-                              {/* Has Voted Dropdown */}
-                              {columnId === 'has_voted' && (
-                                <BooleanFilter column={header.column} table={table} />
-                              )}
-
-                              {/* Text Search for Full Name and Comments */}
-                              {['full_name', 'comments'].includes(columnId) && (
-                                <TextFilter column={header.column} table={table} />
-                              )}
-
-                              {/* Voting Time Text Filter */}
-                              {columnId === 'voting_time' && (
-                                <TextFilter column={header.column} table={table} />
-                              )}
-                            </>
-                          )}
-                        </th>
-                      );
-                    })}
-                  </tr>
                 </thead>
-
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {table.getRowModel().rows.map(row => (
-                    <tr 
-                      key={row.id} 
-                      className={`
-                        transition-colors
-                        ${row.original.has_voted 
-                          ? 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30' 
-                          : 'bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/30'}
-                      `}
-                    >
+                    <tr key={row.id} className="hover:bg-blue-50 dark:hover:bg-gray-700/50 transition-colors">
                       {row.getVisibleCells().map(cell => (
-                        <td 
-                          key={cell.id} 
-                          className={`px-6 py-4 whitespace-nowrap text-sm ${
-                            row.original.has_voted
-                            ? 'text-gray-800 dark:text-gray-200'
-                            : 'text-gray-700 dark:text-gray-300'
-                          } ${
-                            cell.column.id === 'actions' ? 'text-left' : ''
-                          }`}
-                        >
+                        <td key={cell.id} className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                       ))}
@@ -1190,143 +1123,69 @@ const VotingDay: React.FC = () => {
             {/* Pagination Controls */}
             <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <span>
-                  Showing <span className="font-semibold text-blue-900 dark:text-blue-300">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
-                  <span className="font-semibold text-blue-900 dark:text-blue-300">
-                    {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, filteredVotersCount)}
-                  </span> of{" "}
-                  <span className="font-semibold text-blue-900 dark:text-blue-300">{filteredVotersCount}</span> voters
-                </span>
+                <span>Page</span>
+                <strong>
+                  {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                </strong>
+                <span className="hidden sm:inline">| Go to page:</span>
+                <input
+                  type="number"
+                  defaultValue={table.getState().pagination.pageIndex + 1}
+                  onChange={e => {
+                    const page = e.target.value ? Number(e.target.value) - 1 : 0;
+                    table.setPageIndex(page);
+                  }}
+                  className="border border-blue-200 dark:border-gray-600 rounded-md w-16 px-2 py-1 text-center dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
               </div>
 
               <div className="flex items-center gap-2">
-                {/* First Page Button */}
                 <button
+                  className="px-3 py-1 border border-blue-200 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => table.setPageIndex(0)}
                   disabled={!table.getCanPreviousPage()}
-                  className={`w-12 h-12 flex items-center justify-center rounded-md border ${
-                    !table.getCanPreviousPage() 
-                      ? 'border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-600' 
-                      : 'border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
-                  }`}
-                  aria-label="Go to first page"
-                  title="First page"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                  </svg>
+                  First
                 </button>
-                
-                {/* Previous Page Button */}
                 <button
+                  className="px-3 py-1 border border-blue-200 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => table.previousPage()}
                   disabled={!table.getCanPreviousPage()}
-                  className={`w-12 h-12 flex items-center justify-center rounded-md border ${
-                    !table.getCanPreviousPage() 
-                      ? 'border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-600' 
-                      : 'border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
-                  }`}
-                  aria-label="Go to previous page"
-                  title="Previous page"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
+                  Previous
                 </button>
-                
-                {/* Page Numbers */}
-                {Array.from({ length: Math.min(5, table.getPageCount()) }, (_, i) => {
-                  let pageIndex;
-                  const currentPage = table.getState().pagination.pageIndex;
-                  const totalPages = table.getPageCount();
-                  
-                  // Calculate which page numbers to show
-                  if (totalPages <= 5) {
-                    // If 5 or fewer pages, show all pages
-                    pageIndex = i;
-                  } else if (currentPage < 3) {
-                    // If near the beginning, show first 5 pages
-                    pageIndex = i;
-                  } else if (currentPage > totalPages - 3) {
-                    // If near the end, show last 5 pages
-                    pageIndex = totalPages - 5 + i;
-                  } else {
-                    // Otherwise show 2 before and 2 after current page
-                    pageIndex = currentPage - 2 + i;
-                  }
-                  
-                  // Ensure pageIndex is valid
-                  if (pageIndex < 0 || pageIndex >= totalPages) return null;
-                  
-                  return (
-                    <button
-                      key={pageIndex}
-                      onClick={() => table.setPageIndex(pageIndex)}
-                      className={`w-12 h-12 flex items-center justify-center rounded-md border ${
-                        currentPage === pageIndex
-                          ? 'bg-blue-600 border-blue-600 text-white dark:bg-blue-700 dark:border-blue-700'
-                          : 'border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
-                      }`}
-                      aria-label={`Go to page ${pageIndex + 1}`}
-                      aria-current={currentPage === pageIndex ? 'page' : undefined}
-                    >
-                      {pageIndex + 1}
-                    </button>
-                  );
-                })}
-                
-                {/* Next Page Button */}
                 <button
+                  className="px-3 py-1 border border-blue-200 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => table.nextPage()}
                   disabled={!table.getCanNextPage()}
-                  className={`w-12 h-12 flex items-center justify-center rounded-md border ${
-                    !table.getCanNextPage() 
-                      ? 'border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-600' 
-                      : 'border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
-                  }`}
-                  aria-label="Go to next page"
-                  title="Next page"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                  Next
                 </button>
-                
-                {/* Last Page Button */}
                 <button
+                  className="px-3 py-1 border border-blue-200 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => table.setPageIndex(table.getPageCount() - 1)}
                   disabled={!table.getCanNextPage()}
-                  className={`w-12 h-12 flex items-center justify-center rounded-md border ${
-                    !table.getCanNextPage() 
-                      ? 'border-gray-200 text-gray-400 dark:border-gray-700 dark:text-gray-600' 
-                      : 'border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30'
-                  }`}
-                  aria-label="Go to last page"
-                  title="Last page"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                  </svg>
+                  Last
                 </button>
               </div>
 
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  Per page:
-                  <select
-                    value={table.getState().pagination.pageSize}
-                    onChange={e => {
-                      table.setPageSize(Number(e.target.value));
-                    }}
-                    className="ml-2 px-3 py-1.5 text-sm border border-blue-200 dark:border-blue-800 rounded-md bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    {[5, 10, 20, 30, 50].map(pageSize => (
-                      <option key={pageSize} value={pageSize}>
-                        {pageSize}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">Show</span>
+                <select
+                  value={table.getState().pagination.pageSize}
+                  onChange={e => {
+                    table.setPageSize(Number(e.target.value));
+                  }}
+                  className="border border-blue-200 dark:border-gray-600 rounded-md px-2 py-1 text-sm dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {[10, 20, 30, 40, 50].map(pageSize => (
+                    <option key={pageSize} value={pageSize}>
+                      {pageSize}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-sm text-gray-700 dark:text-gray-300 hidden sm:inline">entries</span>
               </div>
             </div>
           </>
