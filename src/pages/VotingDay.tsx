@@ -261,14 +261,32 @@ const VotingDay: React.FC = () => {
   };
 
   // Generate and download PDF function
-  const handleExportPDF = (selectedRegisters: string[], selectedColumns: string[]) => {
+  const handleExportPDF = async (selectedRegisters: string[], selectedColumns: string[]) => {
     try {
-      // Filter voters based on selected registers and has_voted=false
-      const filteredData = voters.filter(voter => 
-        selectedRegisters.includes(String(voter.register)) && voter.has_voted === false
-      );
+      setToast({
+        message: 'Preparing PDF export...',
+        type: 'success',
+        visible: true
+      });
 
-      if (filteredData.length === 0) {
+      // Fetch fresh data from the database for the selected registers
+      let query = supabase
+        .from('avp_voters')
+        .select(selectedColumns.join(', ')) // Only select the columns we need
+        .in('register', selectedRegisters.map(r => Number(r))) // Filter by the selected registers
+        .eq('has_voted', false); // Only get voters who haven't voted yet
+      
+      // Apply gender filter based on permissions if needed
+      const genderFilter = getGenderFilter();
+      if (genderFilter) {
+        query = query.eq('gender', genderFilter);
+      }
+      
+      const { data: filteredData, error } = await query;
+      
+      if (error) throw error;
+
+      if (!filteredData || filteredData.length === 0) {
         setToast({
           message: 'No unvoted voters found for the selected registers',
           type: 'error',
@@ -283,18 +301,54 @@ const VotingDay: React.FC = () => {
         return column ? column.label : col;
       });
 
+      // Define a more flexible type for the voter data from the database
+      type VoterExportData = {
+        [key: string]: any; // This allows access to any property with string indexing
+        full_name?: string | null;
+        first_name?: string | null;
+        father_name?: string | null;
+        last_name?: string | null;
+        mother_name?: string | null;
+        register?: number | null;
+        register_sect?: string | null;
+        gender?: string | null;
+        alliance?: string | null;
+        family?: string | null;
+        situation?: string | null;
+        sect?: string | null;
+        comments?: string | null;
+        has_voted?: boolean | null;
+        voting_time?: string | null;
+      };
+
       // Get column data (will be rendered using Amiri font)
-      const rows = filteredData.map(voter => {
+      const rows = (filteredData as VoterExportData[]).map(voter => {
         return selectedColumns.map(col => {
           switch (col) {
             case 'full_name':
               return voter.full_name || '-'; // Arabic text
+            case 'first_name':
+              return voter.first_name || '-'; // Arabic text
+            case 'father_name':
+              return voter.father_name || '-'; // Arabic text
+            case 'last_name':
+              return voter.last_name || '-'; // Arabic text
+            case 'mother_name':
+              return voter.mother_name || '-'; // Arabic text
             case 'register':
               return voter.register?.toString() || '-'; // Number
             case 'register_sect':
               return voter.register_sect || '-'; // Arabic text
             case 'gender':
               return voter.gender || '-'; // Arabic text
+            case 'alliance':
+              return voter.alliance || '-'; // Text
+            case 'family':
+              return voter.family || '-'; // Text
+            case 'situation':
+              return voter.situation || '-'; // Text
+            case 'sect':
+              return voter.sect || '-'; // Text
             case 'comments':
               return voter.comments || '-'; // Potentially mixed
             case 'has_voted':
@@ -341,8 +395,6 @@ const VotingDay: React.FC = () => {
         alternateRowStyles: { fillColor: [240, 240, 240] },
         styles: { fontSize: 9 },
         margin: { top: 32 },
-        // Note: jsPDF and autoTable handle Arabic rendering, but complex layout (like mixing LTR/RTL within cells) might have limitations.
-        // This setup applies Amiri font to all body cells.
       });
 
       // Save the PDF

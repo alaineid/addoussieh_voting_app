@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
+import Select from 'react-select';
 
 interface ExportPDFModalProps {
   isOpen: boolean;
@@ -11,9 +12,17 @@ interface ExportPDFModalProps {
 // Define available columns for export
 const availableColumns = [
   { id: 'full_name', label: 'Full Name' },
+  { id: 'first_name', label: 'First Name' },
+  { id: 'father_name', label: 'Father Name' },
+  { id: 'last_name', label: 'Last Name' },
+  { id: 'mother_name', label: 'Mother Name' },
   { id: 'register', label: 'Register' },
   { id: 'register_sect', label: 'Register Sect' },
   { id: 'gender', label: 'Gender' },
+  { id: 'alliance', label: 'Alliance' },
+  { id: 'family', label: 'Family' },
+  { id: 'situation', label: 'Situation' },
+  { id: 'sect', label: 'Sect' },
   { id: 'comments', label: 'Comments' },
   { id: 'has_voted', label: 'Has Voted' },
   { id: 'voting_time', label: 'Voting Time' },
@@ -26,56 +35,52 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
   onExport,
 }) => {
   const [selectedRegisters, setSelectedRegisters] = useState<string[]>([]);
-  const [selectAll, setSelectAll] = useState(false);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>(['full_name', 'register', 'register_sect', 'has_voted']);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(['full_name', 'situation', 'register', 'register_sect']);
+
+  // Format register options for react-select
+  const registerSelectOptions = registerOptions.map(register => ({
+    value: register,
+    label: register
+  }));
+
+  // Format column options for react-select
+  const columnSelectOptions = availableColumns.map(column => ({
+    value: column.id,
+    label: column.label
+  }));
 
   // Reset selections when modal opens
   useEffect(() => {
     if (isOpen) {
       setSelectedRegisters([]);
-      setSelectAll(false);
-      setSelectedColumns(['full_name', 'register', 'register_sect', 'has_voted']);
+      setSelectedColumns(['full_name', 'situation', 'register', 'register_sect']);
     }
   }, [isOpen]);
 
-  // Handle select all registers
-  const handleSelectAllRegisters = () => {
-    if (selectAll) {
-      setSelectedRegisters([]);
-    } else {
-      setSelectedRegisters([...registerOptions]);
-    }
-    setSelectAll(!selectAll);
+  // Handle register selection change
+  const handleRegisterChange = (selected: any) => {
+    const selectedValues = selected ? selected.map((item: any) => item.value) : [];
+    setSelectedRegisters(selectedValues);
   };
 
-  // Handle individual register selection
-  const handleRegisterSelect = (register: string) => {
-    setSelectedRegisters(prev => {
-      const isSelected = prev.includes(register);
-      
-      // If register is currently selected, remove it
-      if (isSelected) {
-        setSelectAll(false);
-        return prev.filter(r => r !== register);
-      }
-      
-      // If all registers are now selected, set selectAll to true
-      const newSelection = [...prev, register];
-      if (newSelection.length === registerOptions.length) {
-        setSelectAll(true);
-      }
-      
-      return newSelection;
-    });
+  // Handle column selection change
+  const handleColumnChange = (selected: any) => {
+    const selectedValues = selected ? selected.map((item: any) => item.value) : [];
+    setSelectedColumns(selectedValues);
   };
 
-  // Handle column selection
-  const handleColumnSelect = (columnId: string) => {
-    setSelectedColumns(prev => {
-      return prev.includes(columnId) 
-        ? prev.filter(c => c !== columnId) 
-        : [...prev, columnId];
-    });
+  // Get currently selected register options for the Select component
+  const getSelectedRegisterOptions = () => {
+    return registerSelectOptions.filter(option => 
+      selectedRegisters.includes(option.value)
+    );
+  };
+
+  // Get currently selected column options for the Select component
+  const getSelectedColumnOptions = () => {
+    return columnSelectOptions.filter(option => 
+      selectedColumns.includes(option.value)
+    );
   };
 
   // Handle export button click
@@ -84,72 +89,108 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
     onClose();
   };
 
+  // Custom styles for react-select
+  const customStyles = {
+    control: (provided: any, state: any) => ({
+      ...provided,
+      backgroundColor: 'var(--bg-input, #ffffff)',
+      borderColor: state.isFocused 
+        ? 'var(--color-primary, #3b82f6)' 
+        : 'var(--border-color, #d1d5db)',
+      boxShadow: state.isFocused 
+        ? '0 0 0 1px var(--color-primary, #3b82f6)' 
+        : 'none',
+      '&:hover': {
+        borderColor: state.isFocused 
+          ? 'var(--color-primary, #3b82f6)' 
+          : 'var(--border-hover, #9ca3af)',
+      },
+    }),
+    multiValue: (provided: any) => ({
+      ...provided,
+      backgroundColor: 'var(--bg-tag, #e5e7eb)',
+    }),
+    multiValueLabel: (provided: any) => ({
+      ...provided,
+      color: 'var(--text-tag, #374151)',
+      fontSize: '0.875rem',
+    }),
+    multiValueRemove: (provided: any) => ({
+      ...provided,
+      color: 'var(--text-tag, #374151)',
+      '&:hover': {
+        backgroundColor: 'var(--bg-tag-remove-hover, #d1d5db)',
+        color: 'var(--text-tag-remove-hover, #1f2937)',
+      },
+    }),
+    menu: (provided: any) => ({
+      ...provided,
+      backgroundColor: 'var(--bg-dropdown, #ffffff)',
+      zIndex: 9999,
+    }),
+    option: (provided: any, state: any) => ({
+      ...provided,
+      backgroundColor: state.isSelected 
+        ? 'var(--bg-selected, #3b82f6)' 
+        : state.isFocused 
+          ? 'var(--bg-hover, #f3f4f6)' 
+          : 'transparent',
+      color: state.isSelected 
+        ? 'var(--text-selected, #ffffff)' 
+        : 'var(--text-normal, #1f2937)',
+      '&:active': {
+        backgroundColor: 'var(--bg-active, #dbeafe)',
+      },
+    }),
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Export PDF">
       <div className="space-y-6">
         <div>
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Registers</h4>
-          <div className="border rounded-md p-3 max-h-40 overflow-y-auto">
-            <div className="mb-2">
-              <label className="inline-flex items-center">
-                <input
-                  type="checkbox"
-                  className="form-checkbox h-4 w-4 text-blue-600"
-                  checked={selectAll}
-                  onChange={handleSelectAllRegisters}
-                />
-                <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">Select All</span>
-              </label>
-            </div>
-            <div className="space-y-1 max-h-24 overflow-y-auto">
-              {registerOptions.map(register => (
-                <div key={register} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id={`register-${register}`}
-                    className="form-checkbox h-4 w-4 text-blue-600"
-                    checked={selectedRegisters.includes(register)}
-                    onChange={() => handleRegisterSelect(register)}
-                  />
-                  <label
-                    htmlFor={`register-${register}`}
-                    className="ml-2 text-sm text-gray-600 dark:text-gray-400"
-                  >
-                    {register}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
+          <Select
+            isMulti
+            isClearable
+            isSearchable
+            placeholder="Select registers..."
+            options={registerSelectOptions}
+            value={getSelectedRegisterOptions()}
+            onChange={handleRegisterChange}
+            className="react-select-container"
+            classNamePrefix="react-select"
+            styles={customStyles}
+            aria-label="Select registers"
+          />
           {selectedRegisters.length === 0 && (
-            <p className="mt-1 text-xs text-red-500">Please select at least one register.</p>
+            <p className="mt-1 text-xs text-red-500 dark:text-red-400">Please select at least one register.</p>
           )}
         </div>
 
         <div>
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Columns</h4>
-          <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
-            {availableColumns.map(column => (
-              <label key={column.id} className="inline-flex items-center">
-                <input
-                  type="checkbox"
-                  className="form-checkbox h-4 w-4 text-blue-600"
-                  checked={selectedColumns.includes(column.id)}
-                  onChange={() => handleColumnSelect(column.id)}
-                />
-                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">{column.label}</span>
-              </label>
-            ))}
-          </div>
+          <Select
+            isMulti
+            isClearable
+            isSearchable
+            placeholder="Select columns..."
+            options={columnSelectOptions}
+            value={getSelectedColumnOptions()}
+            onChange={handleColumnChange}
+            className="react-select-container"
+            classNamePrefix="react-select"
+            styles={customStyles}
+            aria-label="Select columns"
+          />
           {selectedColumns.length === 0 && (
-            <p className="mt-1 text-xs text-red-500">Please select at least one column.</p>
+            <p className="mt-1 text-xs text-red-500 dark:text-red-400">Please select at least one column.</p>
           )}
         </div>
 
         <div className="flex justify-end space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300"
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-500"
           >
             Cancel
           </button>
@@ -158,8 +199,8 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
             disabled={selectedRegisters.length === 0 || selectedColumns.length === 0}
             className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center ${
               selectedRegisters.length === 0 || selectedColumns.length === 0
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-red-600 text-white hover:bg-red-700 transition-colors'
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
+                : 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 transition-colors'
             }`}
           >
             <svg 
