@@ -1,89 +1,40 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
-import { Tab } from '@headlessui/react';
-import Select from 'react-select';
 import { 
   createColumnHelper, 
-  flexRender, 
+  useReactTable, 
   getCoreRowModel, 
-  useReactTable,
-  getPaginationRowModel,
-  getSortedRowModel,
-  SortingState,
-  getFilteredRowModel,
-  ColumnFiltersState
+  getFilteredRowModel, 
+  getSortedRowModel, 
+  getPaginationRowModel, 
+  SortingState, 
+  ColumnFiltersState,
+  flexRender
 } from '@tanstack/react-table';
+import Toast from '../components/Toast'; // Import shared Toast component
 import ConfirmationModal from '../components/ConfirmationModal';
 import AlertModal from '../components/AlertModal';
 
 console.log("Candidates.tsx module loaded"); // New log
 
-// Toast notification component
-interface ToastProps {
-  message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  onClose: () => void;
+// Candidate interface
+interface Candidate {
+  id: number;
+  list_name: string;
+  candidate_of: string;
+  score: number;
+  list_order?: number;
+  candidate_order?: number;
+  full_name?: string; // From joined avp_voters table
+  voter_id: number; // Reference to avp_voters table
 }
 
-const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onClose();
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  const getBgColor = () => {
-    switch (type) {
-      case 'success': return 'bg-green-500';
-      case 'error': return 'bg-red-500';
-      case 'warning': return 'bg-yellow-500';
-      case 'info': return 'bg-blue-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getIcon = () => {
-    switch (type) {
-      case 'success':
-        return <i className="fas fa-check-circle w-5 h-5"></i>;
-      case 'error':
-        return <i className="fas fa-times-circle w-5 h-5"></i>;
-      case 'warning':
-        return <i className="fas fa-exclamation-triangle w-5 h-5"></i>;
-      case 'info':
-      default:
-        return <i className="fas fa-info-circle w-5 h-5"></i>;
-    }
-  };
-
-  return (
-    <div className={`fixed top-4 right-4 z-50 flex items-center p-4 text-white rounded-md shadow-lg transform transition-all duration-300 ${getBgColor()}`}>
-      <div className="mr-3">
-        {getIcon()}
-      </div>
-      <div>{message}</div>
-      <button 
-        onClick={onClose} 
-        className="ml-6 text-white hover:text-gray-200"
-        aria-label="Close"
-      >
-        <i className="fas fa-times w-4 h-4"></i>
-      </button>
-    </div>
-  );
-};
-
-// Define interfaces for data structures
+// Voter interface
 interface Voter {
   id: number;
-  full_name: string;
-  register_sect: string;
-  sect: string;
-  register: number;
+  full_name: string | null;
 }
 
 // Define option type for React Select
@@ -91,16 +42,6 @@ interface VoterOption {
   value: number;
   label: string;
   voter: Voter;
-}
-
-interface Candidate {
-  id: number;
-  list_name: string;
-  candidate_of: string;
-  score: number | null;
-  full_name?: string;
-  register_sect?: string;
-  register?: number;
 }
 
 const CreateCandidateTab: React.FC = () => {

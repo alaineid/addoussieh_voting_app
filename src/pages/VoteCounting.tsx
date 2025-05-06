@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import Toast from '../components/Toast'; // Import shared Toast component
 
 // Define interface for candidate data
 interface Candidate {
@@ -16,68 +17,11 @@ interface Candidate {
   isUpdating?: boolean; // UI state for highlighting updated rows
 }
 
-// Toast notification component
-interface ToastProps {
-  message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  onClose: () => void;
-}
-
-const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      onClose();
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  const getBgColor = () => {
-    switch (type) {
-      case 'success': return 'bg-green-500';
-      case 'error': return 'bg-red-500';
-      case 'warning': return 'bg-yellow-500';
-      case 'info': return 'bg-blue-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const getIcon = () => {
-    switch (type) {
-      case 'success':
-        return <i className="fas fa-check-circle w-5 h-5"></i>;
-      case 'error':
-        return <i className="fas fa-times-circle w-5 h-5"></i>;
-      case 'warning':
-        return <i className="fas fa-exclamation-triangle w-5 h-5"></i>;
-      case 'info':
-      default:
-        return <i className="fas fa-info-circle w-5 h-5"></i>;
-    }
-  };
-
-  return (
-    <div className={`fixed top-4 right-4 z-50 flex items-center p-4 text-white rounded-md shadow-lg transform transition-all duration-300 ${getBgColor()}`}>
-      <div className="mr-3">
-        {getIcon()}
-      </div>
-      <div>{message}</div>
-      <button 
-        onClick={onClose} 
-        className="ml-6 text-white hover:text-gray-200"
-        aria-label="Close"
-      >
-        <i className="fas fa-times w-4 h-4"></i>
-      </button>
-    </div>
-  );
-};
-
 // Confirmation modal for manually posting votes
 interface ConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (e?: React.MouseEvent) => void;  // Updated to accept an event parameter
   title: string;
   message: string;
 }
@@ -114,8 +58,8 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             <button
               type="button"
               className="px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              onClick={() => {
-                onConfirm();
+              onClick={(e) => {
+                onConfirm(e);
                 onClose();
               }}
             >
@@ -128,7 +72,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   );
 };
 
-const Scoring: React.FC = () => {
+const VoteCounting: React.FC = () => {
   const { profile, session } = useAuthStore();
   const { isDarkMode } = useThemeStore();
   const [loading, setLoading] = useState<boolean>(true);
@@ -179,8 +123,10 @@ const Scoring: React.FC = () => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   
-  // Toast state
+  // Toast state - modified to use an ID for tracking
+  const [toastId, setToastId] = useState<number>(0);
   const [toast, setToast] = useState<{
+    id: number;
     message: string;
     type: 'success' | 'error' | 'info' | 'warning';
     visible: boolean;
@@ -209,6 +155,25 @@ const Scoring: React.FC = () => {
     };
   }, []);
 
+  // Add visibility change handler to refresh data when tab becomes active
+  useEffect(() => {
+    // Function to handle tab visibility changes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Tab became visible, refreshing candidate data...');
+        fetchCandidates();
+      }
+    };
+
+    // Add event listener for visibility change
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Clean up
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // Setup realtime subscription
   const setupRealtimeSubscription = () => {
     if (realtimeChannelRef.current) {
@@ -216,42 +181,75 @@ const Scoring: React.FC = () => {
     }
 
     const channel = supabase
-      .channel('candidates-scoring-' + Date.now())
+      .channel('candidates-scoring-' + Date.now(), {
+        config: {
+          broadcast: {
+            self: true // Receive events from own client's writes
+          }
+        }
+      })
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'avp_candidates' },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'avp_candidates',
+          // No filter - we want all changes
+        },
         (payload) => {
           console.log('Candidate change detected!', payload);
           
-          // For ALL change events, refresh the entire candidates data
-          // This ensures scores are always up-to-date across all users
-          fetchCandidates();
-          
-          // If this is an update, also highlight the updated row
-          if (payload.eventType === 'UPDATE' && payload.new) {
-            // After fetching, highlight the updated row temporarily
-            setTimeout(() => {
-              setCandidates(prev => prev.map(cand => 
-                cand.id === payload.new.id 
-                  ? { ...cand, isUpdating: true } 
-                  : cand
-              ));
+          // For score-related changes, only update scores without refreshing the whole page
+          if (payload.eventType === 'UPDATE' && payload.new && payload.old) {
+            // If only the score changed, use the lightweight update
+            if (payload.new.score !== payload.old.score && 
+                payload.new.list_name === payload.old.list_name && 
+                payload.new.candidate_of === payload.old.candidate_of) {
               
-              // Remove the highlight after 1.5 seconds
+              // Use the lightweight score update that doesn't cause blinking
+              fetchCandidateScores();
+              
+              // Also highlight the updated row
               setTimeout(() => {
                 setCandidates(prev => prev.map(cand => 
                   cand.id === payload.new.id 
-                    ? { ...cand, isUpdating: false } 
+                    ? { ...cand, isUpdating: true } 
                     : cand
                 ));
-              }, 1500);
-            }, 200); // Small delay to ensure fetchCandidates has completed
+                
+                // Remove the highlight after 1.5 seconds
+                setTimeout(() => {
+                  setCandidates(prev => prev.map(cand => 
+                    cand.id === payload.new.id 
+                      ? { ...cand, isUpdating: false } 
+                      : cand
+                  ));
+                }, 1500);
+              }, 200);
+            } else {
+              // For other types of changes, do a full refresh
+              fetchCandidates();
+            }
+          } else {
+            // For non-update changes (insert/delete), do a full refresh
+            fetchCandidates();
           }
         }
       )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           console.log('Subscribed to candidate scoring changes!');
+          
+          // Set up a periodic refresh to ensure data stays in sync
+          // even if some realtime events are missed - now set to 30 seconds
+          const intervalId = setInterval(() => {
+            // Use lightweight score updates for interval refreshes
+            console.log('Running periodic backup refresh (30s interval)');
+            fetchCandidateScores();
+          }, 30000); // Refresh every 30 seconds instead of 3 seconds
+          
+          // Store the interval ID for cleanup
+          return () => clearInterval(intervalId);
         }
         if (status === 'CHANNEL_ERROR') {
           console.error('Realtime channel error:', err);
@@ -314,6 +312,32 @@ const Scoring: React.FC = () => {
       showToast(`Failed to load candidates: ${err.message}`, 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch only scores data (lightweight update)
+  const fetchCandidateScores = async () => {
+    try {
+      // Query only the necessary data for scores
+      const { data, error } = await supabase
+        .from('avp_candidates')
+        .select('id, score');
+
+      if (error) {
+        throw error;
+      }
+
+      // Update only the scores in the existing candidates array
+      setCandidates(prev => prev.map(candidate => {
+        const scoreUpdate = data.find(item => item.id === candidate.id);
+        return scoreUpdate 
+          ? { ...candidate, score: scoreUpdate.score || 0 } 
+          : candidate;
+      }));
+      
+    } catch (err: any) {
+      console.error('Error fetching candidate scores:', err);
+      // Don't show toast for background updates to avoid UI noise
     }
   };
 
@@ -392,8 +416,8 @@ const Scoring: React.FC = () => {
         });
         setCheckedVotes(resetCheckedVotes);
         
-        // Refresh the candidates data to update the live scores
-        fetchCandidates();
+        // Use the non-blinking score update instead of full page refresh
+        fetchCandidateScores();
         
         showToast('All scores updated successfully', 'success');
       }
@@ -440,8 +464,11 @@ const Scoring: React.FC = () => {
   };
 
   // Handle confirmation of manual posting
-  const handleConfirmPost = async () => {
+  const handleConfirmPost = async (e?: React.MouseEvent) => {
     try {
+      // Prevent default behavior that might cause refresh
+      e?.preventDefault();
+      
       // Array to hold all update promises
       const updatePromises = [];
       
@@ -455,6 +482,8 @@ const Scoring: React.FC = () => {
           if (candidate) {
             const currentScore = candidate.score || 0;
             const newScore = currentScore + checkedCount;
+            
+            console.log(`Updating candidate ${candidate.full_name}: current=${currentScore}, checked=${checkedCount}, new=${newScore}`);
             
             // Add update promise to array
             updatePromises.push(
@@ -478,12 +507,10 @@ const Scoring: React.FC = () => {
         });
         setCheckedVotes(resetCheckedVotes);
         
-        showToast('All scores updated successfully. Refreshing page...', 'success');
+        showToast('All scores updated successfully', 'success');
         
-        // Refresh the page after a brief delay to allow the toast to be seen
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
+        // Use the non-blinking score update instead of fetchCandidates
+        fetchCandidateScores();
       } else {
         showToast('No votes to post', 'info');
       }
@@ -507,14 +534,30 @@ const Scoring: React.FC = () => {
     showToast('All checkboxes reset', 'info');
   };
 
+  // Add effect to handle auto-dismiss backup for Toast component
+  useEffect(() => {
+    if (toast && toast.visible) {
+      const timer = setTimeout(() => {
+        closeToast();
+      }, 3500); // Slightly longer than Toast component's own timer as a backup
+      
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   // Show toast notification
   const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
-    setToast({ message, type, visible: true });
+    // Increment toast ID to ensure React sees it as a new toast
+    const newId = toastId + 1;
+    setToastId(newId);
+    setToast({ id: newId, message, type, visible: true });
   };
 
   // Close toast notification
   const closeToast = () => {
-    setToast(null);
+    if (toast) {
+      setToast(null);
+    }
   };
 
   // Loading state
@@ -565,6 +608,7 @@ const Scoring: React.FC = () => {
       {/* Toast notification */}
       {toast && toast.visible && (
         <Toast
+          key={toast.id}
           message={toast.message}
           type={toast.type}
           onClose={closeToast}
@@ -590,7 +634,7 @@ const Scoring: React.FC = () => {
       />
       
       <div className="mb-6">
-        <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Candidate Scoring</h2>
+        <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Vote Counting</h2>
         <p className="text-gray-600 dark:text-gray-400">Track and update candidate votes in real-time</p>
       </div>
       
@@ -710,4 +754,4 @@ const Scoring: React.FC = () => {
   );
 };
 
-export default Scoring;
+export default VoteCounting;

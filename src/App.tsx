@@ -17,7 +17,7 @@ import AdminPage from './pages/AdminPage';
 import VotingDay from './pages/VotingDay';
 import VotingStatistics from './pages/VotingStatistics';
 import Candidates from './pages/Candidates';
-import Scoring from './pages/Scoring'; // Import the new Scoring page
+import VoteCounting from './pages/VoteCounting'; // Updated to VoteCounting
 import RootRedirector from './components/RootRedirector'; // Import the new component
 
 const Banner = () => (
@@ -120,7 +120,7 @@ const Nav = () => {
             <NavLink to="/candidates" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Candidates</NavLink>
           )}
           {isAdmin && (
-            <NavLink to="/scoring" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Scoring</NavLink>
+            <NavLink to="/vote-counting" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Vote Counting</NavLink>
           )}
           {canViewVoters && (
             <NavLink to="/registered-voters" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Registered Voters</NavLink>
@@ -355,10 +355,10 @@ export default function App() {
               }
             />
             <Route
-              path="/scoring"
+              path="/vote-counting"
               element={
                 <PrivateRoute permissionCheck={() => isAdminUser(profile)}>
-                  <Scoring />
+                  <VoteCounting />
                 </PrivateRoute>
               }
             />
