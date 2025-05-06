@@ -16,6 +16,7 @@ import ResetPassword from './pages/ResetPassword';
 import AdminPage from './pages/AdminPage';
 import VotingDay from './pages/VotingDay';
 import VotingStatistics from './pages/VotingStatistics';
+import Candidates from './pages/Candidates';
 import RootRedirector from './components/RootRedirector'; // Import the new component
 
 const Banner = () => (
@@ -113,6 +114,9 @@ const Nav = () => {
           )}
           {canViewVotingDay && (
             <NavLink to="/voting-statistics" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Statistics</NavLink>
+          )}
+          {isAdmin && (
+            <NavLink to="/candidates" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Candidates</NavLink>
           )}
           {canViewVoters && (
             <NavLink to="/registered-voters" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Registered Voters</NavLink>
@@ -335,6 +339,14 @@ export default function App() {
               element={
                 <PrivateRoute permissionCheck={() => isAdminUser(profile)}>
                   <AdminPage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/candidates"
+              element={
+                <PrivateRoute permissionCheck={() => isAdminUser(profile)}>
+                  <Candidates />
                 </PrivateRoute>
               }
             />
