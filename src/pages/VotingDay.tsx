@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
+import SearchFilter from '../components/SearchFilter';  // Import the SearchFilter component
 import { 
   createColumnHelper, 
   useReactTable, 
@@ -55,11 +56,11 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
       <div className="mr-3">
         {type === 'success' ? (
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 00-1.414 1.414l2 2a1 1 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
         ) : (
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 101.414 1.414L10 11.414l1.293 1.293a1 1 001.414-1.414L11.414 10l1.293-1.293a1 1 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
           </svg>
         )}
       </div>
@@ -69,7 +70,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
         className="ml-6 text-white hover:text-gray-200"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M4.293 4.293a1 1 011.414 0L10 8.586l4.293-4.293a1 1 011.414 1.414L11.414 10l4.293 4.293a1 1 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 01-1.414-1.414L8.586 10 4.293 5.707a1 1 010-1.414z" clipRule="evenodd" />
         </svg>
       </button>
     </div>
@@ -479,8 +480,8 @@ const VotingDay: React.FC = () => {
       filterFn: (row, columnId, filterValue) => {
         if (!filterValue) return true;
         const value = row.getValue(columnId);
-        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
-        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+        // Use exact matching instead of substring matching
+        return String(value) === String(filterValue);
       },
     }),
     columnHelper.accessor('full_name', { 
@@ -488,7 +489,7 @@ const VotingDay: React.FC = () => {
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: 'includesString', // Changed from exact matching to substring matching
     }),
     columnHelper.accessor('register', { 
       header: 'Register', 
@@ -533,13 +534,7 @@ const VotingDay: React.FC = () => {
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        const value = row.getValue(columnId);
-        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
-        // Use exact matching instead of substring matching
-        return String(value) === filterValue;
-      },
+      filterFn: 'includesString', // Changed from exact matching to substring matching
     }),
     columnHelper.accessor('has_voted', { 
       header: 'Has Voted', 
@@ -578,14 +573,7 @@ const VotingDay: React.FC = () => {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        const value = row.getValue(columnId);
-        if (typeof value === 'string') {
-          return value.includes(filterValue);
-        }
-        return false;
-      },
+      filterFn: 'includesString', // Changed from exact matching to substring matching
     }),
   ], [columnHelper, hasEditPermission]);
 
@@ -1085,7 +1073,7 @@ const VotingDay: React.FC = () => {
             <div className="relative w-full sm:max-w-xs">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                 </svg>
               </div>
               <input
@@ -1146,11 +1134,26 @@ const VotingDay: React.FC = () => {
                           {header.column.getCanFilter() ? (
                             <div className="mt-1">
                               {header.column.id === 'full_name' || header.column.id === 'comments' || header.column.id === 'voting_time' ? (
-                                <TextFilter column={header.column} table={table} />
+                                <SearchFilter type="text" column={header.column} table={table} />
                               ) : header.column.id === 'has_voted' ? (
-                                <BooleanFilter column={header.column} table={table} />
+                                <select
+                                  value={header.column.getFilterValue() === undefined ? "" : header.column.getFilterValue() === true ? "true" : "false"}
+                                  onChange={e => {
+                                    let value: boolean | undefined = undefined;
+                                    if (e.target.value === 'true') value = true;
+                                    if (e.target.value === 'false') value = false;
+                                    header.column.setFilterValue(value);
+                                  }}
+                                  className="w-full px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                >
+                                  <option value="">All</option>
+                                  <option value="true">Yes</option>
+                                  <option value="false">No</option>
+                                </select>
+                              ) : header.column.id === 'family' || header.column.id === 'register' || header.column.id === 'gender' || header.column.id === 'sect' || header.column.id === 'register_sect' || header.column.id === 'situation' ? (
+                                <SearchFilter type="select" column={header.column} table={table} />
                               ) : (
-                                <SelectFilter column={header.column} table={table} />
+                                <SearchFilter type="text" column={header.column} table={table} />
                               )}
                             </div>
                           ) : null}
@@ -1173,16 +1176,98 @@ const VotingDay: React.FC = () => {
               </table>
             </div>
 
-            {/* Pagination Controls - Ensure all tags are closed */}
+            {/* Pagination Controls - Fixed structure */}
             <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-2">
-              {/* ... Showing X to Y of Z ... */}
+              {/* Showing X to Y of Z voters */}
               <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                {/* ... Content ... */}
+                <span>
+                  Showing <span className="font-semibold text-blue-900 dark:text-blue-300">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
+                  <span className="font-semibold text-blue-900 dark:text-blue-300">
+                    {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, filteredVotersCount)}
+                  </span> of{" "}
+                  <span className="font-semibold text-blue-900 dark:text-blue-300">{filteredVotersCount}</span> voters
+                </span>
               </div>
-
-              {/* ... Page navigation buttons ... */}
+              
+              {/* Page navigation buttons */}
               <div className="flex items-center gap-1">
-                {/* ... Buttons ... */}
+                <button
+                  onClick={() => table.setPageIndex(0)}
+                  disabled={!table.getCanPreviousPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to first page"
+                  title="First page"
+                >
+                  <i className="fas fa-angle-double-left w-5 h-5"></i>
+                </button>
+                <button
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to previous page"
+                  title="Previous page"
+                >
+                  <i className="fas fa-angle-left w-5 h-5"></i>
+                </button>
+
+                <div className="hidden sm:flex items-center">
+                  {Array.from({length: Math.min(5, table.getPageCount())}, (_, i) => {
+                    const pageIndex = table.getState().pagination.pageIndex;
+                    let showPage: number;
+                    
+                    if (table.getPageCount() <= 5) {
+                      showPage = i;
+                    } else if (pageIndex < 3) {
+                      showPage = i;
+                    } else if (pageIndex > table.getPageCount() - 4) {
+                      showPage = table.getPageCount() - 5 + i;
+                    } else {
+                      showPage = pageIndex - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={showPage}
+                        onClick={() => table.setPageIndex(showPage)}
+                        disabled={pageIndex === showPage}
+                        className={`px-3.5 py-2 mx-1 rounded-md text-sm font-medium border transition-colors ${
+                          pageIndex === showPage 
+                            ? 'bg-blue-600 dark:bg-blue-800 text-white border-blue-600 dark:border-blue-800' 
+                            : 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                        }`}
+                        aria-label={`Go to page ${showPage + 1}`}
+                        aria-current={pageIndex === showPage ? 'page' : undefined}
+                      >
+                        {showPage + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <div className="sm:hidden flex items-center">
+                  <span className="px-3 py-1.5 text-sm text-blue-700 dark:text-blue-300 font-medium">
+                    Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to next page"
+                  title="Next page"
+                >
+                  <i className="fas fa-angle-right w-5 h-5"></i>
+                </button>
+                <button
+                  onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                  disabled={!table.getCanNextPage()}
+                  className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  aria-label="Go to last page"
+                  title="Last page"
+                >
+                  <i className="fas fa-angle-double-right w-5 h-5"></i>
+                </button>
               </div>
 
               {/* Per page selector */}
@@ -1202,9 +1287,9 @@ const VotingDay: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                </label> {/* Correctly closed label */}
-              </div> {/* Correctly closed div */}
-            </div> {/* Correctly closed div */}
+                </label>
+              </div>
+            </div>
           </> /* Correctly closed fragment */
         )}
       </div> {/* Correctly closed div */}

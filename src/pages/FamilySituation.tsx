@@ -504,7 +504,7 @@ const FamilySituation: React.FC = () => {
 
   const withPercentage = totalVoters > 0 ? Math.round((totalStats?.WITH_FLAG || 0) / totalVoters * 100) : 0;
   const againstPercentage = totalVoters > 0 ? Math.round((totalStats?.AGAINST || 0) / totalVoters * 100) : 0;
-  const neutralPercentage = totalVoters > 0 ? Math.round(((totalStats?.N || 0) + (totalStats?.N_PLUS || 0)) / totalVoters * 100) : 0;
+  const neutralPercentage = totalVoters > 0 ? Math.round(((totalStats?.N || 0)) / totalVoters * 100) : 0;
 
   return (
     <div className="p-4 sm:p-6 bg-white dark:bg-gray-900 min-h-screen">
@@ -592,7 +592,7 @@ const FamilySituation: React.FC = () => {
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Neutral</p>
                   <div className="flex items-baseline">
-                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mr-1.5">{(totalStats?.N || 0) + (totalStats?.N_PLUS || 0)}</p>
+                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mr-1.5">{(totalStats?.N || 0)}</p>
                     <span className="text-xs text-blue-500 dark:text-blue-400">({neutralPercentage}%)</span>
                   </div>
                 </div>

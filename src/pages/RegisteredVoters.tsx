@@ -14,6 +14,7 @@ import {
   ColumnFiltersState
 } from '@tanstack/react-table';
 import ConfirmationModal from '../components/ConfirmationModal';
+import SearchFilter from '../components/SearchFilter';  // Import the SearchFilter component
 
 // Toast notification component
 interface ToastProps {
@@ -621,7 +622,8 @@ const RegisteredVoters: React.FC = () => {
         filterFn: (row, columnId, filterValue) => {
           if (!filterValue) return true;
           const value = row.getValue(columnId);
-          return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+          // Use exact matching instead of substring matching
+          return String(value) === String(filterValue);
         },
       }),
     ] : []),
@@ -667,7 +669,8 @@ const RegisteredVoters: React.FC = () => {
         if (!filterValue) return true;
         const value = row.getValue(columnId);
         if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
-        return String(value) === filterValue;
+        // Use exact matching instead of substring matching
+        return String(value) === String(filterValue);
       },
     }),
     columnHelper.accessor('family', { 
@@ -693,7 +696,8 @@ const RegisteredVoters: React.FC = () => {
         if (!filterValue) return true;
         const value = row.getValue(columnId);
         if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
-        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+        // Use exact matching instead of substring matching
+        return String(value) === String(filterValue);
       },
     }),
     columnHelper.accessor('register', { 
@@ -746,7 +750,8 @@ const RegisteredVoters: React.FC = () => {
         if (!filterValue) return true;
         const value = row.getValue(columnId);
         if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
-        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+        // Use exact matching instead of substring matching
+        return String(value) === String(filterValue);
       },
     }),
     columnHelper.accessor('gender', { 
@@ -799,7 +804,13 @@ const RegisteredVoters: React.FC = () => {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        // Use exact matching instead of substring matching
+        return String(value) === String(filterValue);
+      },
     }),
     columnHelper.accessor('father_name', { 
       header: 'Father Name', 
@@ -820,7 +831,13 @@ const RegisteredVoters: React.FC = () => {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        // Use exact matching instead of substring matching
+        return String(value) === String(filterValue);
+      },
     }),
     columnHelper.accessor('last_name', { 
       header: 'Last Name', 
@@ -863,7 +880,13 @@ const RegisteredVoters: React.FC = () => {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString',
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
+        // Use exact matching instead of substring matching
+        return String(value) === String(filterValue);
+      },
     }),
     columnHelper.accessor('dob', { 
       header: 'DOB', 
@@ -922,7 +945,8 @@ const RegisteredVoters: React.FC = () => {
         if (!filterValue) return true;
         const value = row.getValue(columnId);
         if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
-        return String(value) === filterValue;
+        // Use exact matching instead of substring matching
+        return String(value) === String(filterValue);
       },
     }),
     columnHelper.accessor('residence', { 
@@ -982,14 +1006,7 @@ const RegisteredVoters: React.FC = () => {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: (row, columnId, filterValue) => {
-        if (!filterValue) return true;
-        const value = row.getValue(columnId);
-        if (filterValue === '__EMPTY__') return value === null || value === undefined || value === '';
-        if (filterValue === 'true') return value === true;
-        if (filterValue === 'false') return value === false;
-        return true;
-      },
+      filterFn: 'equals',
     }),
     // ...existing code...
   ], [columnHelper, hasEditPermission, editingId, editFormData, handleInputChange]);
@@ -1370,15 +1387,28 @@ const RegisteredVoters: React.FC = () => {
                         {/* Add column filters */}
                         {header.column.getCanFilter() ? (
                           <div className="mt-2">
-                            {/* Use SelectFilter for 'family', 'register', etc. */}
-                            {header.column.id === 'family' || header.column.id === 'register' || header.column.id === 'gender' || header.column.id === 'sect' || header.column.id === 'register_sect' || header.column.id === 'alliance' || header.column.id === 'situation' || header.column.id === 'residence' ? (
-                              <SelectFilter column={header.column} table={table} />
-                            ) : header.column.id === 'has_voted' ? (
-                              <BooleanFilter column={header.column} table={table} />
-                            ) : header.column.id === 'dob' ? (
+                            {/* Use SearchFilter for all columns except 'dob' */}
+                            {header.column.id === 'dob' ? (
                               <YearFilter column={header.column} table={table} />
+                            ) : header.column.id === 'has_voted' ? (
+                              <select
+                                value={header.column.getFilterValue() === undefined ? "" : header.column.getFilterValue() === true ? "true" : "false"}
+                                onChange={e => {
+                                  let value: boolean | undefined = undefined;
+                                  if (e.target.value === 'true') value = true;
+                                  if (e.target.value === 'false') value = false;
+                                  header.column.setFilterValue(value);
+                                }}
+                                className="w-full px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                              >
+                                <option value="">All</option>
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                              </select>
+                            ) : header.column.id === 'family' || header.column.id === 'register' || header.column.id === 'gender' || header.column.id === 'sect' || header.column.id === 'register_sect' || header.column.id === 'alliance' || header.column.id === 'situation' ? (
+                              <SearchFilter type="select" column={header.column} table={table} />
                             ) : (
-                              <TextFilter column={header.column} table={table} />
+                              <SearchFilter type="text" column={header.column} table={table} />
                             )}
                           </div>
                         ) : null}
@@ -1659,13 +1689,14 @@ const RegisteredVoters: React.FC = () => {
       {/* Add Voter Modal */}
       {isAddVoterModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
-            <div 
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-gray-900 dark:bg-opacity-80 transition-opacity" 
-              onClick={() => setIsAddVoterModalOpen(false)}
-            ></div>
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 dark:bg-gray-900 opacity-75"></div>
+            </div>
             
-            <div className="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg md:max-w-2xl">
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg md:max-w-2xl sm:w-full">
               <div className="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6">
                 <div className="flex items-center justify-between mb-5">
                   <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300">Add New Voter</h3>
@@ -1789,7 +1820,7 @@ const RegisteredVoters: React.FC = () => {
                   </div>
                   
                   {/* Register Sect */}
-                  <div className="register_sect-group">
+                  <div className="form-group">
                     <label htmlFor="register_sect" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Register Sect
                     </label>
@@ -1930,82 +1961,6 @@ const RegisteredVoters: React.FC = () => {
 };
 
 // Filter components moved outside RegisteredVoters to prevent re-creation on every render
-
-// Text Filter component for text-based columns
-const TextFilter: React.FC<{ column: any; table: any }> = React.memo(({ column }) => {
-  const columnFilterValue = column.getFilterValue() ?? '';
-  return (
-    <input
-      type="text"
-      value={columnFilterValue}
-      onChange={e => column.setFilterValue(e.target.value)}
-      placeholder={`Filter...`}
-      className="w-full px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-    />
-  );
-});
-
-// Select Filter component for columns with finite options
-const SelectFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, table }) => {
-  const columnFilterValue = column.getFilterValue() ?? '';
-  const sortedUniqueValues = React.useMemo(() => {
-    const values = table.getPreFilteredRowModel().flatRows
-      .map((row: any) => row.getValue(column.id))
-      .map((v: any) => (v === null || v === undefined || v === '' ? '__EMPTY__' : v));
-    const set = new Set(values);
-    const arr = Array.from(set);
-    // For 'register', sort numerically (empty first)
-    if (column.id === 'register') {
-      return arr.sort((a, b) => {
-        if (a === '__EMPTY__') return -1;
-        if (b === '__EMPTY__') return 1;
-        return Number(a) - Number(b);
-      });
-    }
-    // Default sort (existing logic)
-    return arr.sort((a, b) => {
-      if (a === '__EMPTY__') return -1;
-      if (b === '__EMPTY__') return 1;
-      return String(a).localeCompare(String(b));
-    });
-  }, [column.id, table.getPreFilteredRowModel().flatRows]);
-  return (
-    <select
-      value={columnFilterValue}
-      onChange={e => column.setFilterValue(e.target.value)}
-      className="w-full px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-    >
-      <option value="">All</option>
-      {sortedUniqueValues.map((value) => (
-        <option key={value as string} value={value as string}>
-          {value === '__EMPTY__' ? '-' : (value as string)}
-        </option>
-      ))}
-    </select>
-  );
-});
-
-// Boolean Filter component for has_voted
-const BooleanFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, table }) => {
-  const columnFilterValue = column.getFilterValue() ?? '';
-  // Check if there are any null/empty values
-  const hasEmpty = table.getPreFilteredRowModel().flatRows.some((row: any) => {
-    const v = row.getValue(column.id);
-    return v === null || v === undefined || v === '';
-  });
-  return (
-    <select
-      value={columnFilterValue}
-      onChange={e => column.setFilterValue(e.target.value)}
-      className="w-full px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-    >
-      <option value="">All</option>
-      <option value="true">Yes</option>
-      <option value="false">No</option>
-      {hasEmpty && <option value="__EMPTY__">-</option>}
-    </select>
-  );
-});
 
 // Year Filter component for DOB column
 const YearFilter: React.FC<{ column: any; table: any }> = React.memo(({ column, table }) => {
