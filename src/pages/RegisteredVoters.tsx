@@ -1361,7 +1361,7 @@ const RegisteredVoters: React.FC = () => {
                       >
                         <div className="flex items-center">
                           <div
-                            className="cursor-pointer whitespace-nowrap flex items-center"
+                            className={`cursor-pointer whitespace-nowrap flex items-center ${header.column.getCanSort() ? 'group' : ''}`}
                             onClick={header.column.getToggleSortingHandler()}
                           >
                             {header.isPlaceholder
@@ -1370,16 +1370,16 @@ const RegisteredVoters: React.FC = () => {
                                   header.column.columnDef.header,
                                   header.getContext()
                                 )}
-                            {/* Sorting indicators with FontAwesome */}
+                            {/* Sorting indicators with FontAwesome icons for better visibility */}
                             {header.column.getIsSorted() === 'asc' && (
-                              <i className="fas fa-sort-up ml-1.5 text-blue-600 dark:text-blue-400"></i>
+                              <i className="fas fa-sort-up ml-2 text-blue-600 dark:text-blue-400 text-lg"></i>
                             )}
                             {header.column.getIsSorted() === 'desc' && (
-                              <i className="fas fa-sort-down ml-1.5 text-blue-600 dark:text-blue-400"></i>
+                              <i className="fas fa-sort-down ml-2 text-blue-600 dark:text-blue-400 text-lg"></i>
                             )}
                             {/* Add indicator for sortable columns that are not currently sorted */}
                             {header.column.getCanSort() && !header.column.getIsSorted() && (
-                              <i className="fas fa-sort ml-1.5 text-gray-400 opacity-30 group-hover:opacity-70 transition-opacity"></i>
+                              <i className="fas fa-sort ml-2 text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity"></i>
                             )}
                           </div>
                         </div>

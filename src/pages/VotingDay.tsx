@@ -489,7 +489,13 @@ const VotingDay: React.FC = () => {
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString', // Changed from exact matching to substring matching
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (!value) return false;
+        // Use substring matching instead of exact matching
+        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+      },
     }),
     columnHelper.accessor('register', { 
       header: 'Register', 
@@ -534,7 +540,13 @@ const VotingDay: React.FC = () => {
       cell: info => info.getValue() ?? '-',
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString', // Changed from exact matching to substring matching
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (!value) return false;
+        // Use substring matching instead of exact matching
+        return String(value).toLowerCase().includes(String(filterValue).toLowerCase());
+      },
     }),
     columnHelper.accessor('has_voted', { 
       header: 'Has Voted', 
@@ -573,7 +585,15 @@ const VotingDay: React.FC = () => {
       },
       enableSorting: true,
       enableColumnFilter: true,
-      filterFn: 'includesString', // Changed from exact matching to substring matching
+      filterFn: (row, columnId, filterValue) => {
+        if (!filterValue) return true;
+        const value = row.getValue(columnId);
+        if (typeof value === 'string') {
+          // Use exact matching instead of substring matching
+          return value === filterValue;
+        }
+        return false;
+      },
     }),
   ], [columnHelper, hasEditPermission]);
 
@@ -1122,14 +1142,24 @@ const VotingDay: React.FC = () => {
                           style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
                         >
                           <div 
-                            className={`flex items-center ${header.column.getCanSort() ? 'cursor-pointer select-none' : ''}`}
+                            className={`flex items-center ${header.column.getCanSort() ? 'cursor-pointer select-none group' : ''}`}
                             onClick={header.column.getToggleSortingHandler()}
                           >
                             {flexRender(header.column.columnDef.header, header.getContext())}
-                            {{
-                              asc: ' 🔼',
-                              desc: ' 🔽',
-                            }[header.column.getIsSorted() as string] ?? null}
+                            {header.column.getCanSort() && (
+                              <div className="ml-2">
+                                {{
+                                  asc: (
+                                    <i className="fas fa-sort-up text-blue-600 dark:text-blue-400 text-lg"></i>
+                                  ),
+                                  desc: (
+                                    <i className="fas fa-sort-down text-blue-600 dark:text-blue-400 text-lg"></i>
+                                  ),
+                                }[header.column.getIsSorted() as string] ?? (
+                                  <i className="fas fa-sort text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity"></i>
+                                )}
+                              </div>
+                            )}
                           </div>
                           {header.column.getCanFilter() ? (
                             <div className="mt-1">
