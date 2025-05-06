@@ -10,6 +10,8 @@ interface Candidate {
   list_name: string;
   candidate_of: string;
   score: number;
+  list_order?: number; // Added to support list ordering
+  candidate_order?: number; // Added to support ordering candidates within a list
   full_name?: string; // From joined avp_voters table
   isUpdating?: boolean; // UI state for highlighting updated rows
 }
@@ -136,25 +138,46 @@ const Scoring: React.FC = () => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   
-  // Group candidates by list_name and sort by score in descending order
-  const candidatesByList = candidates.reduce((acc: { [key: string]: Candidate[] }, candidate) => {
+  // Group candidates by list_name, keeping track of list order
+  const candidatesByList = candidates.reduce((acc: { 
+    [key: string]: { 
+      candidates: Candidate[], 
+      candidatesByScore?: Candidate[], 
+      order: number 
+    } 
+  }, candidate) => {
     if (!acc[candidate.list_name]) {
-      acc[candidate.list_name] = [];
+      acc[candidate.list_name] = {
+        candidates: [],
+        order: candidate.list_order || 0
+      };
     }
-    acc[candidate.list_name].push(candidate);
+    acc[candidate.list_name].candidates.push(candidate);
     return acc;
   }, {});
   
-  // Sort candidates by score in descending order within each list
+  // Sort candidates by score for Live Scores section
+  // and by candidate_order for Vote Counting section
   Object.keys(candidatesByList).forEach(listName => {
-    candidatesByList[listName].sort((a, b) => b.score - a.score);
+    // Create a copy for score sorting (used in Live Scores section)
+    candidatesByList[listName].candidatesByScore = [...candidatesByList[listName].candidates];
+    candidatesByList[listName].candidatesByScore.sort((a, b) => b.score - a.score);
+    
+    // Sort the main candidates array by candidate_order (used in Vote Counting section)
+    candidatesByList[listName].candidates.sort((a, b) => (a.candidate_order || 0) - (b.candidate_order || 0));
   });
+  
+  // Get sorted list names based on list_order
+  const sortedListNames = Object.keys(candidatesByList).sort((a, b) => 
+    candidatesByList[a].order - candidatesByList[b].order
+  );
 
   // Checkbox tracking state for each candidate
   const [checkedVotes, setCheckedVotes] = useState<{ [candidateId: number]: boolean[] }>({});
   
   // Confirmation modal state
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   
   // Toast state
   const [toast, setToast] = useState<{
@@ -263,6 +286,8 @@ const Scoring: React.FC = () => {
           list_name, 
           candidate_of, 
           score,
+          list_order,
+          candidate_order,
           avp_voters!inner(full_name)
         `);
 
@@ -276,6 +301,8 @@ const Scoring: React.FC = () => {
         list_name: item.list_name,
         candidate_of: item.candidate_of,
         score: item.score || 0,
+        list_order: item.list_order || 0,
+        candidate_order: item.candidate_order || 0,
         full_name: (item.avp_voters as any)?.full_name || 'Unknown Candidate',
         isUpdating: false
       }));
@@ -456,7 +483,7 @@ const Scoring: React.FC = () => {
         // Refresh the page after a brief delay to allow the toast to be seen
         setTimeout(() => {
           window.location.reload();
-        }, 1500);
+        }, 100);
       } else {
         showToast('No votes to post', 'info');
       }
@@ -468,6 +495,10 @@ const Scoring: React.FC = () => {
 
   // Reset all checkboxes
   const handleResetAll = () => {
+    setIsResetModalOpen(true);
+  };
+
+  const handleConfirmReset = () => {
     const resetCheckedVotes: { [candidateId: number]: boolean[] } = {};
     candidates.forEach(candidate => {
       resetCheckedVotes[candidate.id] = Array(20).fill(false);
@@ -540,13 +571,22 @@ const Scoring: React.FC = () => {
         />
       )}
       
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal for Post Votes */}
       <ConfirmationModal
         isOpen={isConfirmModalOpen}
         onClose={() => setIsConfirmModalOpen(false)}
         onConfirm={handleConfirmPost}
         title="Post Votes"
         message="Are you sure you want to post all current votes to the candidates' scores?"
+      />
+      
+      {/* Confirmation Modal for Reset */}
+      <ConfirmationModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        onConfirm={handleConfirmReset}
+        title="Reset All Checkboxes"
+        message="Are you sure you want to reset all checkboxes? This action cannot be undone."
       />
       
       <div className="mb-6">
@@ -576,14 +616,14 @@ const Scoring: React.FC = () => {
       <div className="mb-10">
         <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-4">Live Scores</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {Object.keys(candidatesByList).map(listName => (
+          {sortedListNames.map(listName => (
             <div 
               key={listName}
               className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-blue-100 dark:border-gray-700"
             >
               <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{listName}</h4>
               <div className="space-y-3">
-                {candidatesByList[listName].map(candidate => (
+                {candidatesByList[listName].candidatesByScore.map(candidate => (
                   <div 
                     key={candidate.id} 
                     className={`flex justify-between items-center p-3 rounded-lg transition-all ${
@@ -611,7 +651,7 @@ const Scoring: React.FC = () => {
       <div>
         <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-4">Vote Counting</h3>
         
-        {Object.keys(candidatesByList).map(listName => (
+        {sortedListNames.map(listName => (
           <div 
             key={listName}
             className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-blue-100 dark:border-gray-700 mb-6"
@@ -628,7 +668,7 @@ const Scoring: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {candidatesByList[listName].map(candidate => (
+                  {candidatesByList[listName].candidates.map(candidate => (
                     <tr key={candidate.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                         {candidate.full_name}
