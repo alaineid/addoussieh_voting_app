@@ -995,18 +995,18 @@ const VoteCounting: React.FC = () => {
                             {editMode[candidate.id] ? (
                               <button
                                 onClick={() => cancelEdit(candidate.id)}
-                                className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded text-xs"
+                                className="p-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
                                 title="Cancel editing"
                               >
-                                Cancel
+                                <i className="fas fa-times"></i>
                               </button>
                             ) : (
                               <button
                                 onClick={() => toggleEditMode(candidate.id)}
-                                className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-xs"
+                                className="p-2 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300"
                                 title="Edit checkboxes"
                               >
-                                Edit
+                                <i className="fas fa-edit"></i>
                               </button>
                             )}
                           </div>
