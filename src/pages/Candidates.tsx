@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
+import { Tab } from '@headlessui/react';
+import Select from 'react-select';
 import { 
   createColumnHelper, 
   useReactTable, 
@@ -24,17 +26,22 @@ interface Candidate {
   id: number;
   list_name: string;
   candidate_of: string;
-  score: number;
+  score?: number;
   list_order?: number;
   candidate_order?: number;
   full_name?: string; // From joined avp_voters table
-  voter_id: number; // Reference to avp_voters table
+  voter_id?: number; // Reference to avp_voters table
+  register_sect?: string | null;
+  register?: number | null;
 }
 
 // Voter interface
 interface Voter {
   id: number;
   full_name: string | null;
+  register_sect?: string | null;
+  register?: number | null;
+  sect?: string | null;
 }
 
 // Define option type for React Select
@@ -472,8 +479,7 @@ const ManageCandidatesTab: React.FC = () => {
     setEditingId(candidate.id);
     setEditFormData({
       list_name: candidate.list_name,
-      candidate_of: candidate.candidate_of,
-      score: candidate.score
+      candidate_of: candidate.candidate_of
     });
   };
 
@@ -569,7 +575,6 @@ const ManageCandidatesTab: React.FC = () => {
           id, 
           list_name, 
           candidate_of, 
-          score,
           avp_voters!inner(
             id,
             full_name,
@@ -602,7 +607,6 @@ const ManageCandidatesTab: React.FC = () => {
         id: item.id,
         list_name: item.list_name,
         candidate_of: item.candidate_of,
-        score: item.score,
         // Use type assertion to tell TypeScript about the expected structure
         full_name: (item.avp_voters as any)?.full_name || 'Unknown',
         register_sect: (item.avp_voters as any)?.register_sect || 'N/A',
@@ -629,8 +633,7 @@ const ManageCandidatesTab: React.FC = () => {
         .from('avp_candidates')
         .update({
           list_name: editFormData.list_name,
-          candidate_of: editFormData.candidate_of,
-          score: editFormData.score
+          candidate_of: editFormData.candidate_of
         })
         .eq('id', editingId);
 
@@ -678,6 +681,8 @@ const ManageCandidatesTab: React.FC = () => {
   };
 
   const columnHelper = createColumnHelper<Candidate>();
+  const hasEditAccess = useAuthStore.getState().profile?.candidate_access === 'edit';
+  
   const columns = [
     columnHelper.accessor('full_name', {
       header: 'Full Name',
@@ -698,7 +703,7 @@ const ManageCandidatesTab: React.FC = () => {
       header: 'List Name',
       cell: info => {
         const candidate = info.row.original;
-        if (editingId === candidate.id) {
+        if (hasEditAccess && editingId === candidate.id) {
           return (
             <select
               name="list_name"
@@ -720,7 +725,7 @@ const ManageCandidatesTab: React.FC = () => {
       header: 'Candidate Of',
       cell: info => {
         const candidate = info.row.original;
-        if (editingId === candidate.id) {
+        if (hasEditAccess && editingId === candidate.id) {
           return (
             <select
               name="candidate_of"
@@ -738,72 +743,56 @@ const ManageCandidatesTab: React.FC = () => {
       },
       enableSorting: true,
     }),
-    columnHelper.accessor('score', {
-      header: 'Score',
-      cell: info => {
-        const candidate = info.row.original;
-        if (editingId === candidate.id) {
-          return (
-            <input
-              type="number"
-              name="score"
-              value={editFormData.score === null ? '' : editFormData.score}
-              onChange={handleInputChange}
-              className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
-            />
-          );
-        }
-        return info.getValue() ?? '-';
-      },
-      enableSorting: true,
-    }),
-    columnHelper.display({
-      id: 'actions',
-      header: 'Actions',
-      cell: ({ row }) => {
-        const candidate = row.original;
-        
-        if (editingId === candidate.id) {
+    // Only include the actions column if the user has edit access
+    ...(hasEditAccess ? [
+      columnHelper.display({
+        id: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const candidate = row.original;
+          
+          if (editingId === candidate.id) {
+            return (
+              <div className="flex space-x-3">
+                <button 
+                  onClick={handleSaveEdit}
+                  className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors"
+                  title="Save"
+                >
+                  <i className="fas fa-save text-lg"></i>
+                </button>
+                <button 
+                  onClick={cancelEdit}
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors"
+                  title="Cancel"
+                >
+                  <i className="fas fa-times text-lg"></i>
+                </button>
+              </div>
+            );
+          }
+          
           return (
             <div className="flex space-x-3">
               <button 
-                onClick={handleSaveEdit}
-                className="text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 transition-colors"
-                title="Save"
+                onClick={() => startEdit(candidate)}
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                title="Edit"
               >
-                <i className="fas fa-save text-lg"></i>
+                <i className="fas fa-edit text-lg"></i>
               </button>
               <button 
-                onClick={cancelEdit}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 transition-colors"
-                title="Cancel"
+                onClick={() => confirmDelete(candidate)}
+                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
+                title="Delete"
               >
-                <i className="fas fa-times text-lg"></i>
+                <i className="fas fa-trash-alt text-lg"></i>
               </button>
             </div>
           );
         }
-        
-        return (
-          <div className="flex space-x-3">
-            <button 
-              onClick={() => startEdit(candidate)}
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-              title="Edit"
-            >
-              <i className="fas fa-edit text-lg"></i>
-            </button>
-            <button 
-              onClick={() => confirmDelete(candidate)}
-              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
-              title="Delete"
-            >
-              <i className="fas fa-trash-alt text-lg"></i>
-            </button>
-          </div>
-        );
-      }
-    })
+      })
+    ] : [])
   ];
 
   const table = useReactTable({
@@ -886,7 +875,9 @@ const ManageCandidatesTab: React.FC = () => {
       )}
 
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-        <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-4 sm:mb-0">Manage Candidates</h3>
+        <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-4 sm:mb-0">
+          {useAuthStore.getState().profile?.candidate_access === 'edit' ? "Manage Candidates" : "Candidates List"}
+        </h3>
         
         <div className="relative w-full sm:w-64">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1107,22 +1098,26 @@ const ManageCandidatesTab: React.FC = () => {
 const Candidates: React.FC = () => {
   console.log("Candidates component initializing");
   const { isDarkMode } = useThemeStore();
-  const [selectedTabIndex, setSelectedTabIndex] = useState(0); // Default to Create Candidate (index 0)
+  const { profile } = useAuthStore();
+  const [selectedTabIndex, setSelectedTabIndex] = useState(profile?.candidate_access === 'view' ? 1 : 0); // Default to Manage Candidates tab (index 1) for view-only access
 
   console.log(`Candidates component: initial selectedTabIndex = ${selectedTabIndex}`);
 
+  const hasEditAccess = profile?.candidate_access === 'edit';
+
   // useEffect is no longer needed for localStorage, 
   // but can be kept if other mount-time logic is added later.
-  // For now, it doesn't do much for tab selection if we always default to 0.
   useEffect(() => {
     console.log("Candidates component useEffect: (No localStorage interaction for tabs)");
-    // setSelectedTabIndex(0); // Explicitly set to default, though useState already does this.
   }, []); // Runs once on mount
 
   const handleTabChange = (index: number) => {
-    console.log(`🚀 Candidates component handleTabChange: CALLED WITH index = ${index}`);
-    setSelectedTabIndex(index);
-    console.log(`✅ Candidates component handleTabChange: selectedTabIndex NOW SET to ${index}`);
+    // Only allow tab change if user has edit access or is staying on the ManageCandidates tab
+    if (hasEditAccess || index === 1) {
+      console.log(`🚀 Candidates component handleTabChange: CALLED WITH index = ${index}`);
+      setSelectedTabIndex(index);
+      console.log(`✅ Candidates component handleTabChange: selectedTabIndex NOW SET to ${index}`);
+    }
   };
 
   // Use useMemo to persist the tab components across renders
@@ -1133,42 +1128,51 @@ const Candidates: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-6 bg-white dark:bg-gray-900 min-h-screen transition-colors duration-300">
-      <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Candidates Management</h2>
-      <p className="text-gray-600 dark:text-gray-400 mb-6">Create and manage candidates for elections</p>
+      <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">
+        {hasEditAccess ? "Candidates Management" : "Candidates"}
+      </h2>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">
+        {hasEditAccess 
+          ? "Create and manage candidates for elections" 
+          : "View all candidates in elections"}
+      </p>
       
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-blue-100 dark:border-gray-700 mb-6 transition-colors duration-300">
-        <Tab.Group selectedIndex={selectedTabIndex} onChange={handleTabChange}>
-          <Tab.List className="flex border-b border-blue-100 dark:border-gray-700 bg-blue-50 dark:bg-gray-800">
-            <Tab
-              className={({ selected }: { selected: boolean }) => {
-                console.log(`Candidates Tab 'Create Candidate': selected state is ${selected}, current selectedTabIndex is ${selectedTabIndex}`); // DEBUG LOG
-                return `px-6 py-3 text-sm font-medium leading-5 focus:outline-none transition-colors ${
-                  selected
-                    ? 'text-blue-700 dark:text-blue-300 border-b-2 border-blue-600 dark:border-blue-500 bg-white dark:bg-gray-700'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30'
-                }`;
-              }}
-            >
-              Create Candidate
-            </Tab>
-            <Tab
-              className={({ selected }: { selected: boolean }) => {
-                console.log(`Candidates Tab 'Manage Candidates': selected state is ${selected}, current selectedTabIndex is ${selectedTabIndex}`); // DEBUG LOG
-                return `px-6 py-3 text-sm font-medium leading-5 focus:outline-none transition-colors ${
-                  selected
-                    ? 'text-blue-700 dark:text-blue-300 border-b-2 border-blue-600 dark:border-blue-500 bg-white dark:bg-gray-700'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30'
-                }`;
-              }}
-            >
-              Manage Candidates
-            </Tab>
-          </Tab.List>
-          <Tab.Panels>
-            <Tab.Panel>{createCandidateTabComponent}</Tab.Panel>
-            <Tab.Panel>{manageCandidatesTabComponent}</Tab.Panel>
-          </Tab.Panels>
-        </Tab.Group>
+        {hasEditAccess ? (
+          <Tab.Group selectedIndex={selectedTabIndex} onChange={handleTabChange}>
+            <Tab.List className="flex border-b border-blue-100 dark:border-gray-700 bg-blue-50 dark:bg-gray-800">
+              <Tab
+                className={({ selected }: { selected: boolean }) => {
+                  return `px-6 py-3 text-sm font-medium leading-5 focus:outline-none transition-colors ${
+                    selected
+                      ? 'text-blue-700 dark:text-blue-300 border-b-2 border-blue-600 dark:border-blue-500 bg-white dark:bg-gray-700'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30'
+                  }`;
+                }}
+              >
+                Create Candidate
+              </Tab>
+              <Tab
+                className={({ selected }: { selected: boolean }) => {
+                  return `px-6 py-3 text-sm font-medium leading-5 focus:outline-none transition-colors ${
+                    selected
+                      ? 'text-blue-700 dark:text-blue-300 border-b-2 border-blue-600 dark:border-blue-500 bg-white dark:bg-gray-700'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30'
+                  }`;
+                }}
+              >
+                Manage Candidates
+              </Tab>
+            </Tab.List>
+            <Tab.Panels>
+              <Tab.Panel>{createCandidateTabComponent}</Tab.Panel>
+              <Tab.Panel>{manageCandidatesTabComponent}</Tab.Panel>
+            </Tab.Panels>
+          </Tab.Group>
+        ) : (
+          // For view-only access, just display the ManageCandidatesTab without tabs
+          manageCandidatesTabComponent
+        )}
       </div>
     </div>
   );

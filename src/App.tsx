@@ -17,7 +17,8 @@ import AdminPage from './pages/AdminPage';
 import VotingDay from './pages/VotingDay';
 import VotingStatistics from './pages/VotingStatistics';
 import Candidates from './pages/Candidates';
-import VoteCounting from './pages/VoteCounting'; // Updated to VoteCounting
+import VoteCounting from './pages/VoteCounting'; 
+import LiveScores from './pages/LiveScores'; // Import the new LiveScores component
 import RootRedirector from './components/RootRedirector'; // Import the new component
 
 const Banner = () => (
@@ -89,6 +90,9 @@ const Nav = () => {
   const canViewFamily = profile?.family_situation_access !== 'none';
   const canViewStats = profile?.statistics_access === 'view';
   const canViewVotingDay = profile?.voting_day_access !== 'none';
+  const canVoteCounting = profile?.vote_counting === 'count female votes' || profile?.vote_counting === 'count male votes';
+  const canViewLiveScores = profile?.live_score_access === 'view';
+  const canAccessCandidates = !!profile && profile.candidate_access !== 'none';
 
   return (
     <div className="nav-menu">
@@ -110,18 +114,21 @@ const Nav = () => {
       
       <div className={`nav-links-container ${isMenuOpen ? 'active' : ''}`}>
         <div className="menu-items">
+          {canAccessCandidates && (
+            <NavLink to="/candidates" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Candidates</NavLink>
+          )}
           {canViewVotingDay && (
             <NavLink to="/voting-day" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Day</NavLink>
           )}
-          {canViewVotingDay && (
-            <NavLink to="/voting-statistics" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Statistics</NavLink>
-          )}
-          {isAdmin && (
-            <NavLink to="/candidates" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Candidates</NavLink>
-          )}
-          {isAdmin && (
+          {canVoteCounting && (
             <NavLink to="/vote-counting" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Vote Counting</NavLink>
           )}
+          {canViewLiveScores && (
+            <NavLink to="/live-scores" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Live Scores</NavLink>
+          )}
+          {canViewVotingDay && (
+            <NavLink to="/voting-statistics" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Statistics</NavLink>
+          )}  
           {canViewVoters && (
             <NavLink to="/registered-voters" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Registered Voters</NavLink>
           )}
@@ -206,6 +213,9 @@ const hasFamilyAccess = (profile: UserProfile | null) => !!profile && profile.fa
 const hasStatsAccess = (profile: UserProfile | null) => !!profile && profile.statistics_access === 'view';
 const hasVotingDayAccess = (profile: UserProfile | null) => !!profile && profile.voting_day_access !== 'none';
 const isAdminUser = (profile: UserProfile | null) => !!profile && profile.role === 'admin';
+const hasVoteCountingAccess = (profile: UserProfile | null) => !!profile && (profile.vote_counting === 'count female votes' || profile.vote_counting === 'count male votes');
+const hasLiveScoreAccess = (profile: UserProfile | null) => !!profile && profile.live_score_access === 'view';
+const hasCandidateAccess = (profile: UserProfile | null) => !!profile && profile.candidate_access !== 'none';
 
 export default function App() {
   const location = useLocation();
@@ -349,7 +359,7 @@ export default function App() {
             <Route
               path="/candidates"
               element={
-                <PrivateRoute permissionCheck={() => isAdminUser(profile)}>
+                <PrivateRoute permissionCheck={() => hasCandidateAccess(profile)}>
                   <Candidates />
                 </PrivateRoute>
               }
@@ -357,8 +367,16 @@ export default function App() {
             <Route
               path="/vote-counting"
               element={
-                <PrivateRoute permissionCheck={() => isAdminUser(profile)}>
+                <PrivateRoute permissionCheck={() => hasVoteCountingAccess(profile)}>
                   <VoteCounting />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/live-scores"
+              element={
+                <PrivateRoute permissionCheck={() => hasLiveScoreAccess(profile)}>
+                  <LiveScores />
                 </PrivateRoute>
               }
             />

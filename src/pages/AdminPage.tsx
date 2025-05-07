@@ -31,6 +31,8 @@ const schema = z.object({
   statistics_access: z.enum(['none', 'view']),
   voting_day_access: z.enum(['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both']),
   vote_counting: z.enum(['none', 'count female votes', 'count male votes']),
+  live_score_access: z.enum(['none', 'view']),
+  candidate_access: z.enum(['none', 'view', 'edit']),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -45,9 +47,9 @@ const editSchema = z.object({
   statistics_access: z.enum(['none', 'view']),
   voting_day_access: z.enum(['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both']),
   vote_counting: z.enum(['none', 'count female votes', 'count male votes']),
+  live_score_access: z.enum(['none', 'view']),
+  candidate_access: z.enum(['none', 'view', 'edit']),
 });
-
-type EditFormValues = z.infer<typeof editSchema>;
 
 // User Profile interface for the table data
 interface UserProfileWithEmail {
@@ -59,6 +61,8 @@ interface UserProfileWithEmail {
   statistics_access: 'none' | 'view';
   voting_day_access?: 'none' | 'view female' | 'view male' | 'view both' | 'edit female' | 'edit male' | 'edit both';
   vote_counting?: 'none' | 'count female votes' | 'count male votes';
+  live_score_access?: 'none' | 'view';
+  candidate_access?: 'none' | 'view' | 'edit';
 
   // Properties specific to UserProfileWithEmail or overridden
   id: string;
@@ -129,6 +133,8 @@ const CreateUserTab = () => {
       statistics_access: 'view',
       voting_day_access: 'none',
       vote_counting: 'none',
+      live_score_access: 'none',
+      candidate_access: 'none',
     },
   });
   const [serverMessage, setServerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -212,6 +218,8 @@ const CreateUserTab = () => {
           statistics_access: data.statistics_access,
           voting_day_access: data.voting_day_access,
           vote_counting: data.vote_counting,
+          live_score_access: data.live_score_access,
+          candidate_access: data.candidate_access,
         }),
       });
 
@@ -322,6 +330,8 @@ const CreateUserTab = () => {
         {renderSelect('statistics_access', 'Statistics Access', ['none', 'view'])}
         {renderSelect('voting_day_access', 'Voting Day Access', ['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both'])}
         {renderSelect('vote_counting', 'Vote Counting Access', ['none', 'count female votes', 'count male votes'])}
+        {renderSelect('live_score_access', 'Live Score Access', ['none', 'view'])}
+        {renderSelect('candidate_access', 'Candidate Access', ['none', 'view', 'edit'])}
 
         <div>
           <button
@@ -510,6 +520,39 @@ const ManageUsersTab = () => {
         ) : getValue() || 'none',
       enableSorting: true,
     }),
+    columnHelper.accessor(row => row.live_score_access, {
+      id: 'live_score_access',
+      header: 'Live Score Access',
+      cell: ({ row, getValue }) => 
+        editingId === row.original.id ? (
+          <select 
+            {...register('live_score_access')} 
+            defaultValue={getValue() as string || 'none'} 
+            className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          >
+            <option value="none">None</option>
+            <option value="view">View</option>
+          </select>
+        ) : getValue() || 'none',
+      enableSorting: true,
+    }),
+    columnHelper.accessor(row => row.candidate_access, {
+      id: 'candidate_access',
+      header: 'Candidate Access',
+      cell: ({ row, getValue }) => 
+        editingId === row.original.id ? (
+          <select 
+            {...register('candidate_access')} 
+            defaultValue={getValue() as string || 'none'} 
+            className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          >
+            <option value="none">None</option>
+            <option value="view">View</option>
+            <option value="edit">Edit</option>
+          </select>
+        ) : getValue() || 'none',
+      enableSorting: true,
+    }),
     columnHelper.display({
       id: 'actions',
       header: 'Actions',
@@ -601,7 +644,9 @@ const ManageUsersTab = () => {
       family_situation_access: user.family_situation_access,
       statistics_access: user.statistics_access,
       voting_day_access: user.voting_day_access || 'none', // Include voting_day_access with fallback
-      vote_counting: user.vote_counting || 'none' // Include vote_counting with fallback
+      vote_counting: user.vote_counting || 'none', // Include vote_counting with fallback
+      live_score_access: user.live_score_access || 'none', // Include live_score_access with fallback
+      candidate_access: user.candidate_access || 'none' // Include candidate_access with fallback
     });
   };
 
@@ -648,7 +693,9 @@ const ManageUsersTab = () => {
           family_situation_access: data.family_situation_access,
           statistics_access: data.statistics_access,
           voting_day_access: data.voting_day_access,
-          vote_counting: data.vote_counting
+          vote_counting: data.vote_counting,
+          live_score_access: data.live_score_access,
+          candidate_access: data.candidate_access
         }),
       });
       
@@ -670,7 +717,9 @@ const ManageUsersTab = () => {
             family_situation_access: data.family_situation_access,
             statistics_access: data.statistics_access,
             voting_day_access: data.voting_day_access,
-            vote_counting: data.vote_counting
+            vote_counting: data.vote_counting,
+            live_score_access: data.live_score_access,
+            candidate_access: data.candidate_access
           } : user
         )
       }));

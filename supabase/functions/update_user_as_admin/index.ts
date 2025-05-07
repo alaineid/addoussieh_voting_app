@@ -5,91 +5,114 @@ import { corsHeaders } from '../_shared/cors.ts';
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-serve(async (req) => {
+interface RequestBody {
+  userId: string;
+  full_name: string;
+  role: string;
+  registered_voters_access: string;
+  family_situation_access: string;
+  statistics_access: string;
+  voting_day_access: string;
+  vote_counting: string;
+  live_score_access: string;
+  candidate_access: string;
+}
+
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Create a Supabase client with the service role key, which has admin privileges
+    // Check if the request method is POST
+    if (req.method !== 'POST') {
+      throw new Error('Method not allowed');
+    }
+
+    // Check content type
+    const contentType = req.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Invalid content type. Expected application/json');
+    }
+
+    // Parse the request body
+    const requestData: RequestBody = await req.json();
+    
+    // Validate required fields
+    if (!requestData.userId) {
+      throw new Error('Missing required field: userId');
+    }
+
+    // Validate that the caller has admin privileges
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Missing Authorization header');
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    
+    // Create Supabase client
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
       }
     });
-
-    // Get the authorization header from the incoming request
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing Authorization header');
+    
+    // Verify caller identity
+    const { data: { user: authUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    
+    if (authError || !authUser) {
+      throw new Error('Unauthorized');
     }
 
-    // Verify the requesting user's JWT
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(token);
-
-    if (verifyError || !user) {
-      throw new Error('Invalid token or user not found');
-    }
-
-    // Check if the user is an admin by querying the profiles table
+    // Verify the caller is an admin
     const { data: profileData, error: profileError } = await supabaseAdmin
       .from('avp_profiles')
       .select('role')
-      .eq('id', user.id)
+      .eq('id', authUser.id)
       .single();
-
-    if (profileError || !profileData) {
-      throw new Error('User profile not found');
-    }
-
-    if (profileData.role !== 'admin') {
-      throw new Error('User is not authorized as an admin');
-    }
-
-    // Parse the request body to get the user update data
-    const { userId, full_name, role, registered_voters_access, family_situation_access, statistics_access, voting_day_access, vote_counting } = await req.json();
     
-    if (!userId) {
-      throw new Error('User ID is required');
+    if (profileError || !profileData || profileData.role !== 'admin') {
+      throw new Error('Unauthorized. Admin role required');
     }
 
-    // Perform the update operation
-    const { error: updateError } = await supabaseAdmin
+    // Update the user's profile
+    const { data, error: updateError } = await supabaseAdmin
       .from('avp_profiles')
       .update({
-        full_name,
-        role,
-        registered_voters_access,
-        family_situation_access,
-        statistics_access,
-        voting_day_access,
-        vote_counting
+        full_name: requestData.full_name,
+        role: requestData.role,
+        registered_voters_access: requestData.registered_voters_access,
+        family_situation_access: requestData.family_situation_access,
+        statistics_access: requestData.statistics_access,
+        voting_day_access: requestData.voting_day_access,
+        vote_counting: requestData.vote_counting,
+        live_score_access: requestData.live_score_access,
+        candidate_access: requestData.candidate_access
       })
-      .eq('id', userId);
-    
+      .eq('id', requestData.userId)
+      .select();
+
     if (updateError) {
-      throw updateError;
+      throw new Error(`Failed to update user profile: ${updateError.message}`);
     }
 
-    return new Response(
-      JSON.stringify({ success: true, message: "User updated successfully" }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
-    );
+    return new Response(JSON.stringify({ success: true, user: data }), {
+      status: 200,
+      headers: new Headers({ ...corsHeaders, 'Content-Type': 'application/json' })
+    });
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      }
-    );
+    console.error(error);
+    
+    return new Response(JSON.stringify({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    }), {
+      status: 400,
+      headers: new Headers({ ...corsHeaders, 'Content-Type': 'application/json' })
+    });
   }
 });

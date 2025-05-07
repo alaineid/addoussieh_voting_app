@@ -1,143 +1,142 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.29.0';
+import { serve } from 'https://deno.land/std@0.131.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-serve(async (req) => {
+// Create a Supabase client with the service role key
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+interface RequestBody {
+  email: string;
+  full_name: string;
+  password: string;
+  role: 'admin' | 'user';
+  registered_voters_access: 'none' | 'view' | 'edit';
+  family_situation_access: 'none' | 'view' | 'edit';
+  statistics_access: 'none' | 'view';
+  voting_day_access?: 'none' | 'view female' | 'view male' | 'view both' | 'edit female' | 'edit male' | 'edit both';
+  vote_counting?: 'none' | 'count female votes' | 'count male votes';
+  live_score_access?: 'none' | 'view';
+  candidate_access?: 'none' | 'view' | 'edit';
+}
+
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-
-  try {
-    // Parse the request body
-    let requestBody;
-    try {
-      if (!req.body) {
-        throw new Error("Request body is missing.");
-      }
-      requestBody = await req.json();
-    } catch (parseError: any) {
-      throw new Error(`Invalid request body: ${parseError.message}`);
-    }
-
-    const { email, password, role, registered_voters_access, family_situation_access, statistics_access, voting_day_access, full_name, vote_counting } = requestBody;
-
-    if (!email || !password || !role || registered_voters_access === undefined || family_situation_access === undefined || statistics_access === undefined || vote_counting === undefined) {
-      throw new Error("Missing required fields in request body.");
-    }
-
-    // Create a Supabase client with the service role key, which has admin privileges
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
+    return new Response(null, { 
+      status: 204, 
+      headers: new Headers(corsHeaders) 
     });
+  }
+  
+  try {
+    // Check if the request method is POST
+    if (req.method !== 'POST') {
+      throw new Error('Method not allowed');
+    }
 
-    // Get the authorization header from the incoming request
+    // Check that the request body is JSON
+    const contentType = req.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Invalid content type. Expected application/json');
+    }
+
+    // Parse the request body
+    const requestData: RequestBody = await req.json();
+    
+    // Validate required fields
+    const requiredFields = ['email', 'password', 'full_name', 'role', 'registered_voters_access', 'family_situation_access', 'statistics_access'];
+    for (const field of requiredFields) {
+      if (!requestData[field as keyof RequestBody]) {
+        throw new Error(`Missing required field: ${field}`);
+      }
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(requestData.email)) {
+      throw new Error('Invalid email format');
+    }
+
+    // Check that the JWT is valid and the user is an admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('Missing Authorization header');
     }
-
-    // Verify the requesting user's JWT
+    
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user: callingUser }, error: verifyError } = await supabaseAdmin.auth.getUser(token);
-
-    if (verifyError || !callingUser) {
-      throw new Error('Invalid token or user not found');
+    
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !authUser) {
+      throw new Error('Unauthorized');
     }
 
-    // Check if the user is an admin by querying the profiles table
-    const { data: profileData, error: profileError } = await supabaseAdmin
+    // Verify the user is an admin
+    const { data: profileData, error: profileError } = await supabase
       .from('avp_profiles')
       .select('role')
-      .eq('id', callingUser.id)
+      .eq('id', authUser.id)
       .single();
-
-    if (profileError || !profileData) {
-      throw new Error('User profile not found');
+    
+    if (profileError || !profileData || profileData.role !== 'admin') {
+      throw new Error('Unauthorized. Admin role required');
     }
 
-    if (profileData.role !== 'admin') {
-      throw new Error('User is not authorized as an admin');
-    }
-
-    // Check if a user with the same email already exists
-    const { data: existingUsersData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-      filter: `email = '${email}'`
+    // Create the user
+    const { data: userData, error: createError } = await supabase.auth.admin.createUser({
+      email: requestData.email,
+      password: requestData.password,
+      email_confirm: true, // Auto-confirm the email
     });
 
-    if (listError) {
-      throw new Error(`Failed to check for existing user: ${listError.message || 'Unknown error'}`);
+    if (createError || !userData) {
+      throw new Error(createError?.message || 'Failed to create user');
     }
 
-    if (existingUsersData?.users?.length > 0) {
-      const matchingUser = existingUsersData.users.find(user => user.email.toLowerCase() === email.toLowerCase());
-      if (matchingUser) {
-        return new Response(
-          JSON.stringify({ error: "User with this email already exists." }), 
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 }
-        );
-      }
+    // Create or update the user's profile with permissions
+    const { error: profileUpdateError } = await supabase
+      .from('avp_profiles')
+      .upsert({
+        id: userData.user.id,
+        email: requestData.email, // Adding the email field to satisfy not-null constraint
+        full_name: requestData.full_name,
+        role: requestData.role,
+        registered_voters_access: requestData.registered_voters_access,
+        family_situation_access: requestData.family_situation_access,
+        statistics_access: requestData.statistics_access,
+        voting_day_access: requestData.voting_day_access || 'none',
+        vote_counting: requestData.vote_counting || 'none',
+        live_score_access: requestData.live_score_access || 'none',
+        candidate_access: requestData.candidate_access || 'none',
+      });
+
+    if (profileUpdateError) {
+      // If there was an error updating the profile, delete the user
+      await supabase.auth.admin.deleteUser(userData.user.id);
+      throw new Error(`Failed to set user permissions: ${profileUpdateError.message}`);
     }
 
-    // Create the user in auth
-    const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'User created successfully',
+      user: { id: userData.user.id, email: userData.user.email }
+    }), {
+      status: 200,
+      headers: new Headers({ ...corsHeaders, 'Content-Type': 'application/json' })
     });
 
-    if (createError || !createData?.user) {
-      throw new Error(createError?.message || "Failed to create user.");
-    }
-
-    const newUser = createData.user;
-
-    // Create the user profile
-    try {
-      const { error: profileInsertError } = await supabaseAdmin
-        .from("avp_profiles")
-        .insert({
-          id: newUser.id,
-          email,
-          full_name: full_name || email.split('@')[0], // Use provided name or fallback
-          role,
-          registered_voters_access,
-          family_situation_access,
-          statistics_access,
-          voting_day_access,
-          vote_counting // Add the new field here
-        });
-
-      if (profileInsertError) {
-        // Clean up by deleting the auth user if profile creation fails
-        await supabaseAdmin.auth.admin.deleteUser(newUser.id)
-          .catch(err => console.error(`Cleanup failed for ${newUser.id}:`, err));
-          
-        throw new Error(profileInsertError.message || "Failed to create user profile.");
-      }
-    } catch (error: any) {
-      // Clean up by deleting the auth user if profile creation fails
-      await supabaseAdmin.auth.admin.deleteUser(newUser.id)
-        .catch(err => console.error(`Cleanup failed for ${newUser.id}:`, err));
-        
-      throw error;
-    }
-
-    return new Response(
-      JSON.stringify({ success: true, message: "User created successfully" }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
-
-  } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-    );
+  } catch (error) {
+    console.error(error);
+    
+    return new Response(JSON.stringify({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    }), {
+      status: 400,
+      headers: new Headers({ ...corsHeaders, 'Content-Type': 'application/json' })
+    });
   }
 });

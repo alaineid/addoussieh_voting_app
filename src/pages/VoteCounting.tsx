@@ -85,11 +85,12 @@ const VoteCounting: React.FC = () => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
 
-  const userVoteCountingRight = profile?.vote_counting; // Changed from profile?.app_metadata?.vote_counting
+  const userVoteCountingRight = profile?.vote_counting; 
 
   // Effect for access control
   useEffect(() => {
     if (profile && session) { // Ensure profile and session are loaded
+      console.log("Vote counting permission:", userVoteCountingRight);
       if (userVoteCountingRight !== 'count female votes' && userVoteCountingRight !== 'count male votes') {
         showToast('Access Denied: You do not have permission to view this page.', 'error');
         navigate('/unauthorized'); // Or your preferred unauthorized/home route
@@ -680,7 +681,7 @@ const VoteCounting: React.FC = () => {
 
   // Conditional rendering if access rights are not met (after profile is loaded)
   // This is a fallback, useEffect should handle redirection.
-  if (profile && (userVoteCountingRight !== 'count female votes' && userVoteCountingRight !== 'count male votes')) {
+  if (profile && userVoteCountingRight !== 'count female votes' && userVoteCountingRight !== 'count male votes') {
     return (
       <div className="p-6 text-center bg-white dark:bg-gray-900 min-h-screen flex items-center justify-center">
         <div className="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-700 p-6 rounded-lg shadow-sm max-w-lg">
