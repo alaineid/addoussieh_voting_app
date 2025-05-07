@@ -30,6 +30,7 @@ const schema = z.object({
   family_situation_access: z.enum(['none', 'view', 'edit']),
   statistics_access: z.enum(['none', 'view']),
   voting_day_access: z.enum(['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both']),
+  vote_counting: z.enum(['none', 'count female votes', 'count male votes']),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -43,15 +44,26 @@ const editSchema = z.object({
   family_situation_access: z.enum(['none', 'view', 'edit']),
   statistics_access: z.enum(['none', 'view']),
   voting_day_access: z.enum(['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both']),
+  vote_counting: z.enum(['none', 'count female votes', 'count male votes']),
 });
 
 type EditFormValues = z.infer<typeof editSchema>;
 
 // User Profile interface for the table data
-interface UserProfileWithEmail extends Omit<UserProfile, 'id'> {
+interface UserProfileWithEmail {
+  // Properties from UserProfile (imported from ../store/authStore)
+  name?: string;
+  role: 'admin' | 'user';
+  registered_voters_access: 'none' | 'view' | 'edit';
+  family_situation_access: 'none' | 'view' | 'edit';
+  statistics_access: 'none' | 'view';
+  voting_day_access?: 'none' | 'view female' | 'view male' | 'view both' | 'edit female' | 'edit male' | 'edit both';
+  vote_counting?: 'none' | 'count female votes' | 'count male votes';
+
+  // Properties specific to UserProfileWithEmail or overridden
   id: string;
   email: string;
-  full_name: string;
+  full_name: string; // Overrides UserProfile's optional full_name to be required
 }
 
 interface PasswordStrength {
@@ -115,6 +127,8 @@ const CreateUserTab = () => {
       registered_voters_access: 'view',
       family_situation_access: 'view',
       statistics_access: 'view',
+      voting_day_access: 'none',
+      vote_counting: 'none',
     },
   });
   const [serverMessage, setServerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -197,6 +211,7 @@ const CreateUserTab = () => {
           family_situation_access: data.family_situation_access,
           statistics_access: data.statistics_access,
           voting_day_access: data.voting_day_access,
+          vote_counting: data.vote_counting,
         }),
       });
 
@@ -306,6 +321,7 @@ const CreateUserTab = () => {
         {renderSelect('family_situation_access', 'Family Situation Access', ['none', 'view', 'edit'])}
         {renderSelect('statistics_access', 'Statistics Access', ['none', 'view'])}
         {renderSelect('voting_day_access', 'Voting Day Access', ['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both'])}
+        {renderSelect('vote_counting', 'Vote Counting Access', ['none', 'count female votes', 'count male votes'])}
 
         <div>
           <button
@@ -477,6 +493,23 @@ const ManageUsersTab = () => {
         ) : getValue(),
       enableSorting: true,
     }),
+    columnHelper.accessor(row => row.vote_counting, {
+      id: 'vote_counting',
+      header: 'Vote Counting',
+      cell: ({ row, getValue }) => 
+        editingId === row.original.id ? (
+          <select 
+            {...register('vote_counting')} 
+            defaultValue={getValue() as string || 'none'} 
+            className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          >
+            <option value="none">None</option>
+            <option value="count female votes">Count Female Votes</option>
+            <option value="count male votes">Count Male Votes</option>
+          </select>
+        ) : getValue() || 'none',
+      enableSorting: true,
+    }),
     columnHelper.display({
       id: 'actions',
       header: 'Actions',
@@ -567,7 +600,8 @@ const ManageUsersTab = () => {
       registered_voters_access: user.registered_voters_access,
       family_situation_access: user.family_situation_access,
       statistics_access: user.statistics_access,
-      voting_day_access: user.voting_day_access || 'none' // Include voting_day_access with fallback
+      voting_day_access: user.voting_day_access || 'none', // Include voting_day_access with fallback
+      vote_counting: user.vote_counting || 'none' // Include vote_counting with fallback
     });
   };
 
@@ -588,10 +622,14 @@ const ManageUsersTab = () => {
         throw new Error('Configuration error: Supabase URL not found.');
       }
       
-      // Get the user being edited to check if permissions change
       const userBeingEdited = users.find(user => user.id === data.id);
-      const votingDayAccessChanged = userBeingEdited && 
-                                     userBeingEdited.voting_day_access !== data.voting_day_access;
+      let votingDayAccessChanged = false;
+      let voteCountingChanged = false;
+
+      if (userBeingEdited) {
+        votingDayAccessChanged = userBeingEdited.voting_day_access !== data.voting_day_access;
+        voteCountingChanged = userBeingEdited.vote_counting !== data.vote_counting;
+      }
       
       // Call our custom serverless function instead of directly updating
       const functionUrl = `${supabaseUrl}/functions/v1/update_user_as_admin`;
@@ -609,7 +647,8 @@ const ManageUsersTab = () => {
           registered_voters_access: data.registered_voters_access,
           family_situation_access: data.family_situation_access,
           statistics_access: data.statistics_access,
-          voting_day_access: data.voting_day_access
+          voting_day_access: data.voting_day_access,
+          vote_counting: data.vote_counting
         }),
       });
       
@@ -619,10 +658,8 @@ const ManageUsersTab = () => {
         throw new Error(result.error || `HTTP error! status: ${response.status}`);
       }
       
-      // Just exit edit mode without showing a success modal or refreshing the table
       setEditingId(null);
       
-      // Manually update the user in the users array instead of refreshing the whole table
       useUsersStore.setState(state => ({
         users: state.users.map(user => 
           user.id === data.id ? { 
@@ -632,30 +669,37 @@ const ManageUsersTab = () => {
             registered_voters_access: data.registered_voters_access,
             family_situation_access: data.family_situation_access,
             statistics_access: data.statistics_access,
-            voting_day_access: data.voting_day_access
+            voting_day_access: data.voting_day_access,
+            vote_counting: data.vote_counting
           } : user
         )
       }));
 
-      // If this is the current user and voting_day_access changed, dispatch a custom event
       const currentUserId = session?.user?.id;
-      if (currentUserId === data.id && votingDayAccessChanged) {
-        console.log('Current user voting_day_access changed, dispatching event');
+      if (currentUserId === data.id && (votingDayAccessChanged || voteCountingChanged)) {
+        console.log('Current user permissions changed, dispatching event(s)');
         
-        // Directly trigger profile reload for the current user
         const { refreshUserProfile } = useAuthStore.getState();
         refreshUserProfile();
         
-        // Also dispatch a custom event that components can listen for
-        window.dispatchEvent(new CustomEvent('permission_change_event', {
-          detail: { 
-            type: 'voting_day_access',
-            value: data.voting_day_access
-          }
-        }));
+        if (votingDayAccessChanged) {
+          window.dispatchEvent(new CustomEvent('permission_change_event', {
+            detail: { 
+              type: 'voting_day_access',
+              value: data.voting_day_access
+            }
+          }));
+        }
+        if (voteCountingChanged) {
+          window.dispatchEvent(new CustomEvent('permission_change_event', {
+            detail: {
+              type: 'vote_counting',
+              value: data.vote_counting
+            }
+          }));
+        }
       }
       
-      // Show toast notification for success
       setToast({
         message: 'User updated successfully',
         type: 'success',

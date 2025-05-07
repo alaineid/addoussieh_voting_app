@@ -23,9 +23,9 @@ serve(async (req) => {
       throw new Error(`Invalid request body: ${parseError.message}`);
     }
 
-    const { email, password, role, registered_voters_access, family_situation_access, statistics_access, voting_day_access, full_name } = requestBody;
+    const { email, password, role, registered_voters_access, family_situation_access, statistics_access, voting_day_access, full_name, vote_counting } = requestBody;
 
-    if (!email || !password || !role || registered_voters_access === undefined || family_situation_access === undefined || statistics_access === undefined) {
+    if (!email || !password || !role || registered_voters_access === undefined || family_situation_access === undefined || statistics_access === undefined || vote_counting === undefined) {
       throw new Error("Missing required fields in request body.");
     }
 
@@ -110,7 +110,8 @@ serve(async (req) => {
           registered_voters_access,
           family_situation_access,
           statistics_access,
-          voting_day_access
+          voting_day_access,
+          vote_counting // Add the new field here
         });
 
       if (profileInsertError) {

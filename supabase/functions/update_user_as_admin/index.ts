@@ -50,7 +50,7 @@ serve(async (req) => {
     }
 
     // Parse the request body to get the user update data
-    const { userId, full_name, role, registered_voters_access, family_situation_access, statistics_access, voting_day_access } = await req.json();
+    const { userId, full_name, role, registered_voters_access, family_situation_access, statistics_access, voting_day_access, vote_counting } = await req.json();
     
     if (!userId) {
       throw new Error('User ID is required');
@@ -65,7 +65,8 @@ serve(async (req) => {
         registered_voters_access,
         family_situation_access,
         statistics_access,
-        voting_day_access
+        voting_day_access,
+        vote_counting
       })
       .eq('id', userId);
     
@@ -82,8 +83,9 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400

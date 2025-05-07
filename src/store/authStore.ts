@@ -16,6 +16,7 @@ export interface UserProfile {
   family_situation_access: 'none' | 'view' | 'edit';
   statistics_access: 'none' | 'view';
   voting_day_access?: 'none' | 'view female' | 'view male' | 'view both' | 'edit female' | 'edit male' | 'edit both';
+  vote_counting?: 'none' | 'count female votes' | 'count male votes';
 }
 
 interface AuthState {

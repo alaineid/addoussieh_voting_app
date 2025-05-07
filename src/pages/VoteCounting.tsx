@@ -4,13 +4,15 @@ import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import Toast from '../components/Toast'; // Import shared Toast component
+import { useNavigate } from 'react-router-dom'; // Added import
 
 // Define interface for candidate data
 interface Candidate {
   id: number;
   list_name: string;
   candidate_of: string;
-  score: number;
+  score_from_female: number; // Renamed from score
+  score_from_male: number;   // Added new score column
   list_order?: number; // Added to support list ordering
   candidate_order?: number; // Added to support ordering candidates within a list
   full_name?: string; // From joined avp_voters table
@@ -75,13 +77,32 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 const VoteCounting: React.FC = () => {
   const { profile, session } = useAuthStore();
   const { isDarkMode } = useThemeStore();
+  const navigate = useNavigate(); // For redirection
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
   // Candidates data state
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
-  
+
+  const userVoteCountingRight = profile?.vote_counting; // Changed from profile?.app_metadata?.vote_counting
+
+  // Effect for access control
+  useEffect(() => {
+    if (profile && session) { // Ensure profile and session are loaded
+      if (userVoteCountingRight !== 'count female votes' && userVoteCountingRight !== 'count male votes') {
+        showToast('Access Denied: You do not have permission to view this page.', 'error');
+        navigate('/unauthorized'); // Or your preferred unauthorized/home route
+      }
+    } else if (session === null && profile === null && loading === false) { 
+      // If no session and profile (not just initially loading), redirect to login.
+      // This condition attempts to avoid redirecting while auth state is still loading.
+      // It assumes `loading` becomes false after initial auth check.
+      showToast('Please log in to access this page.', 'info');
+      navigate('/login');
+    }
+  }, [profile, session, userVoteCountingRight, navigate, loading]);
+
   // Group candidates by list_name, keeping track of list order
   const candidatesByList = candidates.reduce((acc: { 
     [key: string]: { 
@@ -105,7 +126,11 @@ const VoteCounting: React.FC = () => {
   Object.keys(candidatesByList).forEach(listName => {
     // Create a copy for score sorting (used in Live Scores section)
     candidatesByList[listName].candidatesByScore = [...candidatesByList[listName].candidates];
-    candidatesByList[listName].candidatesByScore.sort((a, b) => b.score - a.score);
+    candidatesByList[listName].candidatesByScore.sort((a, b) => {
+      const scoreA = userVoteCountingRight === 'count female votes' ? (a.score_from_female || 0) : (a.score_from_male || 0);
+      const scoreB = userVoteCountingRight === 'count female votes' ? (b.score_from_female || 0) : (b.score_from_male || 0);
+      return scoreB - scoreA;
+    });
     
     // Sort the main candidates array by candidate_order (used in Vote Counting section)
     candidatesByList[listName].candidates.sort((a, b) => (a.candidate_order || 0) - (b.candidate_order || 0));
@@ -202,7 +227,7 @@ const VoteCounting: React.FC = () => {
           // For score-related changes, only update scores without refreshing the whole page
           if (payload.eventType === 'UPDATE' && payload.new && payload.old) {
             // If only the score changed, use the lightweight update
-            if (payload.new.score !== payload.old.score && 
+            if ( (payload.new.score_from_female !== payload.old.score_from_female || payload.new.score_from_male !== payload.old.score_from_male) &&
                 payload.new.list_name === payload.old.list_name && 
                 payload.new.candidate_of === payload.old.candidate_of) {
               
@@ -277,20 +302,21 @@ const VoteCounting: React.FC = () => {
       setLoading(true);
       
       // Query candidates with voter information
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase // Renamed error to avoid conflict
         .from('avp_candidates')
         .select(`
           id, 
           list_name, 
           candidate_of, 
-          score,
+          score_from_female,
+          score_from_male,
           list_order,
           candidate_order,
           avp_voters!inner(full_name)
         `);
 
-      if (error) {
-        throw error;
+      if (fetchError) {
+        throw fetchError;
       }
 
       // Transform the data to include the full_name from avp_voters
@@ -298,7 +324,8 @@ const VoteCounting: React.FC = () => {
         id: item.id,
         list_name: item.list_name,
         candidate_of: item.candidate_of,
-        score: item.score || 0,
+        score_from_female: item.score_from_female || 0,
+        score_from_male: item.score_from_male || 0,
         list_order: item.list_order || 0,
         candidate_order: item.candidate_order || 0,
         full_name: (item.avp_voters as any)?.full_name || 'Unknown Candidate',
@@ -319,19 +346,23 @@ const VoteCounting: React.FC = () => {
   const fetchCandidateScores = async () => {
     try {
       // Query only the necessary data for scores
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase // Renamed error
         .from('avp_candidates')
-        .select('id, score');
+        .select('id, score_from_female, score_from_male');
 
-      if (error) {
-        throw error;
+      if (fetchError) {
+        throw fetchError;
       }
 
       // Update only the scores in the existing candidates array
       setCandidates(prev => prev.map(candidate => {
         const scoreUpdate = data.find(item => item.id === candidate.id);
         return scoreUpdate 
-          ? { ...candidate, score: scoreUpdate.score || 0 } 
+          ? { 
+              ...candidate, 
+              score_from_female: scoreUpdate.score_from_female || 0,
+              score_from_male: scoreUpdate.score_from_male || 0
+            } 
           : candidate;
       }));
       
@@ -378,6 +409,12 @@ const VoteCounting: React.FC = () => {
     try {
       // Array to hold all update promises
       const updatePromises = [];
+      const userVoteCountingRight = profile?.vote_counting; // Changed from profile?.app_metadata?.vote_counting
+
+      if (!userVoteCountingRight || (userVoteCountingRight !== 'count female votes' && userVoteCountingRight !== 'count male votes')) {
+        showToast('Permission denied: Cannot determine which scores to update.', 'error');
+        return;
+      }
       
       // Process each candidate
       for (const candidateId of Object.keys(updatedVotes).map(Number)) {
@@ -389,16 +426,24 @@ const VoteCounting: React.FC = () => {
         if (checkedCount > 0) {
           const candidate = candidates.find(c => c.id === candidateId);
           if (candidate) {
-            const currentScore = candidate.score || 0;
-            const newScore = currentScore + checkedCount;
+            const updatePayload: { score_from_female?: number; score_from_male?: number } = {};
+            let currentRelevantScore = 0;
+
+            if (userVoteCountingRight === 'count female votes') {
+              currentRelevantScore = candidate.score_from_female || 0;
+              updatePayload.score_from_female = currentRelevantScore + checkedCount;
+            } else if (userVoteCountingRight === 'count male votes') {
+              currentRelevantScore = candidate.score_from_male || 0;
+              updatePayload.score_from_male = currentRelevantScore + checkedCount;
+            }
             
-            console.log(`Updating candidate ${candidate.full_name}: current=${currentScore}, checked=${checkedCount}, new=${newScore}`);
+            console.log(`Updating candidate ${candidate.full_name}: current relevant score=${currentRelevantScore}, checked=${checkedCount}, new score=${currentRelevantScore + checkedCount} for ${userVoteCountingRight}`);
             
             // Add update promise to array
             updatePromises.push(
               supabase
                 .from('avp_candidates')
-                .update({ score: newScore })
+                .update(updatePayload)
                 .eq('id', candidateId)
             );
           }
@@ -433,17 +478,32 @@ const VoteCounting: React.FC = () => {
       // Find the candidate to get its current score
       const candidate = candidates.find(c => c.id === candidateId);
       if (!candidate) return;
-      
-      const currentScore = candidate.score || 0;
-      const newScore = currentScore + additionalScore;
+
+      const userVoteCountingRight = profile?.vote_counting; // Changed from profile?.app_metadata?.vote_counting
+      const updatePayload: { score_from_female?: number; score_from_male?: number } = {};
+      let currentRelevantScore = 0;
+      let scoreTypeMessage = '';
+
+      if (userVoteCountingRight === 'count female votes') {
+        currentRelevantScore = candidate.score_from_female || 0;
+        updatePayload.score_from_female = currentRelevantScore + additionalScore;
+        scoreTypeMessage = 'female votes';
+      } else if (userVoteCountingRight === 'count male votes') {
+        currentRelevantScore = candidate.score_from_male || 0;
+        updatePayload.score_from_male = currentRelevantScore + additionalScore;
+        scoreTypeMessage = 'male votes';
+      } else {
+        showToast('Permission denied: Cannot determine which score to update.', 'error');
+        return;
+      }
       
       // Update the score in the database
-      const { error } = await supabase
+      const { error: updateError } = await supabase // Renamed error
         .from('avp_candidates')
-        .update({ score: newScore })
+        .update(updatePayload)
         .eq('id', candidateId);
       
-      if (error) throw error;
+      if (updateError) throw updateError;
       
       // Reset checkboxes for this candidate
       setCheckedVotes(prev => ({
@@ -451,7 +511,7 @@ const VoteCounting: React.FC = () => {
         [candidateId]: Array(20).fill(false)
       }));
       
-      showToast(`Score updated for ${candidate.full_name}`, 'success');
+      showToast(`Score updated for ${candidate.full_name} (${scoreTypeMessage})`, 'success');
     } catch (err: any) {
       console.error('Error updating score:', err);
       showToast(`Failed to update score: ${err.message}`, 'error');
@@ -469,6 +529,13 @@ const VoteCounting: React.FC = () => {
       // Prevent default behavior that might cause refresh
       e?.preventDefault();
       
+      const userVoteCountingRight = profile?.vote_counting; // Changed from profile?.app_metadata?.vote_counting
+      if (!userVoteCountingRight || (userVoteCountingRight !== 'count female votes' && userVoteCountingRight !== 'count male votes')) {
+        showToast('Permission denied: Cannot determine which scores to update.', 'error');
+        setIsConfirmModalOpen(false); // Close modal
+        return;
+      }
+
       // Array to hold all update promises
       const updatePromises = [];
       
@@ -480,16 +547,24 @@ const VoteCounting: React.FC = () => {
         if (checkedCount > 0) {
           const candidate = candidates.find(c => c.id === candidateId);
           if (candidate) {
-            const currentScore = candidate.score || 0;
-            const newScore = currentScore + checkedCount;
+            const updatePayload: { score_from_female?: number; score_from_male?: number } = {};
+            let currentRelevantScore = 0;
+
+            if (userVoteCountingRight === 'count female votes') {
+              currentRelevantScore = candidate.score_from_female || 0;
+              updatePayload.score_from_female = currentRelevantScore + checkedCount;
+            } else if (userVoteCountingRight === 'count male votes') {
+              currentRelevantScore = candidate.score_from_male || 0;
+              updatePayload.score_from_male = currentRelevantScore + checkedCount;
+            }
             
-            console.log(`Updating candidate ${candidate.full_name}: current=${currentScore}, checked=${checkedCount}, new=${newScore}`);
+            console.log(`Updating candidate ${candidate.full_name} (manual): current relevant score=${currentRelevantScore}, checked=${checkedCount}, new score=${currentRelevantScore + checkedCount} for ${userVoteCountingRight}`);
             
             // Add update promise to array
             updatePromises.push(
               supabase
                 .from('avp_candidates')
-                .update({ score: newScore })
+                .update(updatePayload)
                 .eq('id', candidateId)
             );
           }
@@ -561,7 +636,7 @@ const VoteCounting: React.FC = () => {
   };
 
   // Loading state
-  if (loading) {
+  if (loading || !profile) { // Also wait for profile to be available for permission checks
     return (
       <div className="p-6 bg-white dark:bg-gray-900 min-h-screen">
         <div className="mb-6">
@@ -598,6 +673,19 @@ const VoteCounting: React.FC = () => {
             <p className="text-red-700 dark:text-red-200 text-lg font-medium">{error}</p>
           </div>
           <p className="mt-3 text-red-600 dark:text-red-300 text-sm">Please try refreshing the page or contact an administrator.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Conditional rendering if access rights are not met (after profile is loaded)
+  // This is a fallback, useEffect should handle redirection.
+  if (profile && (userVoteCountingRight !== 'count female votes' && userVoteCountingRight !== 'count male votes')) {
+    return (
+      <div className="p-6 text-center bg-white dark:bg-gray-900 min-h-screen flex items-center justify-center">
+        <div className="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-700 p-6 rounded-lg shadow-sm max-w-lg">
+          <p className="text-yellow-700 dark:text-yellow-200 text-lg font-medium">Access Denied</p>
+          <p className="mt-3 text-yellow-600 dark:text-yellow-300 text-sm">You do not have the necessary permissions to view this page. Redirecting...</p>
         </div>
       </div>
     );
@@ -660,34 +748,48 @@ const VoteCounting: React.FC = () => {
       <div className="mb-10">
         <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-4">Live Scores</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {sortedListNames.map(listName => (
+          {sortedListNames.map(listName => {
+            const listData = candidatesByList[listName];
+            // Ensure candidatesByScore exists before mapping
+            if (!listData || !listData.candidatesByScore) {
+              return null; 
+            }
+            return (
             <div 
               key={listName}
               className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-blue-100 dark:border-gray-700"
             >
               <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">{listName}</h4>
               <div className="space-y-3">
-                {candidatesByList[listName].candidatesByScore.map(candidate => (
-                  <div 
-                    key={candidate.id} 
-                    className={`flex justify-between items-center p-3 rounded-lg transition-all ${
-                      candidate.isUpdating 
-                        ? 'bg-yellow-100 dark:bg-yellow-900/30 animate-pulse' 
-                        : 'bg-blue-50 dark:bg-blue-900/20'
-                    }`}
-                  >
-                    <div>
-                      <span className="font-medium text-gray-900 dark:text-white">{candidate.full_name}</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400 ml-2"> ({candidate.candidate_of})</span>
+                {listData.candidatesByScore.map(candidate => {
+                  const liveScoreDisplay = userVoteCountingRight === 'count female votes'
+                    ? candidate.score_from_female
+                    : userVoteCountingRight === 'count male votes'
+                      ? candidate.score_from_male
+                      : (candidate.score_from_female || 0) + (candidate.score_from_male || 0); // Fallback if rights are somehow bypassed/mixed
+
+                  return (
+                    <div 
+                      key={candidate.id} 
+                      className={`flex justify-between items-center p-3 rounded-lg transition-all ${
+                        candidate.isUpdating 
+                          ? 'bg-yellow-100 dark:bg-yellow-900/30 animate-pulse' 
+                          : 'bg-blue-50 dark:bg-blue-900/20'
+                      }`}
+                    >
+                      <div>
+                        <span className="font-medium text-gray-900 dark:text-white">{candidate.full_name}</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400 ml-2"> ({candidate.candidate_of})</span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="text-lg font-bold text-blue-700 dark:text-blue-400">{liveScoreDisplay || 0}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <span className="text-lg font-bold text-blue-700 dark:text-blue-400">{candidate.score}</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
-          ))}
+          )})}
         </div>
       </div>
 
