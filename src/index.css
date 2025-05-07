@@ -4,6 +4,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Add animations for candidate position changes */
+@keyframes moveUp {
+  0% {
+    transform: translateY(10px);
+    background-color: rgba(34, 197, 94, 0.1);
+  }
+  50% {
+    background-color: rgba(34, 197, 94, 0.2);
+  }
+  100% {
+    transform: translateY(0);
+    background-color: transparent;
+  }
+}
+
+@keyframes moveDown {
+  0% {
+    transform: translateY(-10px);
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+  50% {
+    background-color: rgba(239, 68, 68, 0.2);
+  }
+  100% {
+    transform: translateY(0);
+    background-color: transparent;
+  }
+}
+
+@layer utilities {
+  .animate-position-up {
+    animation: moveUp 1.5s ease-out;
+  }
+  
+  .animate-position-down {
+    animation: moveDown 1.5s ease-out;
+  }
+}
+
 * {
     margin: 0;
     padding: 0;

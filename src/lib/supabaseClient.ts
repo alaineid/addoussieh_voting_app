@@ -16,7 +16,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
   realtime: {
     params: {
-      eventsPerSecond: 10
+      eventsPerSecond: 40, // Increased from 10 to 40 for faster updates
+      fastlaneOnly: false // Allow all events to use the fast lane
     }
   }
 });

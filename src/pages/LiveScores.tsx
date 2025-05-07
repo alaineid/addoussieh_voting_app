@@ -16,7 +16,20 @@ interface Candidate {
   candidate_order?: number;
   full_name?: string;
   isUpdating?: boolean;
+  previousPosition?: number;
+  lastUpdatedTimestamp?: number;
 }
+
+// Helper function to determine colors based on list index
+const getListColor = () => {
+  // Use blue for all candidates
+  return {
+    bar: 'bg-blue-600 dark:bg-blue-700',
+    badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200',
+    rank: 'bg-blue-600 dark:bg-blue-700',
+    score: 'text-blue-700 dark:text-blue-300'
+  };
+};
 
 const LiveScores: React.FC = () => {
   const { profile, session } = useAuthStore();
@@ -24,7 +37,12 @@ const LiveScores: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [sortedCandidates, setSortedCandidates] = useState<Candidate[]>([]);
+  const [positionsChanged, setPositionsChanged] = useState<boolean>(false);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const previousRankingsRef = useRef<{[key: number]: number}>({});
+  const keepAliveIntervalRef = useRef<number | null>(null);
+  const hasInitializedRef = useRef<boolean>(false);
   
   // Toast state
   const [toast, setToast] = useState<{
@@ -64,6 +82,64 @@ const LiveScores: React.FC = () => {
     });
   });
 
+  // Get maximum score for percentage calculations
+  const maxScore = candidates.reduce((max, candidate) => {
+    const total = (candidate.score_from_female || 0) + (candidate.score_from_male || 0);
+    return Math.max(max, total);
+  }, 1); // Default to 1 to avoid division by zero
+
+  // Get total votes for percentage calculations
+  const totalVotes = candidates.reduce((sum, candidate) => {
+    return sum + (candidate.score_from_female || 0) + (candidate.score_from_male || 0);
+  }, 0);
+
+  // Sort candidates and track position changes
+  useEffect(() => {
+    if (candidates.length > 0) {
+      // Create a new sorted array without modifying the original
+      const newSortedCandidates = [...candidates].sort((a, b) => {
+        const scoreA = (a.score_from_female || 0) + (a.score_from_male || 0);
+        const scoreB = (b.score_from_female || 0) + (b.score_from_male || 0);
+        return scoreB - scoreA;
+      });
+
+      // Track position changes
+      const currentRankings: {[key: number]: number} = {};
+      let positionsHaveChanged = false;
+
+      newSortedCandidates.forEach((candidate, index) => {
+        currentRankings[candidate.id] = index;
+        
+        // Check if this candidate has moved positions
+        if (previousRankingsRef.current[candidate.id] !== undefined && 
+            previousRankingsRef.current[candidate.id] !== index) {
+          positionsHaveChanged = true;
+        }
+      });
+
+      if (positionsHaveChanged) {
+        // Add previousPosition property to candidates
+        const candidatesWithPositionData = newSortedCandidates.map(candidate => ({
+          ...candidate,
+          previousPosition: previousRankingsRef.current[candidate.id]
+        }));
+
+        setSortedCandidates(candidatesWithPositionData);
+        setPositionsChanged(true);
+
+        // Reset the positions changed flag after animation
+        setTimeout(() => {
+          setPositionsChanged(false);
+        }, 1000);
+      } else {
+        setSortedCandidates(newSortedCandidates);
+      }
+
+      // Store current rankings for next comparison
+      previousRankingsRef.current = currentRankings;
+    }
+  }, [candidates]);
+
   // Fetch candidates data and setup real-time subscription
   useEffect(() => {
     fetchCandidates();
@@ -73,6 +149,9 @@ const LiveScores: React.FC = () => {
     return () => {
       if (realtimeChannelRef.current) {
         supabase.removeChannel(realtimeChannelRef.current);
+      }
+      if (keepAliveIntervalRef.current) {
+        window.clearInterval(keepAliveIntervalRef.current);
       }
     };
   }, []);
@@ -91,7 +170,7 @@ const LiveScores: React.FC = () => {
     };
   }, []);
 
-  // Setup realtime subscription
+  // Setup realtime subscription with optimized parameters
   const setupRealtimeSubscription = () => {
     if (realtimeChannelRef.current) {
       supabase.removeChannel(realtimeChannelRef.current);
@@ -102,7 +181,11 @@ const LiveScores: React.FC = () => {
         config: {
           broadcast: {
             self: true
+          },
+          presence: {
+            key: 'live-scores-viewer'
           }
+          // Removed fastLane as it's not a supported property
         }
       })
       .on(
@@ -115,32 +198,39 @@ const LiveScores: React.FC = () => {
         (payload) => {
           console.log('Candidate score change detected!', payload);
           
-          // For score-related changes, update scores without full refresh
+          // For score-related changes, update scores immediately without full refresh
           if (payload.eventType === 'UPDATE' && payload.new && payload.old) {
             if (payload.new.score_from_female !== payload.old.score_from_female || 
                 payload.new.score_from_male !== payload.old.score_from_male) {
               
-              fetchCandidateScores();
+              // Update immediately without network request for the changed candidate
+              setCandidates(prev => {
+                // Apply the update to the specific candidate
+                const updatedCandidates = prev.map(cand => 
+                  cand.id === payload.new.id 
+                    ? { 
+                        ...cand, 
+                        score_from_female: payload.new.score_from_female || 0,
+                        score_from_male: payload.new.score_from_male || 0,
+                        isUpdating: true,
+                        lastUpdatedTimestamp: Date.now()
+                      } 
+                    : cand
+                );
+                
+                return updatedCandidates;
+              });
               
-              // Highlight the updated row
+              // Remove highlight after animation (reduced from 1500ms to 1000ms)
               setTimeout(() => {
                 setCandidates(prev => prev.map(cand => 
                   cand.id === payload.new.id 
-                    ? { ...cand, isUpdating: true } 
+                    ? { ...cand, isUpdating: false } 
                     : cand
                 ));
-                
-                // Remove highlight after 2 seconds
-                setTimeout(() => {
-                  setCandidates(prev => prev.map(cand => 
-                    cand.id === payload.new.id 
-                      ? { ...cand, isUpdating: false } 
-                      : cand
-                  ));
-                }, 2000);
-              }, 200);
+              }, 1000);
             } else {
-              // For other changes, refresh all data
+              // For other changes that aren't score-related, refresh all data
               fetchCandidates();
             }
           } else {
@@ -153,10 +243,11 @@ const LiveScores: React.FC = () => {
         if (status === 'SUBSCRIBED') {
           console.log('Subscribed to live scores updates!');
           
-          // Set up periodic refresh (every 30 seconds)
+          // Set up periodic refresh as a backup (every 20 seconds)
+          // Only as a fallback in case real-time events are missed
           const intervalId = setInterval(() => {
             fetchCandidateScores();
-          }, 30000);
+          }, 20000);
           
           return () => clearInterval(intervalId);
         }
@@ -164,15 +255,91 @@ const LiveScores: React.FC = () => {
         if (status === 'CHANNEL_ERROR') {
           console.error('Realtime channel error:', err);
           
-          // Try to reconnect after delay
+          // Try to reconnect after delay (reduced to 1 second)
           setTimeout(() => {
             setupRealtimeSubscription();
-          }, 5000);
+          }, 1000);
+        }
+
+        if (status === 'TIMED_OUT') {
+          console.warn('Realtime connection timed out');
+          setupRealtimeSubscription(); // Immediately try to reconnect
         }
       });
 
     realtimeChannelRef.current = channel;
   };
+
+  // Setup visibility change and keep-alive mechanisms
+  useEffect(() => {
+    // Keep the realtime connection alive with periodic pings
+    const setupKeepAlive = () => {
+      if (keepAliveIntervalRef.current) {
+        window.clearInterval(keepAliveIntervalRef.current);
+      }
+      
+      // Send a ping every 15 seconds to keep the connection alive
+      keepAliveIntervalRef.current = window.setInterval(() => {
+        const channel = realtimeChannelRef.current;
+        if (channel) {
+          // Track when we send a keep-alive
+          console.log('Sending realtime keep-alive ping:', new Date().toISOString());
+          
+          // Use presence to keep the connection alive
+          channel.track({
+            online_at: new Date().toISOString(),
+            user_agent: navigator.userAgent
+          });
+        }
+      }, 15000);
+    };
+
+    // Initial visibility state handler
+    const handleInitVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Tab is visible - fetching fresh data');
+        fetchCandidates();
+      } else {
+        console.log('Tab is hidden - setting up keep-alive mechanism');
+        setupKeepAlive();
+      }
+    };
+    
+    // Handle visibility changes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Tab became visible, refreshing data...');
+        fetchCandidates();
+        
+        // Clear the keep-alive interval when the tab is visible
+        if (keepAliveIntervalRef.current) {
+          window.clearInterval(keepAliveIntervalRef.current);
+          keepAliveIntervalRef.current = null;
+        }
+      } else {
+        console.log('Tab hidden, setting up keep-alive...');
+        setupKeepAlive();
+      }
+    };
+
+    // Set up initial visibility handling
+    if (!hasInitializedRef.current) {
+      handleInitVisibility();
+      hasInitializedRef.current = true;
+    }
+
+    // Add event listener for visibility change
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Clean up event listener and interval
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (keepAliveIntervalRef.current) {
+        window.clearInterval(keepAliveIntervalRef.current);
+        keepAliveIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Fetch full candidates data
   const fetchCandidates = async () => {
@@ -316,65 +483,121 @@ const LiveScores: React.FC = () => {
         <h2 className="text-4xl font-bold mb-2 text-blue-800 dark:text-blue-300">Live Scores</h2>
         <p className="text-gray-600 dark:text-gray-400">
           Real-time vote counts updated automatically
-          <span className="inline-block ml-2 w-2 h-2 bg-green-500 rounded-full animate-[ping_3s_ease-in-out_infinite]"></span>
+          <span className="inline-block ml-2 w-2 h-2 bg-green-500 rounded-full animate-[ping_1.5s_ease-in-out_infinite]"></span>
         </p>
       </div>
 
       {/* Combined Total Scores Section */}
       <section className="mb-10">
         <h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-6 flex items-center">
-          <i className="fas fa-chart-bar mr-2 text-blue-600 dark:text-blue-400"></i> Total Combined Scores
+          <i className="fas fa-chart-bar mr-2 text-blue-600 dark:text-blue-400"></i> Live Voting Board
         </h3>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {sortedListNames.map(listName => {
-            const listData = candidatesByList[listName];
-            
-            return (
-              <div 
-                key={listName}
-                className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-blue-100 dark:border-blue-900 overflow-hidden"
-              >
-                <div className="mb-4 pb-3 border-b border-gray-100 dark:border-gray-700">
-                  <h4 className="text-xl font-bold text-blue-700 dark:text-blue-400">{listName}</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Total vote count: {listData.candidates.reduce((sum, c) => sum + (c.score_from_female || 0) + (c.score_from_male || 0), 0)}</p>
-                </div>
-                
-                <div className="space-y-4">
-                  {listData.candidates.map((candidate, index) => {
-                    const totalScore = (candidate.score_from_female || 0) + (candidate.score_from_male || 0);
-                    
-                    return (
-                      <div 
-                        key={candidate.id} 
-                        className={`flex justify-between items-center p-4 rounded-lg transition-all ${
-                          candidate.isUpdating 
-                            ? 'bg-yellow-100 dark:bg-yellow-900/30 animate-pulse' 
-                            : index % 2 === 0 
-                              ? 'bg-blue-50 dark:bg-blue-900/20' 
-                              : 'bg-indigo-50 dark:bg-indigo-900/10'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 flex items-center justify-center rounded-full bg-blue-600 dark:bg-blue-700 text-white font-bold">
-                            {index + 1}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-blue-100 dark:border-blue-900">
+          <div className="space-y-6">
+            {sortedCandidates.map((candidate, index) => {
+              const totalScore = (candidate.score_from_female || 0) + (candidate.score_from_male || 0);
+              // Calculate percentage based on total votes
+              const votePercentage = totalVotes > 0 ? Math.round((totalScore / totalVotes) * 100) : 0;
+              
+              // For progress bar width
+              const progressWidth = votePercentage || 0;
+              
+              // Position animation class
+              let animationClass = '';
+              
+              if (positionsChanged && candidate.previousPosition !== undefined) {
+                if (candidate.previousPosition > index) {
+                  // Moved up in ranking
+                  animationClass = 'animate-position-up';
+                } else if (candidate.previousPosition < index) {
+                  // Moved down in ranking
+                  animationClass = 'animate-position-down';
+                }
+              }
+
+              // Get colors for this list
+              const colors = getListColor(candidate.list_name);
+              
+              // Enhanced animation for updated scores
+              const isRecentlyUpdated = candidate.isUpdating || 
+                (candidate.lastUpdatedTimestamp && (Date.now() - candidate.lastUpdatedTimestamp < 3000));
+
+              return (
+                <div 
+                  key={candidate.id}
+                  className={`relative transition-all duration-700 ease-in-out ${animationClass} ${
+                    isRecentlyUpdated ? 'scale-[1.02] bg-yellow-50 dark:bg-yellow-900/10 rounded-lg' : 'scale-100'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    {/* Rank indicator */}
+                    <div className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full font-bold text-lg mr-4 text-white ${colors.rank} ${
+                      isRecentlyUpdated ? 'ring-2 ring-yellow-400 dark:ring-yellow-500 ring-offset-1' : ''
+                    }`}>
+                      {index + 1}
+                    </div>
+
+                    <div className="flex-grow">
+                      <div className="flex justify-between items-center mb-1">
+                        <div>
+                          {/* Candidate name and position */}
+                          <div className="flex items-center">
+                            <span className="font-semibold text-gray-900 dark:text-white text-lg">
+                              {candidate.full_name}
+                            </span>
+                            <span className={`ml-3 text-xs px-2 py-1 rounded-full font-medium ${colors.badge}`}>
+                              {candidate.list_name}
+                            </span>
                           </div>
-                          <div>
-                            <h5 className="font-medium text-gray-900 dark:text-white">{candidate.full_name}</h5>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{candidate.candidate_of}</p>
-                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {candidate.candidate_of}
+                          </p>
                         </div>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-bold text-blue-700 dark:text-blue-400">{totalScore}</span>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">votes</span>
+                        
+                        {/* Score */}
+                        <div className="flex items-end">
+                          <span className={`text-2xl font-bold ${
+                            isRecentlyUpdated 
+                              ? 'text-blue-600 dark:text-blue-400 animate-pulse' 
+                              : colors.score
+                          }`}>
+                            {totalScore}
+                          </span>
+                          <span className="text-sm ml-1 text-gray-500 dark:text-gray-400">
+                            {votePercentage}%
+                          </span>
                         </div>
                       </div>
-                    );
-                  })}
+                      
+                      {/* Vote breakdown */}
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
+                        <div>
+                          <span className={`${isRecentlyUpdated && candidate.score_from_female > 0 ? 'text-pink-600 dark:text-pink-500 font-bold' : 'text-pink-600 dark:text-pink-400'}`}>
+                            F: {candidate.score_from_female || 0}
+                          </span>
+                          <span className="mx-2">|</span>
+                          <span className={`${isRecentlyUpdated && candidate.score_from_male > 0 ? 'text-blue-600 dark:text-blue-500 font-bold' : 'text-blue-600 dark:text-blue-400'}`}>
+                            M: {candidate.score_from_male || 0}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Score bar */}
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-700 ease-out ${colors.bar} ${
+                            isRecentlyUpdated ? 'animate-pulse' : ''
+                          }`}
+                          style={{ width: `${Math.max(progressWidth, 3)}%` }} // Minimum 3% for visibility
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -480,7 +703,7 @@ const LiveScores: React.FC = () => {
       
       <div className="text-center text-sm text-gray-500 dark:text-gray-400 py-4">
         <p>Last updated: {new Date().toLocaleString()}</p>
-        <p className="mt-1">All vote counts update automatically in real-time</p>
+        <p className="mt-1">All vote counts update in real-time as scores change</p>
       </div>
     </div>
   );

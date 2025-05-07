@@ -19,6 +19,12 @@ interface Candidate {
   isUpdating?: boolean; // UI state for highlighting updated rows
 }
 
+// Checkbox state interface with edit mode
+interface CheckboxState {
+  checked: boolean;
+  disabled: boolean;
+}
+
 // Confirmation modal for manually posting votes
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -144,6 +150,8 @@ const VoteCounting: React.FC = () => {
 
   // Checkbox tracking state for each candidate
   const [checkedVotes, setCheckedVotes] = useState<{ [candidateId: number]: boolean[] }>({});
+  const [checkboxStates, setCheckboxStates] = useState<{ [candidateId: number]: CheckboxState[] }>({});
+  const [editMode, setEditMode] = useState<{ [candidateId: number]: boolean }>({});
   
   // Confirmation modal state
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -166,6 +174,24 @@ const VoteCounting: React.FC = () => {
       initialCheckedVotes[candidate.id] = Array(20).fill(false);
     });
     setCheckedVotes(initialCheckedVotes);
+  }, [candidates.length]); // Only run when candidates length changes
+
+  // Initialize checkbox state tracking with disabled property when candidates are loaded
+  useEffect(() => {
+    // Initialize checkboxStates for all candidates
+    const initialCheckedVotes: { [candidateId: number]: boolean[] } = {};
+    const initialCheckboxStates: { [candidateId: number]: CheckboxState[] } = {};
+    const initialEditMode: { [candidateId: number]: boolean } = {};
+    
+    candidates.forEach(candidate => {
+      initialCheckedVotes[candidate.id] = Array(20).fill(false);
+      initialCheckboxStates[candidate.id] = Array(20).fill({ checked: false, disabled: false });
+      initialEditMode[candidate.id] = false;
+    });
+    
+    setCheckedVotes(initialCheckedVotes);
+    setCheckboxStates(initialCheckboxStates);
+    setEditMode(initialEditMode);
   }, [candidates.length]); // Only run when candidates length changes
 
   // Fetch candidates data and setup real-time subscription
@@ -381,7 +407,46 @@ const VoteCounting: React.FC = () => {
       // Toggle the checkbox
       if (updatedVotes[candidateId]) {
         updatedVotes[candidateId] = [...updatedVotes[candidateId]];
-        updatedVotes[candidateId][checkboxIndex] = !updatedVotes[candidateId][checkboxIndex];
+        const newCheckedValue = !updatedVotes[candidateId][checkboxIndex];
+        updatedVotes[candidateId][checkboxIndex] = newCheckedValue;
+        
+        // If we're unchecking a box while in edit mode, automatically exit edit mode
+        if (!newCheckedValue && editMode[candidateId]) {
+          // Exit edit mode
+          setEditMode(prevEditMode => ({
+            ...prevEditMode,
+            [candidateId]: false
+          }));
+          
+          // Disable all checked boxes, enable all unchecked boxes
+          setCheckboxStates(prevStates => {
+            const newStates = { ...prevStates };
+            if (newStates[candidateId]) {
+              newStates[candidateId] = newStates[candidateId].map((state, idx) => {
+                const isChecked = updatedVotes[candidateId][idx];
+                return {
+                  ...state,
+                  checked: isChecked,
+                  disabled: isChecked // Disable if checked, enable if unchecked
+                };
+              });
+            }
+            return newStates;
+          });
+        } else {
+          // Normal checkbox state update
+          setCheckboxStates(prevStates => {
+            const newStates = { ...prevStates };
+            if (newStates[candidateId]) {
+              newStates[candidateId] = [...newStates[candidateId]];
+              newStates[candidateId][checkboxIndex] = { 
+                checked: newCheckedValue, 
+                disabled: newCheckedValue && !editMode[candidateId]
+              };
+            }
+            return newStates;
+          });
+        }
       }
       
       // Check if this update results in any candidate having exactly 20 checked boxes
@@ -396,6 +461,52 @@ const VoteCounting: React.FC = () => {
       }
       
       return updatedVotes;
+    });
+  };
+
+  // Toggle edit mode for a row
+  const toggleEditMode = (candidateId: number) => {
+    setEditMode(prev => {
+      const newEditMode = { ...prev };
+      newEditMode[candidateId] = !prev[candidateId];
+      
+      // Update checkbox states based on new edit mode
+      setCheckboxStates(prevStates => {
+        const newStates = { ...prevStates };
+        if (newStates[candidateId]) {
+          newStates[candidateId] = newStates[candidateId].map(state => ({
+            ...state,
+            // When entering edit mode: enable checked boxes, disable unchecked boxes
+            // When exiting edit mode: disable checked boxes, enable unchecked boxes
+            disabled: newEditMode[candidateId] 
+              ? !state.checked  // In edit mode: disable unchecked, enable checked
+              : state.checked   // Out of edit mode: disable checked, enable unchecked
+          }));
+        }
+        return newStates;
+      });
+      
+      return newEditMode;
+    });
+  };
+
+  // Cancel editing and revert to disabled checked boxes
+  const cancelEdit = (candidateId: number) => {
+    setEditMode(prev => ({
+      ...prev,
+      [candidateId]: false
+    }));
+    
+    // Re-disable all checked boxes
+    setCheckboxStates(prevStates => {
+      const newStates = { ...prevStates };
+      if (newStates[candidateId]) {
+        newStates[candidateId] = newStates[candidateId].map(state => ({
+          ...state,
+          disabled: state.checked // Re-disable checked boxes
+        }));
+      }
+      return newStates;
     });
   };
 
@@ -457,10 +568,18 @@ const VoteCounting: React.FC = () => {
         
         // Reset all checkboxes
         const resetCheckedVotes: { [candidateId: number]: boolean[] } = {};
+        const resetCheckboxStates: { [candidateId: number]: CheckboxState[] } = {};
+        const resetEditMode: { [candidateId: number]: boolean } = {};
+        
         candidates.forEach(candidate => {
           resetCheckedVotes[candidate.id] = Array(20).fill(false);
+          resetCheckboxStates[candidate.id] = Array(20).fill({ checked: false, disabled: false });
+          resetEditMode[candidate.id] = false;
         });
+        
         setCheckedVotes(resetCheckedVotes);
+        setCheckboxStates(resetCheckboxStates);
+        setEditMode(resetEditMode);
         
         // Use the non-blinking score update instead of full page refresh
         fetchCandidateScores();
@@ -576,12 +695,20 @@ const VoteCounting: React.FC = () => {
       if (updatePromises.length > 0) {
         await Promise.all(updatePromises);
         
-        // Reset all checkboxes
+        // Reset all checkboxes, checkbox states, and edit modes
         const resetCheckedVotes: { [candidateId: number]: boolean[] } = {};
+        const resetCheckboxStates: { [candidateId: number]: CheckboxState[] } = {};
+        const resetEditMode: { [candidateId: number]: boolean } = {};
+        
         candidates.forEach(candidate => {
           resetCheckedVotes[candidate.id] = Array(20).fill(false);
+          resetCheckboxStates[candidate.id] = Array(20).fill({ checked: false, disabled: false });
+          resetEditMode[candidate.id] = false;
         });
+        
         setCheckedVotes(resetCheckedVotes);
+        setCheckboxStates(resetCheckboxStates);
+        setEditMode(resetEditMode);
         
         showToast('All scores updated successfully', 'success');
         
@@ -602,11 +729,27 @@ const VoteCounting: React.FC = () => {
   };
 
   const handleConfirmReset = () => {
+    // Reset checked votes
     const resetCheckedVotes: { [candidateId: number]: boolean[] } = {};
     candidates.forEach(candidate => {
       resetCheckedVotes[candidate.id] = Array(20).fill(false);
     });
     setCheckedVotes(resetCheckedVotes);
+    
+    // Also reset checkbox states (both checked and disabled properties)
+    const resetCheckboxStates: { [candidateId: number]: CheckboxState[] } = {};
+    candidates.forEach(candidate => {
+      resetCheckboxStates[candidate.id] = Array(20).fill({ checked: false, disabled: false });
+    });
+    setCheckboxStates(resetCheckboxStates);
+    
+    // Reset all edit modes
+    const resetEditMode: { [candidateId: number]: boolean } = {};
+    candidates.forEach(candidate => {
+      resetEditMode[candidate.id] = false;
+    });
+    setEditMode(resetEditMode);
+    
     showToast('All checkboxes reset', 'info');
   };
 
@@ -829,20 +972,44 @@ const VoteCounting: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 items-center">
                           {Array(20).fill(0).map((_, index) => (
                             <label 
                               key={index} 
-                              className="inline-flex items-center cursor-pointer"
+                              className={`inline-flex items-center ${checkboxStates[candidate.id]?.[index]?.disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                             >
                               <input
                                 type="checkbox"
-                                checked={checkedVotes[candidate.id]?.[index] || false}
+                                checked={checkboxStates[candidate.id]?.[index]?.checked || false}
                                 onChange={() => handleCheckboxChange(candidate.id, index)}
-                                className="form-checkbox h-5 w-5 text-blue-600 dark:text-blue-500 transition duration-150 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500"
+                                disabled={checkboxStates[candidate.id]?.[index]?.disabled || false}
+                                className={`form-checkbox h-5 w-5 transition duration-150 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500 ${
+                                  checkboxStates[candidate.id]?.[index]?.disabled ? 'opacity-70 bg-gray-200 dark:bg-gray-700' : 'text-blue-600 dark:text-blue-500'
+                                }`}
                               />
                             </label>
                           ))}
+                          
+                          {/* Edit/Cancel Button */}
+                          <div className="ml-2">
+                            {editMode[candidate.id] ? (
+                              <button
+                                onClick={() => cancelEdit(candidate.id)}
+                                className="px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded text-xs"
+                                title="Cancel editing"
+                              >
+                                Cancel
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => toggleEditMode(candidate.id)}
+                                className="px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-white rounded text-xs"
+                                title="Edit checkboxes"
+                              >
+                                Edit
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
