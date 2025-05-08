@@ -13,13 +13,16 @@ import {
   getPaginationRowModel, 
   SortingState, 
   ColumnFiltersState,
-  flexRender // Import flexRender
+  flexRender, // Import flexRender
+  ColumnMeta // Import ColumnMeta type
 } from '@tanstack/react-table';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import ExportPDFModal from '../components/ExportPDFModal';
+import ExportExcelModal from '../components/ExportExcelModal'; // Import ExcelModal
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable'; // Import autoTable directly
 import { amiriRegularBase64 } from '../assets/fonts/Amiri-Regular-normal'; // Import the font
+import { exportTableDataToExcel } from '../utils/excelExport'; // Import Excel export functions
 
 // Define interface for voter data
 interface Voter {
@@ -32,6 +35,16 @@ interface Voter {
   gender: string | null;
   voting_time?: string | null;
   situation?: string | null; // Add situation field
+}
+
+// Define custom column meta type that includes our filterComponent
+interface CustomColumnMeta {
+  filterComponent?: () => React.ReactNode;
+}
+
+// Declare module augmentation to extend the @tanstack/react-table types
+declare module '@tanstack/react-table' {
+  interface ColumnMeta<TData extends unknown, TValue> extends CustomColumnMeta {}
 }
 
 // Filter components for table columns
@@ -134,6 +147,9 @@ const VotingDay: React.FC = () => {
   
   // Export PDF modal state
   const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
+  
+  // Export Excel modal state
+  const [exportExcelModalOpen, setExportExcelModalOpen] = useState(false);
 
   // Comment modal state
   const [commentModalOpen, setCommentModalOpen] = useState(false);
@@ -355,6 +371,95 @@ const VotingDay: React.FC = () => {
     }
   };
 
+  // Generate and download Excel function with the current filtered data
+  const handleExportExcel = async (fileName: string) => {
+    try {
+      setToast({
+        message: 'Preparing Excel export...',
+        type: 'success',
+        visible: true
+      });
+      
+      // Get the current filtered data from the table
+      const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
+      
+      if (!filteredData || filteredData.length === 0) {
+        setToast({
+          message: 'No data to export. Please adjust your filters.',
+          type: 'error',
+          visible: true
+        });
+        return;
+      }
+
+      // Get the visible columns from the table's state
+      const visibleColumns = table.getAllColumns()
+        .filter(col => col.getIsVisible())
+        .map(col => {
+          const id = col.id;
+          // Skip the actions column
+          if (id === 'actions') return null;
+          return id;
+        })
+        .filter(Boolean) as string[];
+
+      // Create headers for Excel
+      const headers = visibleColumns.map(colId => {
+        // Find the column definition for better labeling
+        const column = columns.find(col => col.id === colId);
+        // If it's a custom column with header function, use a fallback
+        const headerValue = column?.header || colId;
+        
+        // Convert the header to a string
+        if (typeof headerValue === 'function') {
+          return colId; // Fallback to column ID
+        }
+        return String(headerValue);
+      });
+
+      // Extract data for each row
+      const rows = filteredData.map(voter => {
+        return visibleColumns.map(colId => {
+          const value = voter[colId as keyof Voter];
+          if (value === null || value === undefined) return '-';
+
+          // Format specific columns
+          switch (colId) {
+            case 'has_voted':
+              return value ? 'Yes' : 'No';
+            case 'voting_time':
+              try {
+                if (!value) return '-';
+                const date = new Date(value as string);
+                return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth()+1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+              } catch (e) {
+                return '-';
+              }
+            default:
+              return String(value);
+          }
+        });
+      });
+
+      // Export data to Excel
+      exportTableDataToExcel(headers, rows, fileName);
+
+      // Show success message
+      setToast({
+        message: 'Excel exported successfully',
+        type: 'success',
+        visible: true
+      });
+    } catch (err: any) {
+      console.error('Error generating Excel:', err);
+      setToast({
+        message: err.message || 'Error generating Excel',
+        type: 'error',
+        visible: true
+      });
+    }
+  };
+
   // Available columns for export
   const availableColumns = [
     { id: 'full_name', label: 'Full Name' },
@@ -410,9 +515,72 @@ const VotingDay: React.FC = () => {
               </button>
             </div>
           );
+        },
+        // Add filter to show export icons under the Actions header
+        enableColumnFilter: true,
+        filterFn: () => true, // Always return true so this filter doesn't affect data
+        meta: {
+          // Custom meta property to render export icons in filter slot
+          filterComponent: () => (
+            <div className="flex items-center space-x-3 mt-1 justify-center p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+              <button
+                className="text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 transition-colors duration-200 focus:outline-none text-base flex items-center"
+                onClick={() => setExportPdfModalOpen(true)}
+                aria-label="Export PDF"
+                title="Export PDF"
+              >
+                <i className="fas fa-file-pdf text-lg"></i>
+                <span className="ml-1 text-xs">PDF</span>
+              </button>
+              <button
+                className="text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 transition-colors duration-200 focus:outline-none text-base flex items-center"
+                onClick={() => setExportExcelModalOpen(true)}
+                aria-label="Export Excel"
+                title="Export Excel"
+              >
+                <i className="fas fa-file-excel text-lg"></i>
+                <span className="ml-1 text-xs">Excel</span>
+              </button>
+            </div>
+          )
         }
       })
-    ] : []),
+    ] : [
+      // If no edit permission, still add actions column for export buttons
+      columnHelper.display({
+        id: 'actions',
+        header: 'Actions',
+        cell: () => <div></div>, // Empty cell for rows
+        // Add filter to show export icons under the Actions header
+        enableColumnFilter: true,
+        filterFn: () => true, // Always return true so this filter doesn't affect data
+        meta: {
+          // Custom meta property to render export icons in filter slot
+          filterComponent: () => (
+            <div className="flex items-center space-x-3 mt-1 justify-center p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+              <button
+                className="text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 transition-colors duration-200 focus:outline-none text-base flex items-center"
+                onClick={() => setExportPdfModalOpen(true)}
+                aria-label="Export PDF"
+                title="Export PDF"
+              >
+                <i className="fas fa-file-pdf text-lg"></i>
+                <span className="ml-1 text-xs">PDF</span>
+              </button>
+              <button
+                className="text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 transition-colors duration-200 focus:outline-none text-base flex items-center"
+                onClick={() => setExportExcelModalOpen(true)}
+                aria-label="Export Excel"
+                title="Export Excel"
+              >
+                <i className="fas fa-file-excel text-lg"></i>
+                <span className="ml-1 text-xs">Excel</span>
+              </button>
+            </div>
+          )
+        }
+      })
+    ]),
     columnHelper.accessor('situation', {
       header: 'Situation',
       cell: info => {
@@ -894,9 +1062,7 @@ const VotingDay: React.FC = () => {
       <div className="p-6 text-center bg-white dark:bg-gray-900 min-h-screen flex items-center justify-center">
         <div className="bg-red-50 dark:bg-red-900/30 border-l-4 border-red-500 dark:border-red-700 p-6 rounded-lg shadow-sm max-w-lg">
           <div className="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500 dark:text-red-400 mr-3" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
+            <i className="fas fa-exclamation-circle h-8 w-8 text-red-500 dark:text-red-400 mr-3"></i>
             <p className="text-red-700 dark:text-red-200 text-lg font-medium">{error}</p>
           </div>
           <p className="mt-3 text-red-600 dark:text-red-300 text-sm">Please try refreshing the page or contact an administrator.</p>
@@ -931,6 +1097,15 @@ const VotingDay: React.FC = () => {
         registerOptions={registerOptions}
         registerSectOptions={registerSectOptions} // Pass registerSectOptions prop
         onExport={handleExportPDF}
+      />
+      
+      {/* Export Excel Modal */}
+      <ExportExcelModal
+        isOpen={exportExcelModalOpen}
+        onClose={() => setExportExcelModalOpen(false)}
+        registerOptions={registerOptions}
+        registerSectOptions={registerSectOptions}
+        onExport={handleExportExcel}
       />
       
       {/* Comment Modal */}
@@ -994,9 +1169,7 @@ const VotingDay: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-blue-100 dark:border-blue-900">
           <div className="rounded-full bg-blue-100 dark:bg-blue-900 p-3 mr-4 flex items-center justify-center w-12 h-12">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
+            <i className="fas fa-users text-blue-600 dark:text-blue-300 h-6 w-6"></i>
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Voters</p>
@@ -1006,9 +1179,7 @@ const VotingDay: React.FC = () => {
         
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-blue-100 dark:border-blue-900">
           <div className="rounded-full bg-green-100 dark:bg-green-900 p-3 mr-4 flex items-center justify-center w-12 h-12">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 dark:text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <i className="fas fa-check-circle text-green-600 dark:text-green-300 h-6 w-6"></i>
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Voted</p>
@@ -1037,21 +1208,10 @@ const VotingDay: React.FC = () => {
           <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2 sm:mb-0">Registered Voters</h3>
           
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-            {/* Export PDF Button */}
-            <button
-              className="flex items-center justify-center min-w-[150px] px-5 py-2.5 bg-gradient-to-br from-red-500 to-red-700 text-white rounded-lg hover:from-red-600 hover:to-red-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 text-sm font-medium"
-              onClick={() => setExportPdfModalOpen(true)}
-            >
-              <i className="fas fa-file-pdf text-red-100 mr-2 text-lg"></i>
-              <span>Export PDF</span>
-            </button>
-            
             {/* Search Input */}
             <div className="relative w-full sm:max-w-xs">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                </svg>
+                <i className="fas fa-search text-gray-400"></i>
               </div>
               <input
                 type="search"
@@ -1077,9 +1237,7 @@ const VotingDay: React.FC = () => {
         ) : voters.length === 0 ? (
           // No voters found
           <div className="text-center py-10 text-gray-500 dark:text-gray-400">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 20a8 8 0 100-16 8 8 0 000 16z" />
-            </svg>
+            <i className="fas fa-face-frown h-12 w-12 mx-auto mb-4 text-gray-400"></i>
             <p className="text-lg font-medium">No voters found</p>
             <p className="text-sm mt-1">Try adjusting your search or filters</p>
           </div>
@@ -1120,7 +1278,10 @@ const VotingDay: React.FC = () => {
                           </div>
                           {header.column.getCanFilter() ? (
                             <div className="mt-1">
-                              {header.column.id === 'full_name' || header.column.id === 'comments' || header.column.id === 'voting_time' ? (
+                              {header.column.id === 'actions' && header.column.columnDef.meta?.filterComponent ? (
+                                // Render the custom export icons for the Actions column
+                                header.column.columnDef.meta.filterComponent()
+                              ) : header.column.id === 'full_name' || header.column.id === 'comments' || header.column.id === 'voting_time' ? (
                                 <SearchFilter type="text" column={header.column} table={table} />
                               ) : header.column.id === 'has_voted' ? (
                                 <select
