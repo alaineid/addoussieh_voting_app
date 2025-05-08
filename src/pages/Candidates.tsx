@@ -18,6 +18,12 @@ import {
 import Toast from '../components/Toast'; // Import shared Toast component
 import ConfirmationModal from '../components/ConfirmationModal';
 import AlertModal from '../components/AlertModal';
+import ExportExcelModal from '../components/ExportExcelModal';
+import SimplePDFModal from '../components/SimplePDFModal'; // Import the simplified PDF modal
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { amiriRegularBase64 } from '../assets/fonts/Amiri-Regular-normal';
+import { exportTableDataToExcel } from '../utils/excelExport';
 
 console.log("Candidates.tsx module loaded"); // New log
 
@@ -401,7 +407,7 @@ const CreateCandidateTab: React.FC = () => {
                 ))}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w.org/2000/svg" viewBox="0 0 20 20">
                   <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                 </svg>
               </div>
@@ -434,6 +440,10 @@ const ManageCandidatesTab: React.FC = () => {
   const [globalFilter, setGlobalFilter] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<Candidate>>({});
+  
+  // Export modals state
+  const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
+  const [exportExcelModalOpen, setExportExcelModalOpen] = useState(false);
   
   // Toast notification state
   const [toast, setToast] = useState<{
@@ -623,6 +633,157 @@ const ManageCandidatesTab: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Generate and download PDF function with simplified approach
+  const handleExportPDF = async (fileName: string) => {
+    try {
+      showToast('Preparing PDF export...', 'info');
+
+      // Get the current filtered data from the table
+      const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
+      
+      if (!filteredData || filteredData.length === 0) {
+        showToast('No data to export. Please adjust your filters.', 'error');
+        return;
+      }
+
+      // Get the visible columns from the table's state
+      const visibleColumns = table.getAllColumns()
+        .filter(col => col.getIsVisible())
+        .map(col => {
+          const id = col.id;
+          // Skip the actions column
+          if (id === 'actions') return null;
+          return id;
+        })
+        .filter(Boolean) as string[];
+
+      // Create column headers for the PDF
+      const headers = visibleColumns.map(colId => {
+        // Map column IDs to readable headers
+        switch (colId) {
+          case 'full_name': return 'Full Name';
+          case 'register_sect': return 'Register Sect';
+          case 'register': return 'Register';
+          case 'list_name': return 'List Name';
+          case 'candidate_of': return 'Candidate Of';
+          default: return colId;
+        }
+      });
+
+      // Get column data
+      const rows = filteredData.map(candidate => {
+        return visibleColumns.map(colId => {
+          const value = candidate[colId as keyof Candidate];
+          if (value === null || value === undefined) return '-';
+          return String(value);
+        });
+      });
+
+      // Create PDF document
+      const pdf = new jsPDF('landscape');
+
+      // Add the Amiri font
+      pdf.addFileToVFS('Amiri-Regular.ttf', amiriRegularBase64);
+      pdf.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+
+      // Set default font for title and metadata
+      pdf.setFont('Amiri');
+      pdf.setFontSize(16);
+      pdf.text('Candidates Report', 14, 15);
+
+      const now = new Date();
+      pdf.setFontSize(10);
+      pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
+      
+      // Create the table using autoTable
+      autoTable(pdf, {
+        head: [headers],
+        body: rows,
+        startY: 32,
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, font: 'Amiri' },
+        bodyStyles: { font: 'Amiri', fontStyle: 'normal' },
+        alternateRowStyles: { fillColor: [240, 240, 240] },
+        styles: { fontSize: 9 },
+        margin: { top: 32 },
+      });
+
+      // Save the PDF using the filename from the modal
+      pdf.save(fileName);
+
+      // Show success message
+      showToast('PDF exported successfully', 'success');
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      showToast(err.message || 'Error generating PDF', 'error');
+    }
+  };
+
+  // Generate and download Excel function
+  const handleExportExcel = async (fileName: string) => {
+    try {
+      showToast('Preparing Excel export...', 'info');
+      
+      // Get the current filtered data from the table
+      const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
+      
+      if (!filteredData || filteredData.length === 0) {
+        showToast('No data to export. Please adjust your filters.', 'error');
+        return;
+      }
+
+      // Get the visible columns from the table's state
+      const visibleColumns = table.getAllColumns()
+        .filter(col => col.getIsVisible())
+        .map(col => {
+          const id = col.id;
+          // Skip the actions column
+          if (id === 'actions') return null;
+          return id;
+        })
+        .filter(Boolean) as string[];
+
+      // Create headers for Excel
+      const headers = visibleColumns.map(colId => {
+        // Map column IDs to readable headers
+        switch (colId) {
+          case 'full_name': return 'Full Name';
+          case 'register_sect': return 'Register Sect';
+          case 'register': return 'Register';
+          case 'list_name': return 'List Name';
+          case 'candidate_of': return 'Candidate Of';
+          default: return colId;
+        }
+      });
+
+      // Extract data for each row
+      const rows = filteredData.map(candidate => {
+        return visibleColumns.map(colId => {
+          const value = candidate[colId as keyof Candidate];
+          if (value === null || value === undefined) return '-';
+          return String(value);
+        });
+      });
+
+      // Export data to Excel
+      exportTableDataToExcel(headers, rows, fileName);
+
+      // Show success message
+      showToast('Excel exported successfully', 'success');
+    } catch (err: any) {
+      console.error('Error generating Excel:', err);
+      showToast(err.message || 'Error generating Excel', 'error');
+    }
+  };
+
+  // Available columns for export
+  const availableColumns = [
+    { id: 'full_name', label: 'Full Name' },
+    { id: 'register_sect', label: 'Register Sect' },
+    { id: 'register', label: 'Register' },
+    { id: 'list_name', label: 'List Name' },
+    { id: 'candidate_of', label: 'Candidate Of' }
+  ];
 
   const handleSaveEdit = async () => {
     if (!editingId || !editFormData) return;
@@ -875,9 +1036,35 @@ const ManageCandidatesTab: React.FC = () => {
       )}
 
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-        <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-4 sm:mb-0">
-          {useAuthStore.getState().profile?.candidate_access === 'edit' ? "Manage Candidates" : "Candidates List"}
-        </h3>
+        <div className="flex items-center space-x-2">
+          <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-4 sm:mb-0">
+            {useAuthStore.getState().profile?.candidate_access === 'edit' ? "Manage Candidates" : "Candidates List"}
+          </h3>
+          
+          {/* Export buttons - Updated to remove border */}
+          <div className="flex items-center space-x-2 justify-start px-2 py-1 text-xs rounded-md bg-white dark:bg-gray-700 h-8 min-h-0 mb-4 sm:mb-0">
+            <button
+              onClick={() => setExportPdfModalOpen(true)}
+              className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 focus:outline-none"
+              style={{ minWidth: 'auto' }}
+              aria-label="Export PDF"
+              title="Export PDF"
+            >
+              <i className="fas fa-file-pdf text-base"></i>
+              <span className="ml-1">PDF</span>
+            </button>
+            <button
+              onClick={() => setExportExcelModalOpen(true)}
+              className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 focus:outline-none"
+              style={{ minWidth: 'auto' }}
+              aria-label="Export Excel"
+              title="Export Excel"
+            >
+              <i className="fas fa-file-excel text-base"></i>
+              <span className="ml-1">Excel</span>
+            </button>
+          </div>
+        </div>
         
         <div className="relative w-full sm:w-64">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1089,6 +1276,21 @@ const ManageCandidatesTab: React.FC = () => {
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}
+      />
+
+      {/* Export modals */}
+      <SimplePDFModal
+        isOpen={exportPdfModalOpen}
+        onClose={() => setExportPdfModalOpen(false)}
+        onExport={handleExportPDF}
+        defaultFileName="Candidates_Report.pdf"
+      />
+      
+      <ExportExcelModal
+        isOpen={exportExcelModalOpen}
+        onClose={() => setExportExcelModalOpen(false)}
+        onExport={handleExportExcel}
+        defaultFileName="Candidates_Report.xlsx"
       />
     </div>
   );
