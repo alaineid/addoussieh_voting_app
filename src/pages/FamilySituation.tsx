@@ -11,6 +11,11 @@ import {
   SortingState,
   getPaginationRowModel
 } from '@tanstack/react-table';
+import SimplePDFModal from '../components/SimplePDFModal';
+import ExportExcelModal from '../components/ExportExcelModal';
+import { exportTableDataToExcel } from '../utils/excelExport';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface FamilyStatistics {
   family: string;
@@ -198,6 +203,9 @@ const FamilySituation: React.FC = () => {
   } | null>(null);
   // Add state for accordion
   const [summaryExpanded, setSummaryExpanded] = useState<boolean>(true);
+  // Add state for export modals
+  const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
+  const [exportExcelModalOpen, setExportExcelModalOpen] = useState(false);
   
   // Reference for realtime subscription
   const realtimeChannelRef = useRef<any>(null);
@@ -351,6 +359,95 @@ const FamilySituation: React.FC = () => {
   // Close toast notification
   const closeToast = () => {
     setToast(null);
+  };
+
+  // Function to handle PDF export
+  const handleExportPDF = async (fileName: string) => {
+    try {
+      setToast({
+        message: 'Preparing PDF export...',
+        type: 'info',
+        visible: true
+      });
+
+      if (!familyStats || familyStats.length === 0) {
+        setToast({
+          message: 'No data to export.',
+          type: 'error',
+          visible: true
+        });
+        return;
+      }
+
+      const headers = Object.keys(displayColumnNames).map(key => displayColumnNames[key]);
+      const rows = familyStats.map(stat => Object.values(stat));
+
+      const pdf = new jsPDF('landscape');
+      pdf.setFontSize(16);
+      pdf.text('Family Situation Report', 14, 15);
+
+      autoTable(pdf, {
+        head: [headers],
+        body: rows,
+        startY: 30,
+        headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+        bodyStyles: { fontSize: 9 },
+        alternateRowStyles: { fillColor: [240, 240, 240] },
+      });
+
+      pdf.save(fileName || 'family-situation.pdf');
+
+      setToast({
+        message: 'PDF exported successfully',
+        type: 'success',
+        visible: true
+      });
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      setToast({
+        message: 'Error generating PDF',
+        type: 'error',
+        visible: true
+      });
+    }
+  };
+
+  // Function to handle Excel export
+  const handleExportExcel = async (fileName: string) => {
+    try {
+      setToast({
+        message: 'Preparing Excel export...',
+        type: 'info',
+        visible: true
+      });
+
+      if (!familyStats || familyStats.length === 0) {
+        setToast({
+          message: 'No data to export.',
+          type: 'error',
+          visible: true
+        });
+        return;
+      }
+
+      const headers = Object.keys(displayColumnNames).map(key => displayColumnNames[key]);
+      const rows = familyStats.map(stat => Object.values(stat));
+
+      exportTableDataToExcel(headers, rows, fileName || 'family-situation.xlsx');
+
+      setToast({
+        message: 'Excel exported successfully',
+        type: 'success',
+        visible: true
+      });
+    } catch (err) {
+      console.error('Error generating Excel:', err);
+      setToast({
+        message: 'Error generating Excel',
+        type: 'error',
+        visible: true
+      });
+    }
   };
 
   // Create table columns
@@ -704,6 +801,27 @@ const FamilySituation: React.FC = () => {
 
       {/* Main Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 md:p-6 border border-blue-100 dark:border-gray-700">
+        {/* Add export buttons to the UI */}
+        <div className="flex items-center space-x-2 justify-end mb-4">
+          <button
+            onClick={() => setExportPdfModalOpen(true)}
+            className="h-8 px-2 py-0 text-sm rounded flex items-center text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 focus:outline-none"
+            aria-label="Export PDF"
+            title="Export PDF"
+          >
+            <i className="fas fa-file-pdf text-base"></i>
+            <span className="ml-1">PDF</span>
+          </button>
+          <button
+            onClick={() => setExportExcelModalOpen(true)}
+            className="h-8 px-2 py-0 text-sm rounded flex items-center text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 focus:outline-none"
+            aria-label="Export Excel"
+            title="Export Excel"
+          >
+            <i className="fas fa-file-excel text-base"></i>
+            <span className="ml-1">Excel</span>
+          </button>
+        </div>
         <div className="overflow-x-auto shadow-sm rounded-lg border border-blue-200 dark:border-gray-700">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
@@ -952,6 +1070,20 @@ const FamilySituation: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Export Modals */}
+      <SimplePDFModal
+        isOpen={exportPdfModalOpen}
+        onClose={() => setExportPdfModalOpen(false)}
+        onExport={handleExportPDF}
+        defaultFileName="Family_Situation_Report.pdf"
+      />
+      <ExportExcelModal
+        isOpen={exportExcelModalOpen}
+        onClose={() => setExportExcelModalOpen(false)}
+        onExport={handleExportExcel}
+        defaultFileName="Family_Situation.xlsx"
+      />
     </div>
   );
 };

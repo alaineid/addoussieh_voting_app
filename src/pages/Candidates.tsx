@@ -437,7 +437,7 @@ const ManageCandidatesTab: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = useState('');
+  // Removing globalFilter state as we're removing the global search bar
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<Candidate>>({});
   
@@ -967,11 +967,9 @@ const ManageCandidatesTab: React.FC = () => {
     state: {
       sorting,
       columnFilters,
-      globalFilter,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
   });
 
   if (loading) {
@@ -1036,49 +1034,34 @@ const ManageCandidatesTab: React.FC = () => {
       )}
 
       <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
-        <div className="flex items-center space-x-2">
+        <div>
           <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-4 sm:mb-0">
             {useAuthStore.getState().profile?.candidate_access === 'edit' ? "Manage Candidates" : "Candidates List"}
           </h3>
-          
-          {/* Export buttons - Updated to remove border */}
-          <div className="flex items-center space-x-2 justify-start px-2 py-1 text-xs rounded-md bg-white dark:bg-gray-700 h-8 min-h-0 mb-4 sm:mb-0">
-            <button
-              onClick={() => setExportPdfModalOpen(true)}
-              className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 focus:outline-none"
-              style={{ minWidth: 'auto' }}
-              aria-label="Export PDF"
-              title="Export PDF"
-            >
-              <i className="fas fa-file-pdf text-base"></i>
-              <span className="ml-1">PDF</span>
-            </button>
-            <button
-              onClick={() => setExportExcelModalOpen(true)}
-              className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 focus:outline-none"
-              style={{ minWidth: 'auto' }}
-              aria-label="Export Excel"
-              title="Export Excel"
-            >
-              <i className="fas fa-file-excel text-base"></i>
-              <span className="ml-1">Excel</span>
-            </button>
-          </div>
         </div>
-        
-        <div className="relative w-full sm:w-64">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-          <input
-            type="search"
-            className="w-full pl-10 pr-4 py-2 border border-blue-200 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            placeholder="Search candidates..."
-            value={globalFilter || ''}
-            onChange={e => setGlobalFilter(e.target.value)}
-          />
+          
+        {/* Export buttons - Aligned to the far right */}
+        <div className="flex items-center space-x-2 justify-end px-2 py-1 text-xs rounded-md bg-white dark:bg-gray-700 h-8 min-h-0 mb-4 sm:mb-0 ml-auto">
+          <button
+            onClick={() => setExportPdfModalOpen(true)}
+            className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 focus:outline-none"
+            style={{ minWidth: 'auto' }}
+            aria-label="Export PDF"
+            title="Export PDF"
+          >
+            <i className="fas fa-file-pdf text-base"></i>
+            <span className="ml-1">PDF</span>
+          </button>
+          <button
+            onClick={() => setExportExcelModalOpen(true)}
+            className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 focus:outline-none"
+            style={{ minWidth: 'auto' }}
+            aria-label="Export Excel"
+            title="Export Excel"
+          >
+            <i className="fas fa-file-excel text-base"></i>
+            <span className="ml-1">Excel</span>
+          </button>
         </div>
       </div>
 

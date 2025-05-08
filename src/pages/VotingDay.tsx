@@ -1116,7 +1116,7 @@ const VotingDay: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-blue-100 dark:border-blue-900">
           <div className="rounded-full bg-blue-100 dark:bg-blue-900 p-3 mr-4 flex items-center justify-center w-12 h-12">
-            <i className="fas fa-users text-blue-600 dark:text-blue-300 h-6 w-6"></i>
+            <i className="fas fa-users text-blue-600 dark:text-blue-300 flex items-center justify-center w-6 h-6"></i>
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Voters</p>
@@ -1126,7 +1126,7 @@ const VotingDay: React.FC = () => {
         
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex items-center border border-blue-100 dark:border-blue-900">
           <div className="rounded-full bg-green-100 dark:bg-green-900 p-3 mr-4 flex items-center justify-center w-12 h-12">
-            <i className="fas fa-check-circle text-green-600 dark:text-green-300 h-6 w-6"></i>
+            <i className="fas fa-check-circle text-green-600 dark:text-green-300 flex items-center justify-center w-6 h-6"></i>
           </div>
           <div>
             <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Voted</p>
@@ -1154,20 +1154,25 @@ const VotingDay: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6">
           <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2 sm:mb-0">Registered Voters</h3>
           
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-            {/* Search Input */}
-            <div className="relative w-full sm:max-w-xs">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <i className="fas fa-search text-gray-400"></i>
-              </div>
-              <input
-                type="search"
-                className="block w-full pl-10 pr-4 py-2 text-gray-900 dark:text-white dark:bg-gray-700 border border-blue-200 dark:border-gray-600 rounded-lg focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-                placeholder="Search voters..."
-                value={globalFilter ?? ''}
-                onChange={e => setGlobalFilter(e.target.value)}
-              />
-            </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setExportPdfModalOpen(true)}
+              className="h-8 px-2 py-0 text-sm rounded flex items-center text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 focus:outline-none"
+              aria-label="Export PDF"
+              title="Export PDF"
+            >
+              <i className="fas fa-file-pdf text-base"></i>
+              <span className="ml-1">PDF</span>
+            </button>
+            <button
+              onClick={() => setExportExcelModalOpen(true)}
+              className="h-8 px-2 py-0 text-sm rounded flex items-center text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 focus:outline-none"
+              aria-label="Export Excel"
+              title="Export Excel"
+            >
+              <i className="fas fa-file-excel text-base"></i>
+              <span className="ml-1">Excel</span>
+            </button>
           </div>
         </div>
         
@@ -1232,27 +1237,8 @@ const VotingDay: React.FC = () => {
                         {headerGroup.headers.map(header => (
                           <th key={header.id} className="px-4 py-2 bg-blue-50 dark:bg-gray-700">
                             {header.column.id === 'actions' ? (
-                              <div className="flex items-center space-x-2 justify-start px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md bg-white dark:bg-gray-700 h-8 min-h-0">
-                                <button
-                                  className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 focus:outline-none"
-                                  style={{ minWidth: 'auto' }}
-                                  onClick={() => setExportPdfModalOpen(true)}
-                                  aria-label="Export PDF"
-                                  title="Export PDF"
-                                >
-                                  <i className="fas fa-file-pdf text-base"></i>
-                                  <span className="ml-1">PDF</span>
-                                </button>
-                                <button
-                                  className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 focus:outline-none"
-                                  style={{ minWidth: 'auto' }}
-                                  onClick={() => setExportExcelModalOpen(true)}
-                                  aria-label="Export Excel"
-                                  title="Export Excel"
-                                >
-                                  <i className="fas fa-file-excel text-base"></i>
-                                  <span className="ml-1">Excel</span>
-                                </button>
+                              <div>
+                                {/* Empty div to preserve spacing */}
                               </div>
                             ) : header.column.getCanFilter() ? (
                               header.column.id === 'full_name' || header.column.id === 'comments' || header.column.id === 'voting_time' ? (

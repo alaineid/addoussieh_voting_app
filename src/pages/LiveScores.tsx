@@ -4,6 +4,12 @@ import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import Toast from '../components/Toast';
+import SimplePDFModal from '../components/SimplePDFModal';
+import ExportExcelModal from '../components/ExportExcelModal';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { amiriRegularBase64 } from '../assets/fonts/Amiri-Regular-normal';
+import { exportTableDataToExcel } from '../utils/excelExport';
 
 // Define interface for candidate data
 interface Candidate {
@@ -43,6 +49,10 @@ const LiveScores: React.FC = () => {
   const previousRankingsRef = useRef<{[key: number]: number}>({});
   const keepAliveIntervalRef = useRef<number | null>(null);
   const hasInitializedRef = useRef<boolean>(false);
+  
+  // Export modals state
+  const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
+  const [exportExcelModalOpen, setExportExcelModalOpen] = useState(false);
   
   // Toast state
   const [toast, setToast] = useState<{
@@ -425,6 +435,122 @@ const LiveScores: React.FC = () => {
     setToast(null);
   };
 
+  // Generate and download PDF function
+  const handleExportPDF = async (fileName: string) => {
+    try {
+      showToast('Preparing PDF export...', 'info');
+      
+      if (candidates.length === 0) {
+        showToast('No data to export.', 'error');
+        return;
+      }
+
+      // Headers for the PDF
+      const headers = ['Candidate', 'Position', 'List', 'Female Votes', 'Male Votes', 'Total'];
+
+      // Extract data for each row
+      const rows = candidates
+        .sort((a, b) => {
+          // Sort by total votes descending
+          const scoreA = (a.score_from_female || 0) + (a.score_from_male || 0);
+          const scoreB = (b.score_from_female || 0) + (b.score_from_male || 0);
+          return scoreB - scoreA;
+        })
+        .map(candidate => {
+          const totalScore = (candidate.score_from_female || 0) + (candidate.score_from_male || 0);
+          return [
+            candidate.full_name,
+            candidate.candidate_of,
+            candidate.list_name,
+            candidate.score_from_female || 0,
+            candidate.score_from_male || 0,
+            totalScore
+          ];
+        });
+
+      // Create PDF document
+      const pdf = new jsPDF('landscape');
+
+      // Add the Amiri font
+      pdf.addFileToVFS('Amiri-Regular.ttf', amiriRegularBase64);
+      pdf.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+
+      // Set default font for title and metadata
+      pdf.setFont('Amiri');
+      pdf.setFontSize(16);
+      pdf.text('Candidate Scores Report', 14, 15);
+
+      const now = new Date();
+      pdf.setFontSize(10);
+      pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
+
+      // Create the table using autoTable
+      autoTable(pdf, {
+        head: [headers],
+        body: rows,
+        startY: 32,
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, font: 'Amiri' },
+        bodyStyles: { font: 'Amiri', fontStyle: 'normal' },
+        alternateRowStyles: { fillColor: [240, 240, 240] },
+        styles: { fontSize: 9 },
+        margin: { top: 32 },
+      });
+
+      // Save the PDF using the filename from the modal
+      pdf.save(fileName);
+
+      // Show success message
+      showToast('PDF exported successfully', 'success');
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      showToast(err.message || 'Error generating PDF', 'error');
+    }
+  };
+
+  // Generate and download Excel function
+  const handleExportExcel = async (fileName: string) => {
+    try {
+      showToast('Preparing Excel export...', 'info');
+      
+      if (candidates.length === 0) {
+        showToast('No data to export.', 'error');
+        return;
+      }
+
+      // Headers for Excel
+      const headers = ['Candidate', 'Position', 'List', 'Female Votes', 'Male Votes', 'Total'];
+
+      // Extract data for each row
+      const rows = candidates
+        .sort((a, b) => {
+          // Sort by total votes descending
+          const scoreA = (a.score_from_female || 0) + (a.score_from_male || 0);
+          const scoreB = (b.score_from_female || 0) + (b.score_from_male || 0);
+          return scoreB - scoreA;
+        })
+        .map(candidate => {
+          const totalScore = (candidate.score_from_female || 0) + (candidate.score_from_male || 0);
+          return [
+            candidate.full_name,
+            candidate.candidate_of,
+            candidate.list_name,
+            candidate.score_from_female || 0,
+            candidate.score_from_male || 0,
+            totalScore
+          ];
+        });
+
+      // Export data to Excel
+      exportTableDataToExcel(headers, rows, fileName);
+
+      // Show success message
+      showToast('Excel exported successfully', 'success');
+    } catch (err: any) {
+      console.error('Error generating Excel:', err);
+      showToast(err.message || 'Error generating Excel', 'error');
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -603,12 +729,38 @@ const LiveScores: React.FC = () => {
 
       {/* Split Scores Section */}
       <section className="mb-8">
-        <h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-6 flex items-center">
-          <i className="fas fa-search mr-2 text-blue-600 dark:text-blue-400"></i> Scores by Gender
-        </h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 flex items-center">
+            <i className="fas fa-search mr-2 text-blue-600 dark:text-blue-400"></i> Scores by Gender
+          </h3>
+          
+          {/* Export buttons with same styling as in other pages */}
+          <div className="flex items-center space-x-2 justify-start px-2 py-1 text-xs rounded-md bg-white dark:bg-gray-700 h-8 min-h-0">
+            <button
+              onClick={() => setExportPdfModalOpen(true)}
+              className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 focus:outline-none"
+              style={{ minWidth: 'auto' }}
+              aria-label="Export PDF"
+              title="Export PDF"
+            >
+              <i className="fas fa-file-pdf text-base"></i>
+              <span className="ml-1">PDF</span>
+            </button>
+            <button
+              onClick={() => setExportExcelModalOpen(true)}
+              className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 focus:outline-none"
+              style={{ minWidth: 'auto' }}
+              aria-label="Export Excel"
+              title="Export Excel"
+            >
+              <i className="fas fa-file-excel text-base"></i>
+              <span className="ml-1">Excel</span>
+            </button>
+          </div>
+        </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-white dark:bg-gray-800 rounded-xl shadow-md border border-blue-100 dark:border-blue-900">
+          <table id="scores-table" className="min-w-full bg-white dark:bg-gray-800 rounded-xl shadow-md border border-blue-100 dark:border-blue-900">
             <thead>
               <tr className="bg-blue-100 dark:bg-blue-900/30">
                 <th className="py-4 px-6 text-left text-sm font-semibold text-blue-800 dark:text-blue-300">Candidate</th>
@@ -705,6 +857,21 @@ const LiveScores: React.FC = () => {
         <p>Last updated: {new Date().toLocaleString()}</p>
         <p className="mt-1">All vote counts update in real-time as scores change</p>
       </div>
+
+      {/* Export modals */}
+      <SimplePDFModal
+        isOpen={exportPdfModalOpen}
+        onClose={() => setExportPdfModalOpen(false)}
+        onExport={handleExportPDF}
+        defaultFileName="Candidate_Scores_Report.pdf"
+      />
+      
+      <ExportExcelModal
+        isOpen={exportExcelModalOpen}
+        onClose={() => setExportExcelModalOpen(false)}
+        onExport={handleExportExcel}
+        defaultFileName="Candidate_Scores_Report.xlsx"
+      />
     </div>
   );
 };

@@ -16,6 +16,12 @@ import {
 import ConfirmationModal from '../components/ConfirmationModal';
 import SearchFilter from '../components/SearchFilter';  // Import the SearchFilter component
 import Toast from '../components/Toast'; // Import shared Toast component
+import SimplePDFModal from '../components/SimplePDFModal';
+import ExportExcelModal from '../components/ExportExcelModal';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { amiriRegularBase64 } from '../assets/fonts/Amiri-Regular-normal';
+import { exportTableDataToExcel } from '../utils/excelExport';
 
 // Define the structure of a voter record based on the requested columns
 interface Voter {
@@ -45,6 +51,7 @@ interface Voter {
   search_vector?: any; // unknown type
   with_flag?: number | null;
   dob: string | null; // date as string
+  sect: string | null; // Added missing property
 }
 
 // Helper function to format dates correctly accounting for timezone issues
@@ -76,6 +83,12 @@ const RegisteredVoters: React.FC = () => {
   const realtimeChannelRef = useRef<any>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
   
+  // Export PDF modal state
+  const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
+  
+  // Export Excel modal state
+  const [exportExcelModalOpen, setExportExcelModalOpen] = useState(false);
+  
   // Edit and delete state
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<Voter>>({});
@@ -97,10 +110,213 @@ const RegisteredVoters: React.FC = () => {
 
   // Dropdown options for filters (populated on data load)
   const [situationOptions, setSituationOptions] = useState<string[]>([]);
+  const [registerOptions, setRegisterOptions] = useState<string[]>([]);
+  const [registerSectOptions, setRegisterSectOptions] = useState<string[]>([]);
 
   // Permission check
   const hasEditPermission = profile?.registered_voters_access === 'edit';
   
+  // Available columns for export
+  const availableColumns = [
+    { id: 'full_name', label: 'Full Name' },
+    { id: 'first_name', label: 'First Name' },
+    { id: 'father_name', label: 'Father Name' },
+    { id: 'last_name', label: 'Last Name' },
+    { id: 'mother_name', label: 'Mother Name' },
+    { id: 'register', label: 'Register' },
+    { id: 'register_sect', label: 'Register Sect' },
+    { id: 'gender', label: 'Gender' },
+    { id: 'alliance', label: 'Alliance' },
+    { id: 'family', label: 'Family' },
+    { id: 'situation', label: 'Situation' },
+    { id: 'sect', label: 'Sect' },
+    { id: 'residence', label: 'Residence' },
+    { id: 'comments', label: 'Comments' },
+    { id: 'has_voted', label: 'Has Voted' },
+    { id: 'dob', label: 'Date of Birth' },
+  ];
+  
+  // Generate and download PDF function
+  const handleExportPDF = async (fileName: string) => {
+    try {
+      setToast({
+        message: 'Preparing PDF export...',
+        type: 'info',
+        visible: true
+      });
+
+      // Get the current filtered data from the table
+      const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
+
+      if (!filteredData || filteredData.length === 0) {
+        setToast({
+          message: 'No data to export. Please adjust your filters.',
+          type: 'error',
+          visible: true
+        });
+        return;
+      }
+
+      // Get visible columns and exclude action column
+      const visibleColumns = table.getAllColumns()
+        .filter(col => col.getIsVisible() && col.id !== 'actions')
+        .map(col => col.id);
+
+      // Create column headers
+      const headers = visibleColumns.map(colId => {
+        const columnDef = availableColumns.find(c => c.id === colId);
+        return columnDef ? columnDef.label : colId;
+      });
+
+      // Format row data
+      const rows = filteredData.map(voter => {
+        return visibleColumns.map(col => {
+          const value = voter[col as keyof Voter];
+          if (value === null || value === undefined) return '-';
+          switch (col) {
+            case 'has_voted':
+              return value ? 'Yes' : 'No';
+            case 'dob':
+              return formatDate(value as string);
+            default:
+              return String(value);
+          }
+        });
+      });
+
+      // Create PDF document
+      const pdf = new jsPDF('landscape');
+
+      // Add the Amiri font for Arabic support
+      pdf.addFileToVFS('Amiri-Regular.ttf', amiriRegularBase64);
+      pdf.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
+      pdf.setFont('Amiri');
+
+      // Add title and timestamp
+      pdf.setFontSize(16);
+      pdf.text('Registered Voters Report', 14, 15);
+      const now = new Date();
+      pdf.setFontSize(10);
+      pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
+
+      // Create the table
+      autoTable(pdf, {
+        head: [headers],
+        body: rows,
+        startY: 30,
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, font: 'Amiri' },
+        bodyStyles: { font: 'Amiri', fontSize: 9 },
+        alternateRowStyles: { fillColor: [240, 240, 240] },
+        margin: { top: 30 }
+      });
+
+      // Save the PDF
+      pdf.save(fileName || 'registered-voters.pdf');
+
+      setToast({
+        message: 'PDF exported successfully',
+        type: 'success',
+        visible: true
+      });
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      setToast({
+        message: err.message || 'Error generating PDF',
+        type: 'error',
+        visible: true
+      });
+    }
+  };
+
+  // Generate and download Excel function with the current filtered data
+  const handleExportExcel = async (fileName: string) => {
+    try {
+      setToast({
+        message: 'Preparing Excel export...',
+        type: 'success',
+        visible: true
+      });
+      
+      // Get the current filtered data from the table
+      const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
+      
+      if (!filteredData || filteredData.length === 0) {
+        setToast({
+          message: 'No data to export. Please adjust your filters.',
+          type: 'error',
+          visible: true
+        });
+        return;
+      }
+
+      // Get the visible columns from the table's state
+      const visibleColumns = table.getAllColumns()
+        .filter(col => col.getIsVisible())
+        .map(col => {
+          const id = col.id;
+          // Skip the actions column
+          if (id === 'actions') return null;
+          return id;
+        })
+        .filter(Boolean) as string[];
+
+      // Create headers for Excel
+      const headers = visibleColumns.map(colId => {
+        // Find the column definition for better labeling
+        const column = columns.find(col => col.id === colId);
+        // If it's a custom column with header function, use a fallback
+        const headerValue = column?.header || colId;
+        
+        // Convert the header to a string
+        if (typeof headerValue === 'function') {
+          return colId; // Fallback to column ID
+        }
+        return String(headerValue);
+      });
+
+      // Extract data for each row
+      const rows = filteredData.map(voter => {
+        return visibleColumns.map(colId => {
+          const value = voter[colId as keyof Voter];
+          if (value === null || value === undefined) return '-';
+
+          // Format specific columns
+          switch (colId) {
+            case 'has_voted':
+              return value ? 'Yes' : 'No';
+            case 'dob':
+              if (!value) return '-';
+              try {
+                const date = new Date(`${value as string}T12:00:00Z`);
+                return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth()+1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+              } catch (e) {
+                return '-';
+              }
+            default:
+              return String(value);
+          }
+        });
+      });
+
+      // Export data to Excel
+      exportTableDataToExcel(headers, rows, fileName);
+
+      // Show success message
+      setToast({
+        message: 'Excel exported successfully',
+        type: 'success',
+        visible: true
+      });
+    } catch (err: any) {
+      console.error('Error generating Excel:', err);
+      setToast({
+        message: err.message || 'Error generating Excel',
+        type: 'error',
+        visible: true
+      });
+    }
+  };
+
   // Edit and delete functions
   const startEdit = (voter: Voter) => {
     setEditingId(voter.id);
@@ -1179,6 +1395,22 @@ const RegisteredVoters: React.FC = () => {
         />
       )}
       
+      {/* Export PDF Modal */}
+      <SimplePDFModal
+        isOpen={exportPdfModalOpen}
+        onClose={() => setExportPdfModalOpen(false)}
+        onExport={handleExportPDF}
+        defaultFileName="RegisteredVoters_Report.pdf"
+      />
+      
+      {/* Export Excel Modal */}
+      <ExportExcelModal
+        isOpen={exportExcelModalOpen}
+        onClose={() => setExportExcelModalOpen(false)}
+        onExport={handleExportExcel}
+        defaultFileName="RegisteredVoters.xlsx"
+      />
+      
       {/* Floating Action Button (FAB) for adding voters */}
       {hasEditPermission && (
         <button
@@ -1192,7 +1424,11 @@ const RegisteredVoters: React.FC = () => {
       )}
       
       <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Registered Voters</h2>
-      <p className="text-gray-600 dark:text-gray-400 mb-6">Manage and monitor registered voters</p>
+      <div className="flex flex-row justify-between items-center mb-6">
+        <p className="text-gray-600 dark:text-gray-400">Manage and monitor registered voters</p>
+        
+        
+      </div>
       
       {/* Stats Section - Updated to use filtered data */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -1237,20 +1473,7 @@ const RegisteredVoters: React.FC = () => {
       
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 md:p-6 border border-blue-100 dark:border-gray-700">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-          {/* Search Input */}
-          <div className="relative flex-1 sm:min-w-[300px]">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <i className="fas fa-search w-5 h-5 text-gray-500 dark:text-gray-400"></i>
-            </div>
-            <input
-              type="search"
-              className="block w-full pl-10 pr-4 py-2.5 text-gray-900 dark:text-white dark:bg-gray-700 border border-blue-200 dark:border-gray-600 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-              placeholder="Search by name, family, alliance..."
-              value={globalFilter ?? ''}
-              onChange={e => setGlobalFilter(e.target.value)}
-            />
-          </div>
-          {/* View Mode Buttons */}
+          {/* View Mode Buttons - moved to the left */}
           <div className="flex bg-gray-50 dark:bg-gray-700 rounded-lg p-1 shadow-inner">
             <button
               onClick={() => {
@@ -1284,6 +1507,28 @@ const RegisteredVoters: React.FC = () => {
                 <i className="fas fa-table mr-1.5"></i>
                 Table
               </div>
+            </button>
+          </div>
+
+          {/* Export buttons - moved to the far right */}
+          <div className="flex items-center space-x-2 justify-end">
+            <button
+              onClick={() => setExportPdfModalOpen(true)}
+              className="h-8 px-2 py-0 text-sm rounded flex items-center text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 focus:outline-none"
+              aria-label="Export PDF"
+              title="Export PDF"
+            >
+              <i className="fas fa-file-pdf text-base"></i>
+              <span className="ml-1">PDF</span>
+            </button>
+            <button
+              onClick={() => setExportExcelModalOpen(true)}
+              className="h-8 px-2 py-0 text-sm rounded flex items-center text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 focus:outline-none"
+              aria-label="Export Excel"
+              title="Export Excel"
+            >
+              <i className="fas fa-file-excel text-base"></i>
+              <span className="ml-1">Excel</span>
             </button>
           </div>
         </div>
