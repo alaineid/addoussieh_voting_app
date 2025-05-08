@@ -140,7 +140,7 @@ const VotingDay: React.FC = () => {
   const [voters, setVoters] = useState<Voter[]>([]);
   const [votersLoading, setVotersLoading] = useState<boolean>(true);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState[]>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
@@ -516,69 +516,16 @@ const VotingDay: React.FC = () => {
             </div>
           );
         },
-        // Add filter to show export icons under the Actions header
         enableColumnFilter: true,
-        filterFn: () => true, // Always return true so this filter doesn't affect data
-        meta: {
-          // Custom meta property to render export icons in filter slot
-          filterComponent: () => (
-            <div className="flex items-center space-x-3 mt-1 justify-center p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
-              <button
-                className="text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 transition-colors duration-200 focus:outline-none text-base flex items-center"
-                onClick={() => setExportPdfModalOpen(true)}
-                aria-label="Export PDF"
-                title="Export PDF"
-              >
-                <i className="fas fa-file-pdf text-lg"></i>
-                <span className="ml-1 text-xs">PDF</span>
-              </button>
-              <button
-                className="text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 transition-colors duration-200 focus:outline-none text-base flex items-center"
-                onClick={() => setExportExcelModalOpen(true)}
-                aria-label="Export Excel"
-                title="Export Excel"
-              >
-                <i className="fas fa-file-excel text-lg"></i>
-                <span className="ml-1 text-xs">Excel</span>
-              </button>
-            </div>
-          )
-        }
+        filterFn: () => true,
       })
     ] : [
-      // If no edit permission, still add actions column for export buttons
       columnHelper.display({
         id: 'actions',
         header: 'Actions',
-        cell: () => <div></div>, // Empty cell for rows
-        // Add filter to show export icons under the Actions header
+        cell: () => <div></div>,
         enableColumnFilter: true,
-        filterFn: () => true, // Always return true so this filter doesn't affect data
-        meta: {
-          // Custom meta property to render export icons in filter slot
-          filterComponent: () => (
-            <div className="flex items-center space-x-3 mt-1 justify-center p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
-              <button
-                className="text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 transition-colors duration-200 focus:outline-none text-base flex items-center"
-                onClick={() => setExportPdfModalOpen(true)}
-                aria-label="Export PDF"
-                title="Export PDF"
-              >
-                <i className="fas fa-file-pdf text-lg"></i>
-                <span className="ml-1 text-xs">PDF</span>
-              </button>
-              <button
-                className="text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 transition-colors duration-200 focus:outline-none text-base flex items-center"
-                onClick={() => setExportExcelModalOpen(true)}
-                aria-label="Export Excel"
-                title="Export Excel"
-              >
-                <i className="fas fa-file-excel text-lg"></i>
-                <span className="ml-1 text-xs">Excel</span>
-              </button>
-            </div>
-          )
-        }
+        filterFn: () => true,
       })
     ]),
     columnHelper.accessor('situation', {
@@ -1248,40 +1195,67 @@ const VotingDay: React.FC = () => {
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead className="bg-blue-50 dark:bg-gray-700">
                   {table.getHeaderGroups().map(headerGroup => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map(header => (
-                        <th 
-                          key={header.id} 
-                          scope="col" 
-                          className="px-4 py-3 text-left text-xs font-medium text-blue-700 dark:text-blue-300 uppercase tracking-wider"
-                          style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
-                        >
-                          <div 
-                            className={`flex items-center ${header.column.getCanSort() ? 'cursor-pointer select-none group' : ''}`}
-                            onClick={header.column.getToggleSortingHandler()}
+                    <React.Fragment key={headerGroup.id}>
+                      <tr>
+                        {headerGroup.headers.map(header => (
+                          <th 
+                            key={header.id} 
+                            scope="col" 
+                            className="px-4 py-3 text-left text-xs font-medium text-blue-700 dark:text-blue-300 uppercase tracking-wider"
+                            style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}
                           >
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                            {header.column.getCanSort() && (
-                              <div className="ml-2">
-                                {{
-                                  asc: (
-                                    <i className="fas fa-sort-up text-blue-600 dark:text-blue-400 text-lg"></i>
-                                  ),
-                                  desc: (
-                                    <i className="fas fa-sort-down text-blue-600 dark:text-blue-400 text-lg"></i>
-                                  ),
-                                }[header.column.getIsSorted() as string] ?? (
-                                  <i className="fas fa-sort text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity"></i>
-                                )}
+                            <div 
+                              className={`flex items-center ${header.column.getCanSort() ? 'cursor-pointer select-none group' : ''}`}
+                              onClick={header.column.getToggleSortingHandler()}
+                            >
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                              {header.column.getCanSort() && (
+                                <div className="ml-2">
+                                  {{
+                                    asc: (
+                                      <i className="fas fa-sort-up text-blue-600 dark:text-blue-400 text-lg"></i>
+                                    ),
+                                    desc: (
+                                      <i className="fas fa-sort-down text-blue-600 dark:text-blue-400 text-lg"></i>
+                                    ),
+                                  }[header.column.getIsSorted() as string] ?? (
+                                    <i className="fas fa-sort text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity"></i>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                      {/* Filter row with export buttons under Actions */}
+                      <tr>
+                        {headerGroup.headers.map(header => (
+                          <th key={header.id} className="px-4 py-2 bg-blue-50 dark:bg-gray-700">
+                            {header.column.id === 'actions' ? (
+                              <div className="flex items-center space-x-2 justify-start px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md bg-white dark:bg-gray-700 h-8 min-h-0">
+                                <button
+                                  className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 focus:outline-none"
+                                  style={{ minWidth: 'auto' }}
+                                  onClick={() => setExportPdfModalOpen(true)}
+                                  aria-label="Export PDF"
+                                  title="Export PDF"
+                                >
+                                  <i className="fas fa-file-pdf text-base"></i>
+                                  <span className="ml-1">PDF</span>
+                                </button>
+                                <button
+                                  className="h-6 px-2 py-0 text-xs rounded bg-white dark:bg-gray-700 border border-transparent flex items-center text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 focus:outline-none"
+                                  style={{ minWidth: 'auto' }}
+                                  onClick={() => setExportExcelModalOpen(true)}
+                                  aria-label="Export Excel"
+                                  title="Export Excel"
+                                >
+                                  <i className="fas fa-file-excel text-base"></i>
+                                  <span className="ml-1">Excel</span>
+                                </button>
                               </div>
-                            )}
-                          </div>
-                          {header.column.getCanFilter() ? (
-                            <div className="mt-1">
-                              {header.column.id === 'actions' && header.column.columnDef.meta?.filterComponent ? (
-                                // Render the custom export icons for the Actions column
-                                header.column.columnDef.meta.filterComponent()
-                              ) : header.column.id === 'full_name' || header.column.id === 'comments' || header.column.id === 'voting_time' ? (
+                            ) : header.column.getCanFilter() ? (
+                              header.column.id === 'full_name' || header.column.id === 'comments' || header.column.id === 'voting_time' ? (
                                 <SearchFilter type="text" column={header.column} table={table} />
                               ) : header.column.id === 'has_voted' ? (
                                 <select
@@ -1302,12 +1276,12 @@ const VotingDay: React.FC = () => {
                                 <SearchFilter type="select" column={header.column} table={table} />
                               ) : (
                                 <SearchFilter type="text" column={header.column} table={table} />
-                              )}
-                            </div>
-                          ) : null}
-                        </th>
-                      ))}
-                    </tr>
+                              )
+                            ) : null}
+                          </th>
+                        ))}
+                      </tr>
+                    </React.Fragment>
                   ))}
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
