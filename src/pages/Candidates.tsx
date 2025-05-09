@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
@@ -20,10 +20,8 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import AlertModal from '../components/AlertModal';
 import ExportExcelModal from '../components/ExportExcelModal';
 import SimplePDFModal from '../components/SimplePDFModal'; // Import the simplified PDF modal
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { amiriRegularBase64 } from '../assets/fonts/Amiri-Regular-normal';
 import { exportTableDataToExcel } from '../utils/excelExport';
+import { exportDataToPDF } from '../utils/pdfExport';
 
 console.log("Candidates.tsx module loaded"); // New log
 
@@ -680,36 +678,14 @@ const ManageCandidatesTab: React.FC = () => {
         });
       });
 
-      // Create PDF document
-      const pdf = new jsPDF('landscape');
-
-      // Add the Amiri font
-      pdf.addFileToVFS('Amiri-Regular.ttf', amiriRegularBase64);
-      pdf.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
-
-      // Set default font for title and metadata
-      pdf.setFont('Amiri');
-      pdf.setFontSize(16);
-      pdf.text('Candidates Report', 14, 15);
-
-      const now = new Date();
-      pdf.setFontSize(10);
-      pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
-      
-      // Create the table using autoTable
-      autoTable(pdf, {
-        head: [headers],
-        body: rows,
-        startY: 32,
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, font: 'Amiri' },
-        bodyStyles: { font: 'Amiri', fontStyle: 'normal' },
-        alternateRowStyles: { fillColor: [240, 240, 240] },
-        styles: { fontSize: 9 },
-        margin: { top: 32 },
-      });
-
-      // Save the PDF using the filename from the modal
-      pdf.save(fileName);
+      // Use our common utility function to export the PDF
+      exportDataToPDF(
+        headers,
+        rows,
+        'Candidates Report',
+        fileName || 'candidates-report.pdf',
+        'landscape'
+      );
 
       // Show success message
       showToast('PDF exported successfully', 'success');

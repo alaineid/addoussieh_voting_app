@@ -18,9 +18,7 @@ import SearchFilter from '../components/SearchFilter';  // Import the SearchFilt
 import Toast from '../components/Toast'; // Import shared Toast component
 import SimplePDFModal from '../components/SimplePDFModal';
 import ExportExcelModal from '../components/ExportExcelModal';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { amiriRegularBase64 } from '../assets/fonts/Amiri-Regular-normal';
+import { exportDataToPDF, formatDateForExport } from '../utils/pdfExport';
 import { exportTableDataToExcel } from '../utils/excelExport';
 
 // Define the structure of a voter record based on the requested columns
@@ -177,41 +175,21 @@ const RegisteredVoters: React.FC = () => {
             case 'has_voted':
               return value ? 'Yes' : 'No';
             case 'dob':
-              return formatDate(value as string);
+              return formatDateForExport(value as string);
             default:
               return String(value);
           }
         });
       });
 
-      // Create PDF document
-      const pdf = new jsPDF('landscape');
-
-      // Add the Amiri font for Arabic support
-      pdf.addFileToVFS('Amiri-Regular.ttf', amiriRegularBase64);
-      pdf.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
-      pdf.setFont('Amiri');
-
-      // Add title and timestamp
-      pdf.setFontSize(16);
-      pdf.text('Registered Voters Report', 14, 15);
-      const now = new Date();
-      pdf.setFontSize(10);
-      pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
-
-      // Create the table
-      autoTable(pdf, {
-        head: [headers],
-        body: rows,
-        startY: 30,
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, font: 'Amiri' },
-        bodyStyles: { font: 'Amiri', fontSize: 9 },
-        alternateRowStyles: { fillColor: [240, 240, 240] },
-        margin: { top: 30 }
-      });
-
-      // Save the PDF
-      pdf.save(fileName || 'registered-voters.pdf');
+      // Use our new utility function to export the PDF
+      exportDataToPDF(
+        headers,
+        rows,
+        'Registered Voters Report',
+        fileName || 'registered-voters.pdf',
+        'landscape'
+      );
 
       setToast({
         message: 'PDF exported successfully',

@@ -3,8 +3,8 @@ import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { supabase } from '../lib/supabaseClient';
 import {
-  PieChart, Pie, BarChart, Bar, CartesianGrid, Tooltip, Legend, 
-  ResponsiveContainer, Cell, XAxis, YAxis, LineChart, Line, AreaChart, Area
+  PieChart, Pie, CartesianGrid, Tooltip, Legend, 
+  ResponsiveContainer, Cell, XAxis, YAxis, AreaChart, Area
 } from 'recharts';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import HorizontalPercentageBarChart from '../components/HorizontalPercentageBarChart';

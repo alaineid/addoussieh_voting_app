@@ -6,10 +6,9 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import Toast from '../components/Toast';
 import SimplePDFModal from '../components/SimplePDFModal';
 import ExportExcelModal from '../components/ExportExcelModal';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { amiriRegularBase64 } from '../assets/fonts/Amiri-Regular-normal';
+
 import { exportTableDataToExcel } from '../utils/excelExport';
+import { exportDataToPDF } from '../utils/pdfExport';
 
 // Define interface for candidate data
 interface Candidate {
@@ -79,9 +78,6 @@ const LiveScores: React.FC = () => {
   }, {});
 
   // Sort list names based on list_order
-  const sortedListNames = Object.keys(candidatesByList).sort((a, b) => 
-    candidatesByList[a].order - candidatesByList[b].order
-  );
 
   // Sort candidates within each list by total votes
   Object.keys(candidatesByList).forEach(listName => {
@@ -93,10 +89,6 @@ const LiveScores: React.FC = () => {
   });
 
   // Get maximum score for percentage calculations
-  const maxScore = candidates.reduce((max, candidate) => {
-    const total = (candidate.score_from_female || 0) + (candidate.score_from_male || 0);
-    return Math.max(max, total);
-  }, 1); // Default to 1 to avoid division by zero
 
   // Get total votes for percentage calculations
   const totalVotes = candidates.reduce((sum, candidate) => {
@@ -468,36 +460,14 @@ const LiveScores: React.FC = () => {
           ];
         });
 
-      // Create PDF document
-      const pdf = new jsPDF('landscape');
-
-      // Add the Amiri font
-      pdf.addFileToVFS('Amiri-Regular.ttf', amiriRegularBase64);
-      pdf.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
-
-      // Set default font for title and metadata
-      pdf.setFont('Amiri');
-      pdf.setFontSize(16);
-      pdf.text('Candidate Scores Report', 14, 15);
-
-      const now = new Date();
-      pdf.setFontSize(10);
-      pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
-
-      // Create the table using autoTable
-      autoTable(pdf, {
-        head: [headers],
-        body: rows,
-        startY: 32,
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, font: 'Amiri' },
-        bodyStyles: { font: 'Amiri', fontStyle: 'normal' },
-        alternateRowStyles: { fillColor: [240, 240, 240] },
-        styles: { fontSize: 9 },
-        margin: { top: 32 },
-      });
-
-      // Save the PDF using the filename from the modal
-      pdf.save(fileName);
+      // Use our new utility function to export the PDF
+      exportDataToPDF(
+        headers,
+        rows,
+        'Candidate Scores Report',
+        fileName || 'candidate-scores.pdf',
+        'landscape'
+      );
 
       // Show success message
       showToast('PDF exported successfully', 'success');

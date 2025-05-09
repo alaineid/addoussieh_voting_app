@@ -14,9 +14,7 @@ import {
 import SimplePDFModal from '../components/SimplePDFModal';
 import ExportExcelModal from '../components/ExportExcelModal';
 import { exportTableDataToExcel } from '../utils/excelExport';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { amiriRegularBase64 } from '../assets/fonts/Amiri-Regular-normal';
+import { exportDataToPDF } from '../utils/pdfExport';
 
 interface FamilyStatistics {
   family: string;
@@ -362,7 +360,7 @@ const FamilySituation: React.FC = () => {
     setToast(null);
   };
 
-  // Function to handle PDF export
+  // Function to handle PDF export using the new utility
   const handleExportPDF = async (fileName: string) => {
     try {
       setToast({
@@ -395,38 +393,17 @@ const FamilySituation: React.FC = () => {
           stat.MILITARY,
           stat.NO_VOTE,
           stat.UNKNOWN
-        ].map(val => String(val)));
+        ]);
       });
 
-      // Create PDF document in landscape orientation
-      const pdf = new jsPDF('landscape');
-
-      // Important: Add the Amiri font for Arabic support exactly as in RegisteredVoters
-      pdf.addFileToVFS('Amiri-Regular.ttf', amiriRegularBase64);
-      pdf.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
-      pdf.setFont('Amiri');
-
-      // Add title and timestamp
-      pdf.setFontSize(16);
-      pdf.text('Family Situation Report', 14, 15);
-      
-      const now = new Date();
-      pdf.setFontSize(10);
-      pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
-
-      // Create the table with same settings as RegisteredVoters
-      autoTable(pdf, {
-        head: [headers],
-        body: rows,
-        startY: 30,
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, font: 'Amiri' },
-        bodyStyles: { font: 'Amiri', fontSize: 9 },
-        alternateRowStyles: { fillColor: [240, 240, 240] },
-        margin: { top: 30 }
-      });
-
-      // Save the PDF
-      pdf.save(fileName || 'family-situation.pdf');
+      // Use our new utility function to export the PDF
+      exportDataToPDF(
+        headers,
+        rows,
+        'Family Situation Report',
+        fileName || 'family-situation.pdf',
+        'landscape'
+      );
 
       setToast({
         message: 'PDF exported successfully',
