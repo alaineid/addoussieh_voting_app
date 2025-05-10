@@ -665,7 +665,7 @@ const VotingStatistics: React.FC = () => {
       </div>
 
       {/* Main Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
         {/* Overall Voter Turnout */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Voter Turnout</h3>
@@ -712,54 +712,26 @@ const VotingStatistics: React.FC = () => {
           />
         </div>
         
-        {/* Situation Voting Status */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
+        {/* Situation Voting Status - Now full width and taller */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700 md:col-span-2">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Situation Voting Status</h3>
-          {/* Replace the old BarChart with HorizontalPercentageBarChart */}
           <HorizontalPercentageBarChart
-            data={situationVotingStats} // Use the calculated stats
+            data={situationVotingStats}
             stackKeys={['Voted', 'NotVoted']}
             barColors={{ Voted: '#4CAF50', NotVoted: '#F44336' }}
-            height={300} // Adjust height as needed
+            height={400} // Increased height
             isDarkMode={isDarkMode}
           />
         </div>
 
-        {/* Residence Voting Status */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Residence Voting Status</h3>
-          {/* Replace the old BarChart with HorizontalPercentageBarChart */}
-          <HorizontalPercentageBarChart
-            data={residenceVotingStats} // Use the calculated stats
-            stackKeys={['Voted', 'NotVoted']}
-            barColors={{ Voted: '#4CAF50', NotVoted: '#F44336' }}
-            height={250} // Adjust height as needed
-            isDarkMode={isDarkMode}
-          />
-        </div>
-
-        {/* Family Voting Status (Top 10) */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
+        {/* Family Voting Status (Top 10) - Now full width and taller */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700 md:col-span-2">
           <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Family Voting Status (Top 10)</h3>
-          {/* Replace the old BarChart with HorizontalPercentageBarChart */}
           <HorizontalPercentageBarChart
-            data={familyVotingStats} // Use the calculated stats
+            data={familyVotingStats}
             stackKeys={['Voted', 'NotVoted']}
             barColors={{ Voted: '#4CAF50', NotVoted: '#F44336' }}
-            height={300} // Adjust height as needed
-            isDarkMode={isDarkMode}
-          />
-        </div>
-        
-        {/* Register Sect Voting Status */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-blue-100 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-4">Register Sect Voting Status</h3>
-          {/* Replace the old BarChart with HorizontalPercentageBarChart */}
-          <HorizontalPercentageBarChart
-            data={registerSectVotingStats} // Use the calculated stats
-            stackKeys={['Voted', 'NotVoted']}
-            barColors={{ Voted: '#4CAF50', NotVoted: '#F44336' }}
-            height={300} // Adjust height as needed
+            height={400} // Increased height
             isDarkMode={isDarkMode}
           />
         </div>
