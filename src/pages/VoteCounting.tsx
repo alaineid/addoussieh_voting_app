@@ -94,6 +94,44 @@ const VoteCounting: React.FC = () => {
 
   const userVoteCountingRight = profile?.vote_counting; 
 
+  // Add ballot count state and fetch logic
+  const [ballotCount, setBallotCount] = useState({
+    female_ballots: 0,
+    male_ballots: 0,
+    total_ballots: 0
+  });
+
+  const fetchBallotCount = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('avp_candidates')
+        .select('score_from_female, score_from_male');
+
+      if (error) {
+        console.error('Error fetching ballot count:', error);
+        return;
+      }
+
+      if (data) {
+        const female_ballots = data.reduce((sum, candidate) => sum + (candidate.score_from_female || 0), 0);
+        const male_ballots = data.reduce((sum, candidate) => sum + (candidate.score_from_male || 0), 0);
+        const total_ballots = female_ballots + male_ballots;
+
+        setBallotCount({
+          female_ballots,
+          male_ballots,
+          total_ballots
+        });
+      }
+    } catch (err) {
+      console.error('Error in fetchBallotCount:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchBallotCount();
+  }, []);
+
   // Effect for access control
   useEffect(() => {
     if (profile && session) { // Ensure profile and session are loaded
@@ -949,6 +987,25 @@ const VoteCounting: React.FC = () => {
           <i className="fas fa-undo mr-2"></i>
           Reset All Checkboxes
         </button>
+      </div>
+
+      {/* Add ballot count display */}
+      <div className="mb-6">
+        <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-4">Ballot Count</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-pink-50 dark:bg-pink-900/20 rounded-lg p-4 text-center">
+            <span className="block text-sm font-medium text-pink-700 dark:text-pink-300 mb-1">Female Ballots</span>
+            <span className="text-2xl font-bold text-pink-600 dark:text-pink-400">{ballotCount.female_ballots}</span>
+          </div>
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
+            <span className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Male Ballots</span>
+            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ballotCount.male_ballots}</span>
+          </div>
+          <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 text-center">
+            <span className="block text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">Total Ballots</span>
+            <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{ballotCount.total_ballots}</span>
+          </div>
+        </div>
       </div>
 
       {/* Live Scores Section */}

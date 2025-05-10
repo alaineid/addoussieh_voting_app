@@ -24,6 +24,13 @@ interface Candidate {
   isUpdating?: boolean;
 }
 
+// Add ballot count interface
+interface BallotCount {
+  female_ballots: number;
+  male_ballots: number;
+  total_ballots: number;
+}
+
 // Helper function to determine colors based on list index
 const getListColor = () => {
   // Use blue for all candidates
@@ -47,6 +54,13 @@ const LiveScores: React.FC = () => {
   const previousRankingsRef = useRef<{[key: number]: number}>({});
   const keepAliveIntervalRef = useRef<number | null>(null);
   const hasInitializedRef = useRef<boolean>(false);
+  
+  // Add ballot count state
+  const [ballotCount, setBallotCount] = useState<BallotCount>({
+    female_ballots: 0,
+    male_ballots: 0,
+    total_ballots: 0
+  });
   
   // Export modals state
   const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
@@ -76,8 +90,6 @@ const LiveScores: React.FC = () => {
     return acc;
   }, {});
 
-  // Sort list names based on list_order
-
   // Sort candidates within each list by total votes
   Object.keys(candidatesByList).forEach(listName => {
     candidatesByList[listName].candidates.sort((a, b) => {
@@ -86,8 +98,6 @@ const LiveScores: React.FC = () => {
       return scoreB - scoreA; // Sort in descending order
     });
   });
-
-  // Get maximum score for percentage calculations
 
   // Get total votes for percentage calculations
   const totalVotes = candidates.reduce((sum, candidate) => {
@@ -144,6 +154,7 @@ const LiveScores: React.FC = () => {
   // Fetch candidates data and setup real-time subscription
   useEffect(() => {
     fetchCandidates();
+    fetchBallotCount(); // Add function to fetch ballot count
     setupRealtimeSubscription();
 
     // Cleanup function
@@ -162,6 +173,7 @@ const LiveScores: React.FC = () => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         fetchCandidates();
+        fetchBallotCount(); // Also refresh ballot count when tab becomes active
       }
     };
 
@@ -170,6 +182,36 @@ const LiveScores: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
+
+  // Add function to fetch ballot count
+  const fetchBallotCount = async () => {
+    try {
+      // Query for ballot counts directly from avp_candidates
+      const { data, error } = await supabase
+        .from('avp_candidates')
+        .select('score_from_female, score_from_male');
+
+      if (error) {
+        console.error('Error fetching ballot count:', error);
+        return;
+      }
+
+      if (data) {
+        // Calculate total ballots from the scores
+        const female_ballots = data.reduce((sum, candidate) => sum + (candidate.score_from_female || 0), 0);
+        const male_ballots = data.reduce((sum, candidate) => sum + (candidate.score_from_male || 0), 0);
+        const total_ballots = female_ballots + male_ballots;
+
+        setBallotCount({
+          female_ballots,
+          male_ballots,
+          total_ballots
+        });
+      }
+    } catch (err) {
+      console.error('Error in fetchBallotCount:', err);
+    }
+  };
 
   // Setup realtime subscription with optimized parameters
   const setupRealtimeSubscription = () => {
@@ -186,7 +228,6 @@ const LiveScores: React.FC = () => {
           presence: {
             key: 'live-scores-viewer'
           }
-          // Removed fastLane as it's not a supported property
         }
       })
       .on(
@@ -240,6 +281,19 @@ const LiveScores: React.FC = () => {
           }
         }
       )
+      // Also listen for ballot count changes
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'avp_ballot_counts'
+        },
+        () => {
+          // When ballot counts change, fetch the latest data
+          fetchBallotCount();
+        }
+      )
       .subscribe((status, err) => {
         if (status === 'SUBSCRIBED') {
           console.log('Subscribed to live scores updates!');
@@ -248,6 +302,7 @@ const LiveScores: React.FC = () => {
           // Only as a fallback in case real-time events are missed
           const intervalId = setInterval(() => {
             fetchCandidateScores();
+            fetchBallotCount(); // Also refresh ballot count periodically
           }, 20000);
           
           return () => clearInterval(intervalId);
@@ -300,6 +355,7 @@ const LiveScores: React.FC = () => {
       if (document.visibilityState === 'visible') {
         console.log('Tab is visible - fetching fresh data');
         fetchCandidates();
+        fetchBallotCount(); // Also fetch ballot count
       } else {
         console.log('Tab is hidden - setting up keep-alive mechanism');
         setupKeepAlive();
@@ -311,6 +367,7 @@ const LiveScores: React.FC = () => {
       if (document.visibilityState === 'visible') {
         console.log('Tab became visible, refreshing data...');
         fetchCandidates();
+        fetchBallotCount(); // Also refresh ballot count
         
         // Clear the keep-alive interval when the tab is visible
         if (keepAliveIntervalRef.current) {
@@ -583,6 +640,36 @@ const LiveScores: React.FC = () => {
           <span className="inline-block ml-2 w-2 h-2 bg-green-500 rounded-full animate-[ping_1.5s_ease-in-out_infinite]"></span>
         </p>
       </div>
+
+      {/* Ballot Count Section */}
+      <section className="mb-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-blue-200 dark:border-blue-900 overflow-hidden">
+          <div className="bg-blue-50 dark:bg-blue-900/30 px-6 py-4">
+            <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Ballot Count
+            </h3>
+          </div>
+          <div className="px-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-pink-50 dark:bg-pink-900/20 rounded-lg p-4 text-center">
+                <span className="block text-sm font-medium text-pink-700 dark:text-pink-300 mb-1">Female Ballots</span>
+                <span className="text-2xl font-bold text-pink-600 dark:text-pink-400">{ballotCount.female_ballots}</span>
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
+                <span className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Male Ballots</span>
+                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ballotCount.male_ballots}</span>
+              </div>
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 text-center">
+                <span className="block text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">Total Ballots</span>
+                <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{ballotCount.total_ballots}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Combined Total Scores Section */}
       <section className="mb-10">
