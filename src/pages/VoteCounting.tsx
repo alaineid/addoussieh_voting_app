@@ -6,17 +6,18 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import Toast from '../components/Toast'; // Import shared Toast component
 import { useNavigate } from 'react-router-dom'; // Added import
 
-// Define interface for candidate data
+// Candidate interface with the new database structure
 interface Candidate {
   id: number;
-  list_name: string;
+  list_id: number;
+  list_name: string; // Now from the joined table
   candidate_of: string;
-  score_from_female: number; // Renamed from score
-  score_from_male: number;   // Added new score column
-  list_order?: number; // Added to support list ordering
-  candidate_order?: number; // Added to support ordering candidates within a list
-  full_name?: string; // From joined avp_voters table
-  isUpdating?: boolean; // UI state for highlighting updated rows
+  full_name: string;
+  score_from_female: number;
+  score_from_male: number;
+  list_order: number;
+  candidate_order: number;
+  isUpdating?: boolean;
 }
 
 // Checkbox state interface with edit mode
@@ -332,17 +333,18 @@ const VoteCounting: React.FC = () => {
     try {
       setLoading(true);
       
-      // Query candidates with voter information
-      const { data, error: fetchError } = await supabase // Renamed error to avoid conflict
+      // Query candidates with voter information and list information
+      const { data, error: fetchError } = await supabase
         .from('avp_candidates')
         .select(`
           id, 
-          list_name, 
+          list_id,
           candidate_of, 
           score_from_female,
           score_from_male,
           list_order,
           candidate_order,
+          avp_candidate_lists(id, name),
           avp_voters!inner(full_name)
         `);
 
@@ -350,10 +352,11 @@ const VoteCounting: React.FC = () => {
         throw fetchError;
       }
 
-      // Transform the data to include the full_name from avp_voters
+      // Transform the data to include the full_name from avp_voters and list name from avp_candidate_lists
       const transformedCandidates = data.map(item => ({
         id: item.id,
-        list_name: item.list_name,
+        list_id: item.list_id,
+        list_name: (item.avp_candidate_lists as any)?.name || 'Unknown List',
         candidate_of: item.candidate_of,
         score_from_female: item.score_from_female || 0,
         score_from_male: item.score_from_male || 0,

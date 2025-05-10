@@ -28,7 +28,8 @@ console.log("Candidates.tsx module loaded"); // New log
 // Candidate interface
 interface Candidate {
   id: number;
-  list_name: string;
+  list_id: number; // New field for foreign key
+  list_name?: string; // Now optional, as we'll get it from the joined table
   candidate_of: string;
   score?: number;
   list_order?: number;
@@ -37,6 +38,12 @@ interface Candidate {
   voter_id?: number; // Reference to avp_voters table
   register_sect?: string | null;
   register?: number | null;
+}
+
+// List interface for the new avp_candidate_lists table
+interface CandidateList {
+  id: number;
+  name: string;
 }
 
 // Voter interface
@@ -55,6 +62,11 @@ interface VoterOption {
   voter: Voter;
 }
 
+// Add this new interface for the list form data
+interface ListFormData {
+  name: string;
+}
+
 const CreateCandidateTab: React.FC = () => {
   console.log("CreateCandidateTab component initializing"); // New log
   const { isDarkMode } = useThemeStore();
@@ -62,8 +74,9 @@ const CreateCandidateTab: React.FC = () => {
   const [voters, setVoters] = useState<Voter[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
+  const [candidateLists, setCandidateLists] = useState<CandidateList[]>([]);
   const [formData, setFormData] = useState({
-    list_name: 'العدوسية ضيعتي',
+    list_id: 0,
     candidate_of: 'مختار',
   });
   const [voterOptions, setVoterOptions] = useState<VoterOption[]>([]);
@@ -74,9 +87,6 @@ const CreateCandidateTab: React.FC = () => {
     type: 'success' | 'error' | 'info' | 'warning';
     visible: boolean;
   } | null>(null);
-
-  // List name options
-  const listNameOptions = ['العدوسية ضيعتي', 'لائحة بيار داوود'];
   
   // Candidate of options
   const candidateOfOptions = ['مختار', 'عضو اختياري', 'عضو بلدي'];
@@ -109,6 +119,7 @@ const CreateCandidateTab: React.FC = () => {
   useEffect(() => {
     console.log("CreateCandidateTab: useEffect for fetchVoters triggered"); // New log
     fetchVoters();
+    fetchCandidateLists(); // Add this line to fetch candidate lists
   }, []);
 
   // Format voter information for display
@@ -157,6 +168,32 @@ const CreateCandidateTab: React.FC = () => {
     }
   };
 
+  // Fetch candidate lists from the database
+  const fetchCandidateLists = async () => {
+    console.log("Fetching candidate lists");
+    try {
+      // Query the new avp_candidate_lists table
+      const { data, error } = await supabase
+        .from('avp_candidate_lists')
+        .select('id, name')
+        .order('name', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching candidate lists:', error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        console.warn('No candidate lists found');
+      }
+      
+      setCandidateLists(data || []);
+    } catch (err: any) {
+      console.error('Error in fetchCandidateLists function:', err.message);
+      showToast('Failed to load candidate lists', 'error');
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -165,7 +202,7 @@ const CreateCandidateTab: React.FC = () => {
   const clearForm = () => {
     setSelectedVoter(null);
     setFormData({
-      list_name: 'العدوسية ضيعتي',
+      list_id: 0,
       candidate_of: 'مختار',
     });
   };
@@ -184,6 +221,11 @@ const CreateCandidateTab: React.FC = () => {
     
     if (!selectedVoter) {
       showToast('Please select a voter', 'warning');
+      return;
+    }
+
+    if (!formData.list_id) {
+      showToast('Please select a list', 'warning');
       return;
     }
 
@@ -213,7 +255,7 @@ const CreateCandidateTab: React.FC = () => {
         .from('avp_candidates')
         .insert({
           id: selectedVoter.id, 
-          list_name: formData.list_name,
+          list_id: parseInt(formData.list_id.toString()), // Convert to number
           candidate_of: formData.candidate_of,
         });
 
@@ -356,22 +398,23 @@ const CreateCandidateTab: React.FC = () => {
           
           {/* List Name Selection */}
           <div>
-            <label htmlFor="list_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="list_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               List Name
             </label>
             <div className="relative">
               <select
-                id="list_name"
-                name="list_name"
+                id="list_id"
+                name="list_id"
                 className="w-full px-4 py-2 border border-blue-200 dark:border-blue-800 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none pr-10"
-                value={formData.list_name}
+                value={formData.list_id}
                 onChange={handleInputChange}
                 required
                 dir="rtl"
               >
-                {listNameOptions.map(option => (
-                  <option key={option} value={option}>
-                    {option}
+                <option value="">Select a list</option>
+                {candidateLists.map(list => (
+                  <option key={list.id} value={list.id}>
+                    {list.name}
                   </option>
                 ))}
               </select>
@@ -405,7 +448,7 @@ const CreateCandidateTab: React.FC = () => {
                 ))}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w.org/2000/svg" viewBox="0 0 20 20">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                   <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
                 </svg>
               </div>
@@ -435,9 +478,9 @@ const ManageCandidatesTab: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  // Removing globalFilter state as we're removing the global search bar
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<Partial<Candidate>>({});
+  const [candidateLists, setCandidateLists] = useState<CandidateList[]>([]);
   
   // Export modals state
   const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
@@ -464,9 +507,6 @@ const ManageCandidatesTab: React.FC = () => {
     type: 'info'
   });
 
-  // List name options
-  const listNameOptions = ['العدوسية ضيعتي', 'لائحة بيار داوود'];
-  
   // Candidate of options
   const candidateOfOptions = ['مختار', 'عضو اختياري', 'عضو بلدي'];
 
@@ -499,6 +539,7 @@ const ManageCandidatesTab: React.FC = () => {
   useEffect(() => {
     console.log("ManageCandidatesTab: useEffect for fetchCandidates triggered"); // New log
     fetchCandidates();
+    fetchCandidateLists(); // Add this to fetch candidate lists
     checkDatabaseSchema(); // Add this function call
     setupRealtimeListener();
     
@@ -569,20 +610,21 @@ const ManageCandidatesTab: React.FC = () => {
   };
 
   const fetchCandidates = async () => {
-    console.log("ManageCandidatesTab: fetchCandidates called"); // Existing log, good to keep
+    console.log("ManageCandidatesTab: fetchCandidates called");
     try {
       setLoading(true);
       setError(null);
 
       console.log("Fetching candidates data...");
       
-      // Use proper inner join to get candidate data with voter information
+      // Use proper join to get candidate data with voter and list information
       const { data, error } = await supabase
         .from('avp_candidates')
         .select(`
           id, 
-          list_name, 
-          candidate_of, 
+          list_id,
+          candidate_of,
+          avp_candidate_lists(id, name),
           avp_voters!inner(
             id,
             full_name,
@@ -598,24 +640,13 @@ const ManageCandidatesTab: React.FC = () => {
 
       console.log("Raw candidates data:", data);
       console.log("Number of candidates found:", data?.length || 0);
-
-      // Also check if the avp_candidates table has any rows
-      const { count, error: countError } = await supabase
-        .from('avp_candidates')
-        .select('*', { count: 'exact', head: true });
       
-      if (countError) {
-        console.error("Error counting candidates:", countError);
-      } else {
-        console.log(`Total candidates in avp_candidates table: ${count}`);
-      }
-
-      // Transform the data to flatten voter information
+      // Transform the data to flatten voter and list information
       const transformedData = data.map(item => ({
         id: item.id,
-        list_name: item.list_name,
+        list_id: item.list_id,
+        list_name: (item.avp_candidate_lists as any)?.name || 'Unknown List',
         candidate_of: item.candidate_of,
-        // Use type assertion to tell TypeScript about the expected structure
         full_name: (item.avp_voters as any)?.full_name || 'Unknown',
         register_sect: (item.avp_voters as any)?.register_sect || 'N/A',
         register: (item.avp_voters as any)?.register || null
@@ -629,6 +660,32 @@ const ManageCandidatesTab: React.FC = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch candidate lists from the database
+  const fetchCandidateLists = async () => {
+    console.log("ManageCandidatesTab: fetchCandidateLists called");
+    try {
+      // Query the new avp_candidate_lists table
+      const { data, error } = await supabase
+        .from('avp_candidate_lists')
+        .select('id, name')
+        .order('name', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching candidate lists:', error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        console.warn('No candidate lists found');
+      }
+      
+      setCandidateLists(data || []);
+    } catch (err: any) {
+      console.error('Error in fetchCandidateLists function:', err.message);
+      showToast('Failed to load candidate lists', 'error');
     }
   };
 
@@ -769,7 +826,7 @@ const ManageCandidatesTab: React.FC = () => {
       const { error } = await supabase
         .from('avp_candidates')
         .update({
-          list_name: editFormData.list_name,
+          list_id: parseInt(editFormData.list_id?.toString() || '0'),
           candidate_of: editFormData.candidate_of
         })
         .eq('id', editingId);
@@ -848,8 +905,8 @@ const ManageCandidatesTab: React.FC = () => {
               onChange={handleInputChange}
               className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
             >
-              {listNameOptions.map(option => (
-                <option key={option} value={option}>{option}</option>
+              {candidateLists.map(list => (
+                <option key={list.id} value={list.name}>{list.name}</option>
               ))}
             </select>
           );
@@ -1255,6 +1312,276 @@ const ManageCandidatesTab: React.FC = () => {
   );
 };
 
+const CreateListTab: React.FC = () => {
+  const { isDarkMode } = useThemeStore();
+  const [candidateLists, setCandidateLists] = useState<CandidateList[]>([]);
+  const [formData, setFormData] = useState<ListFormData>({
+    name: '',
+  });
+  const [loading, setLoading] = useState(false);
+  // Add state for delete confirmation modal
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [listToDelete, setListToDelete] = useState<CandidateList | null>(null);
+  
+  // Toast notification state
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+    visible: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    console.log("CreateListTab: useEffect triggered");
+    fetchCandidateLists();
+  }, []);
+
+  const fetchCandidateLists = async () => {
+    console.log("CreateListTab: fetchCandidateLists called");
+    try {
+      setLoading(true);
+      // Query the avp_candidate_lists table
+      const { data, error } = await supabase
+        .from('avp_candidate_lists')
+        .select('id, name')
+        .order('name', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching candidate lists:', error);
+        throw error;
+      }
+      
+      setCandidateLists(data || []);
+    } catch (err: any) {
+      console.error('Error in fetchCandidateLists function:', err.message);
+      showToast('Failed to load candidate lists', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
+    setToast({ message, type, visible: true });
+  };
+
+  const closeToast = () => {
+    setToast(null);
+  };
+
+  const clearForm = () => {
+    setFormData({
+      name: '',
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("CreateListTab: handleSubmit called");
+    
+    if (!formData.name.trim()) {
+      showToast('Please enter a list name', 'warning');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Check if the list name already exists
+      const { data: existingList, error: selectError } = await supabase
+        .from('avp_candidate_lists')
+        .select('id')
+        .eq('name', formData.name.trim())
+        .maybeSingle();
+
+      if (selectError) {
+        console.error('Error checking for existing list:', selectError);
+        throw selectError;
+      }
+
+      if (existingList) {
+        showToast('This list name already exists', 'warning');
+        return;
+      }
+
+      // Insert the new list
+      const { error: insertError } = await supabase
+        .from('avp_candidate_lists')
+        .insert({
+          name: formData.name.trim(),
+        });
+
+      if (insertError) {
+        console.error('Error inserting new list:', insertError);
+        throw insertError;
+      }
+
+      showToast('List added successfully', 'success');
+      clearForm();
+      fetchCandidateLists(); // Refresh the list
+      
+    } catch (err: any) {
+      console.error('Error creating list:', err.message);
+      showToast(`Failed to create list: ${err.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmDeleteList = (list: CandidateList) => {
+    // Set the list to delete and open the modal
+    setListToDelete(list);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!listToDelete) return;
+    
+    try {
+      // Check if any candidates are using this list
+      const { data: usingCandidates, error: checkError } = await supabase
+        .from('avp_candidates')
+        .select('id')
+        .eq('list_id', listToDelete.id)
+        .limit(1);
+        
+      if (checkError) {
+        throw checkError;
+      }
+      
+      if (usingCandidates && usingCandidates.length > 0) {
+        showToast('Cannot delete list: it is being used by candidates', 'error');
+        setDeleteModalOpen(false);
+        setListToDelete(null);
+        return;
+      }
+      
+      const { error: deleteError } = await supabase
+        .from('avp_candidate_lists')
+        .delete()
+        .eq('id', listToDelete.id);
+        
+      if (deleteError) {
+        throw deleteError;
+      }
+      
+      showToast('List deleted successfully', 'success');
+      fetchCandidateLists(); // Refresh the list
+      
+    } catch (err: any) {
+      console.error('Error deleting list:', err.message);
+      showToast(`Failed to delete list: ${err.message}`, 'error');
+    } finally {
+      setDeleteModalOpen(false);
+      setListToDelete(null);
+    }
+  };
+
+  return (
+    <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm transition-colors duration-300">
+      {/* Toast notification */}
+      {toast && toast.visible && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={closeToast}
+        />
+      )}
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Create List Form */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-blue-100 dark:border-blue-900">
+          <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-6">Create New List</h3>
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                List Name
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                placeholder="Enter list name"
+                className="w-full px-4 py-2 border border-blue-200 dark:border-blue-800 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={formData.name}
+                onChange={handleInputChange}
+                required
+                dir="rtl"
+              />
+            </div>
+            
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white 
+                  ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} 
+                  dark:${loading ? 'bg-blue-600 cursor-not-allowed' : 'bg-blue-700 hover:bg-blue-800'} 
+                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-300`}
+              >
+                {loading ? 'Creating...' : 'Create List'}
+              </button>
+            </div>
+          </form>
+        </div>
+        
+        {/* Current Lists */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-blue-100 dark:border-blue-900">
+          <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-6">Current Lists</h3>
+          
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">Loading lists...</p>
+            </div>
+          ) : candidateLists.length === 0 ? (
+            <div className="text-center py-8">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
+              </svg>
+              <h3 className="mt-4 text-lg font-medium text-gray-700 dark:text-gray-300">No lists found</h3>
+              <p className="mt-1 text-gray-500 dark:text-gray-400">Create your first list using the form.</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden border border-gray-200 dark:border-gray-700 sm:rounded-md">
+              <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                {candidateLists.map(list => (
+                  <li key={list.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-750">
+                    <span className="text-gray-900 dark:text-white font-medium" dir="rtl">{list.name}</span>
+                    <button
+                      onClick={() => confirmDeleteList(list)}
+                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
+                      title="Delete List"
+                    >
+                      <i className="fas fa-trash-alt"></i>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal 
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete List"
+        message={listToDelete ? `Are you sure you want to delete the list "${listToDelete.name}"?` : 'Are you sure you want to delete this list?'}
+        confirmText="Delete"
+        cancelText="Cancel"
+        confirmButtonClass="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
+      />
+    </div>
+  );
+};
+
 // Main Candidates component with tabs
 const Candidates: React.FC = () => {
   console.log("Candidates component initializing");
@@ -1284,6 +1611,7 @@ const Candidates: React.FC = () => {
   // Use useMemo to persist the tab components across renders
   const createCandidateTabComponent = useMemo(() => <CreateCandidateTab />, []);
   const manageCandidatesTabComponent = useMemo(() => <ManageCandidatesTab />, []);
+  const createListTabComponent = useMemo(() => <CreateListTab />, []);
 
   console.log(`Candidates component render: current selectedTabIndex = ${selectedTabIndex}`);
 
@@ -1311,6 +1639,17 @@ const Candidates: React.FC = () => {
                   }`;
                 }}
               >
+                Create List
+              </Tab>
+              <Tab
+                className={({ selected }: { selected: boolean }) => {
+                  return `px-6 py-3 text-sm font-medium leading-5 focus:outline-none transition-colors ${
+                    selected
+                      ? 'text-blue-700 dark:text-blue-300 border-b-2 border-blue-600 dark:border-blue-500 bg-white dark:bg-gray-700'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30'
+                  }`;
+                }}
+              >
                 Create Candidate
               </Tab>
               <Tab
@@ -1326,6 +1665,7 @@ const Candidates: React.FC = () => {
               </Tab>
             </Tab.List>
             <Tab.Panels>
+              <Tab.Panel>{createListTabComponent}</Tab.Panel>
               <Tab.Panel>{createCandidateTabComponent}</Tab.Panel>
               <Tab.Panel>{manageCandidatesTabComponent}</Tab.Panel>
             </Tab.Panels>

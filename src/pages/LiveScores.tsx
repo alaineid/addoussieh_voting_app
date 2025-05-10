@@ -10,19 +10,18 @@ import ExportExcelModal from '../components/ExportExcelModal';
 import { exportTableDataToExcel } from '../utils/excelExport';
 import { exportDataToPDF } from '../utils/pdfExport';
 
-// Define interface for candidate data
+// Candidate interface with the new database structure
 interface Candidate {
   id: number;
-  list_name: string;
+  list_id: number;
+  list_name: string; // We'll populate this from the join with avp_candidate_lists
   candidate_of: string;
+  full_name: string;
   score_from_female: number;
   score_from_male: number;
-  list_order?: number;
-  candidate_order?: number;
-  full_name?: string;
+  list_order: number;
+  candidate_order: number;
   isUpdating?: boolean;
-  previousPosition?: number;
-  lastUpdatedTimestamp?: number;
 }
 
 // Helper function to determine colors based on list index
@@ -352,12 +351,13 @@ const LiveScores: React.FC = () => {
         .from('avp_candidates')
         .select(`
           id, 
-          list_name, 
+          list_id,
           candidate_of, 
           score_from_female,
           score_from_male,
           list_order,
           candidate_order,
+          avp_candidate_lists(id, name),
           avp_voters!inner(full_name)
         `);
 
@@ -365,10 +365,11 @@ const LiveScores: React.FC = () => {
         throw fetchError;
       }
 
-      // Transform data to include the full_name from joined table
+      // Transform data to include the full_name and list_name from joined tables
       const transformedCandidates = data.map(item => ({
         id: item.id,
-        list_name: item.list_name,
+        list_id: item.list_id,
+        list_name: (item.avp_candidate_lists as any)?.name || 'Unknown List',
         candidate_of: item.candidate_of,
         score_from_female: item.score_from_female || 0,
         score_from_male: item.score_from_male || 0,
