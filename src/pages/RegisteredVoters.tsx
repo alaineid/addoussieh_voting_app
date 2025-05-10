@@ -1301,6 +1301,11 @@ const RegisteredVoters: React.FC = () => {
       pagination: {
         pageSize: 10, // Default page size
       },
+      sorting: [
+        { id: 'register', desc: false },
+        { id: 'register_sect', desc: false },
+        { id: 'full_name', desc: false },
+      ]
     },
   });
 

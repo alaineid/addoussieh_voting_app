@@ -140,7 +140,7 @@ const VotingDay: React.FC = () => {
   const [voters, setVoters] = useState<Voter[]>([]);
   const [votersLoading, setVotersLoading] = useState<boolean>(true);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState[]>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
@@ -973,6 +973,11 @@ const VotingDay: React.FC = () => {
       pagination: {
         pageSize: 10, // Default page size
       },
+      sorting: [
+        { id: 'register', desc: false },
+        { id: 'register_sect', desc: false },
+        { id: 'full_name', desc: false },
+      ]
     },
   });
 

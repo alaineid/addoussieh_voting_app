@@ -6,13 +6,17 @@ interface ExportExcelModalProps {
   onClose: () => void;
   onExport: (fileName: string) => void;
   defaultFileName?: string;
+  registerOptions?: string[];
+  registerSectOptions?: string[];
 }
 
 const ExportExcelModal: React.FC<ExportExcelModalProps> = ({
   isOpen,
   onClose,
   onExport,
-  defaultFileName = "Report.xlsx"
+  defaultFileName = "Report.xlsx",
+  registerOptions = [],
+  registerSectOptions = []
 }) => {
   const [fileName, setFileName] = useState<string>("");
 
