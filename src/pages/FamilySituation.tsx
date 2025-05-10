@@ -534,7 +534,7 @@ const FamilySituation: React.FC = () => {
     getPaginationRowModel: getPaginationRowModel(),
     initialState: {
       pagination: {
-        pageSize: 100, // Default page size
+        pageSize: 50, // Default page size
       },
     },
     enableRowSelection: false,

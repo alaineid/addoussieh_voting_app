@@ -14,10 +14,7 @@ const ExportExcelModal: React.FC<ExportExcelModalProps> = ({
   isOpen,
   onClose,
   onExport,
-  defaultFileName = "Report.xlsx",
-  registerOptions = [],
-  registerSectOptions = []
-}) => {
+  defaultFileName = "Report.xlsx"}) => {
   const [fileName, setFileName] = useState<string>("");
 
   // Reset filename when modal opens

@@ -1299,7 +1299,7 @@ const RegisteredVoters: React.FC = () => {
     autoResetPageIndex: false, // Prevent page reset when filters or sorting change
     initialState: {
       pagination: {
-        pageSize: 10, // Default page size
+        pageSize: 50, // Default page size
       },
       sorting: [
         { id: 'register', desc: false },

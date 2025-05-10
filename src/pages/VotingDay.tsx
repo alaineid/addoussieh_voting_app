@@ -971,7 +971,7 @@ const VotingDay: React.FC = () => {
     autoResetPageIndex: false, 
     initialState: {
       pagination: {
-        pageSize: 10, // Default page size
+        pageSize: 50, // Default page size
       },
       sorting: [
         { id: 'register', desc: false },
