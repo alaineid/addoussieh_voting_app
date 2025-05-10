@@ -1258,7 +1258,9 @@ const VotingDay: React.FC = () => {
                                   <option value="true">Yes</option>
                                   <option value="false">No</option>
                                 </select>
-                              ) : header.column.id === 'family' || header.column.id === 'register' || header.column.id === 'gender' || header.column.id === 'sect' || header.column.id === 'register_sect' || header.column.id === 'situation' ? (
+                              ) : header.column.id === 'register' ? (
+                                <SearchFilter type="exactMatch" column={header.column} table={table} />
+                              ) : header.column.id === 'family' || header.column.id === 'gender' || header.column.id === 'sect' || header.column.id === 'register_sect' || header.column.id === 'situation' ? (
                                 <SearchFilter type="select" column={header.column} table={table} />
                               ) : (
                                 <SearchFilter type="text" column={header.column} table={table} />

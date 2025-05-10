@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 
 interface SearchFilterProps {
-  type: 'text' | 'select';
+  type: 'text' | 'select' | 'exactMatch';
   column: any;
   table: any;
   options?: string[]; // For select type, provide options
@@ -37,6 +37,18 @@ const SearchFilter: React.FC<SearchFilterProps> = ({ type, column, table, option
   };
 
   if (type === 'text') {
+    return (
+      <input
+        type="text"
+        value={columnFilterValue}
+        onChange={handleFilterChange}
+        placeholder="Filter..."
+        className="w-full px-2 py-1 text-xs border border-blue-200 dark:border-blue-800 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+      />
+    );
+  }
+
+  if (type === 'exactMatch') {
     return (
       <input
         type="text"
