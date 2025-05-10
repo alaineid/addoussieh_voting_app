@@ -971,24 +971,6 @@ const VoteCounting: React.FC = () => {
         <p className="text-gray-600 dark:text-gray-400">Track and update candidate votes in real-time</p>
       </div>
       
-      {/* Manual Post & Reset Buttons */}
-      <div className="mb-6 flex flex-wrap gap-4">
-        <button
-          onClick={handlePostManually}
-          className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-md flex items-center"
-        >
-          <i className="fas fa-upload mr-2"></i>
-          Post Votes Manually
-        </button>
-        <button
-          onClick={handleResetAll}
-          className="px-5 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 shadow-md flex items-center"
-        >
-          <i className="fas fa-undo mr-2"></i>
-          Reset All Checkboxes
-        </button>
-      </div>
-
       {/* Add ballot count display */}
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 mb-4">Ballot Count</h3>
@@ -1055,7 +1037,26 @@ const VoteCounting: React.FC = () => {
             </div>
           )})}
         </div>
+
+        {/* Repositioned Buttons */}
+        <div className="mt-6 flex flex-wrap gap-4">
+          <button
+            onClick={handlePostManually}
+            className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-md flex items-center"
+          >
+            <i className="fas fa-upload mr-2"></i>
+            Post Ballot
+          </button>
+          <button
+            onClick={handleResetAll}
+            className="px-5 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 shadow-md flex items-center"
+          >
+            <i className="fas fa-undo mr-2"></i>
+            Reset All Checkboxes
+          </button>
+        </div>
       </div>
+      {/* End of Live Scores Section */}
 
       {/* Vote Counting Section */}
       <div>
