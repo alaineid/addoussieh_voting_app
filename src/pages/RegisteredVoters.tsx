@@ -1158,6 +1158,8 @@ const RegisteredVoters: React.FC = () => {
       const { data, error: fetchError } = await supabase
         .from('avp_voters')
         .select('id, alliance, family, register, register_sect, gender, first_name, father_name, last_name, mother_name, full_name, situation, dob, sect, residence, has_voted')
+        .order('register', { ascending: true })
+        .order('register_sect', { ascending: true })
         .order('full_name', { ascending: true });
 
       if (fetchError) {
@@ -1300,12 +1302,7 @@ const RegisteredVoters: React.FC = () => {
     initialState: {
       pagination: {
         pageSize: 50, // Default page size
-      },
-      sorting: [
-        { id: 'register', desc: false },
-        { id: 'register_sect', desc: false },
-        { id: 'full_name', desc: false },
-      ]
+      },      
     },
   });
 

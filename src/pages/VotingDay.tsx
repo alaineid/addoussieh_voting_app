@@ -822,8 +822,11 @@ const VotingDay: React.FC = () => {
       let query = supabase
         .from('avp_voters')
         .select('id, full_name, register, register_sect, comments, has_voted, gender, voting_time, situation')
-        .not('situation', 'in', '(MILITARY,DEATH)');    
-              
+        .not('situation', 'in', '(MILITARY,DEATH)')
+        .order('register', { ascending: true })
+        .order('register_sect', { ascending: true })
+        .order('full_name', { ascending: true });
+                      
       // Apply gender filter based on permissions
       const genderFilter = getGenderFilter();
       if (genderFilter) {
@@ -972,12 +975,7 @@ const VotingDay: React.FC = () => {
     initialState: {
       pagination: {
         pageSize: 50, // Default page size
-      },
-      sorting: [
-        { id: 'register', desc: false },
-        { id: 'register_sect', desc: false },
-        { id: 'full_name', desc: false },
-      ]
+      },     
     },
   });
 
