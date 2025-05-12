@@ -67,7 +67,7 @@ interface ListFormData {
 }
 
 const CreateCandidateTab: React.FC = () => {
-  console.log("CreateCandidateTab component initializing"); // New log
+  
   const { isDarkMode } = useThemeStore();
   const { session } = useAuthStore();
   const [voters, setVoters] = useState<Voter[]>([]);
@@ -111,7 +111,7 @@ const CreateCandidateTab: React.FC = () => {
     const regSectMatch = voter.register_sect ? voter.register_sect.toLowerCase().includes(input) : false;
     const regMatch = voter.register ? voter.register.toString().toLowerCase().includes(input) : false;
     
-    // console.log(`Filtering: Input='${input}', Voter='${voter.full_name}', NameMatch=${nameMatch}, RegSectMatch=${regSectMatch}, RegMatch=${regMatch}`);
+    // 
     return nameMatch || regSectMatch || regMatch;
   };
 
@@ -126,10 +126,10 @@ const CreateCandidateTab: React.FC = () => {
   };
 
   const fetchVoters = async () => {
-    console.log("CreateCandidateTab: fetchVoters called");
+    
     try {
       setLoading(true);
-      console.log("CreateCandidateTab: Attempting to fetch from avp_voters...");
+      
       const { data, error } = await supabase
         .from('avp_voters')
         .select('id, full_name, register_sect, sect, register');
@@ -139,7 +139,7 @@ const CreateCandidateTab: React.FC = () => {
         throw error;
       }
       
-      console.log('CreateCandidateTab: Raw data from avp_voters:', data);
+      
       
       if (!data || data.length === 0) {
         console.warn('CreateCandidateTab: No voters data received from Supabase or data is empty.');
@@ -152,7 +152,7 @@ const CreateCandidateTab: React.FC = () => {
         voter: voter
       }));
       
-      console.log('CreateCandidateTab: Generated voterOptions for Select component:', options);
+      
       
       setVoterOptions(options);
       setVoters(data || []);
@@ -162,13 +162,13 @@ const CreateCandidateTab: React.FC = () => {
       setVoterOptions([]); // Ensure options are empty on error
     } finally {
       setLoading(false);
-      console.log("CreateCandidateTab: fetchVoters finished. Loading set to false.");
+      
     }
   };
 
   // Fetch candidate lists from the database
   const fetchCandidateLists = async () => {
-    console.log("Fetching candidate lists");
+    
     try {
       // Query the new avp_candidate_lists table
       const { data, error } = await supabase
@@ -215,7 +215,7 @@ const CreateCandidateTab: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("CreateCandidateTab: handleSubmit called"); // New log
+    
     
     if (!selectedVoter) {
       showToast('Please select a voter', 'warning');
@@ -469,7 +469,7 @@ const CreateCandidateTab: React.FC = () => {
 };
 
 const ManageCandidatesTab: React.FC = () => {
-  console.log("ManageCandidatesTab component initializing"); // New log
+  
   const { isDarkMode } = useThemeStore();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -534,8 +534,86 @@ const ManageCandidatesTab: React.FC = () => {
     setEditFormData({});
   };
 
+  // Setup realtime subscription for candidate changes
+  useRealtime({
+    table: 'avp_candidates',
+    event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+    onChange: (payload) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+      
+      // Handle different event types
+      if (eventType === 'INSERT') {
+        // Fetch the complete candidate data including joined information
+        fetchCandidateById(newRecord.id);
+      } else if (eventType === 'UPDATE') {
+        // Update the candidate in the current state
+        setCandidates(currentCandidates => 
+          currentCandidates.map(candidate => 
+            candidate.id === newRecord.id 
+              ? { 
+                  ...candidate, 
+                  list_id: newRecord.list_id,
+                  candidate_of: newRecord.candidate_of 
+                } 
+              : candidate
+          )
+        );
+      } else if (eventType === 'DELETE') {
+        // Remove the candidate from the current state
+        setCandidates(currentCandidates => 
+          currentCandidates.filter(candidate => candidate.id !== oldRecord.id)
+        );
+      }
+    }
+  });
+
+  // Helper function to fetch a single candidate by ID with joined data
+  const fetchCandidateById = async (candidateId: number) => {
+    try {
+      const { data, error } = await supabase
+        .from('avp_candidates')
+        .select(`
+          id, 
+          list_id,
+          candidate_of,
+          avp_candidate_lists(id, name),
+          avp_voters!inner(
+            id,
+            full_name,
+            register_sect,
+            register
+          )
+        `)
+        .eq('id', candidateId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching candidate by ID:", error);
+        return;
+      }
+
+      if (data) {
+        // Transform the data to match our candidate format
+        const newCandidate = {
+          id: data.id,
+          list_id: data.list_id,
+          list_name: (data.avp_candidate_lists as any)?.name || 'Unknown List',
+          candidate_of: data.candidate_of,
+          full_name: (data.avp_voters as any)?.full_name || 'Unknown',
+          register_sect: (data.avp_voters as any)?.register_sect || 'N/A',
+          register: (data.avp_voters as any)?.register || null
+        };
+
+        // Add the new candidate to the current state
+        setCandidates(currentCandidates => [...currentCandidates, newCandidate]);
+      }
+    } catch (err) {
+      console.error("Error in fetchCandidateById:", err);
+    }
+  };
+
   useEffect(() => {
-    console.log("ManageCandidatesTab: useEffect for fetchCandidates triggered"); // New log
+    
     fetchCandidates();
     fetchCandidateLists(); // Add this to fetch candidate lists
     checkDatabaseSchema(); // Add this function call
@@ -545,7 +623,7 @@ const ManageCandidatesTab: React.FC = () => {
   // Add this function to check the database schema
   const checkDatabaseSchema = async () => {
     try {
-      console.log("Checking database schema for avp_candidates table...");
+      
       
       // Check if the table exists and get its structure
       const { data: tableInfo, error: tableError } = await supabase
@@ -558,7 +636,7 @@ const ManageCandidatesTab: React.FC = () => {
         return;
       }
       
-      console.log("avp_candidates table exists. Sample data structure:", tableInfo);
+      
       
       // Check if there are any rows in the table
       const { count, error: countError } = await supabase
@@ -570,7 +648,7 @@ const ManageCandidatesTab: React.FC = () => {
         return;
       }
       
-      console.log(`Total rows in avp_candidates table: ${count}`);
+      
       
       // Check the relationship between tables
       const { data: votersData, error: votersError } = await supabase
@@ -583,7 +661,7 @@ const ManageCandidatesTab: React.FC = () => {
         return;
       }
       
-      console.log("avp_voters table exists. Sample ID:", votersData);
+      
       
     } catch (err) {
       console.error("Error checking database schema:", err);
@@ -591,12 +669,12 @@ const ManageCandidatesTab: React.FC = () => {
   };
 
   const fetchCandidates = async () => {
-    console.log("ManageCandidatesTab: fetchCandidates called");
+    
     try {
       setLoading(true);
       setError(null);
 
-      console.log("Fetching candidates data...");
+      
       
       // Use proper join to get candidate data with voter and list information
       const { data, error } = await supabase
@@ -617,10 +695,8 @@ const ManageCandidatesTab: React.FC = () => {
       if (error) {
         console.error("Supabase query error:", error);
         throw error;
-      }
-
-      console.log("Raw candidates data:", data);
-      console.log("Number of candidates found:", data?.length || 0);
+      } 
+      
       
       // Transform the data to flatten voter and list information
       const transformedData = data.map(item => ({
@@ -633,7 +709,7 @@ const ManageCandidatesTab: React.FC = () => {
         register: (item.avp_voters as any)?.register || null
       }));
 
-      console.log("Transformed candidates data:", transformedData);
+      
 
       setCandidates(transformedData);
     } catch (err: any) {
@@ -646,7 +722,7 @@ const ManageCandidatesTab: React.FC = () => {
 
   // Fetch candidate lists from the database
   const fetchCandidateLists = async () => {
-    console.log("ManageCandidatesTab: fetchCandidateLists called");
+    
     try {
       // Query the new avp_candidate_lists table
       const { data, error } = await supabase
@@ -801,7 +877,7 @@ const ManageCandidatesTab: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!editingId || !editFormData) return;
-    console.log("ManageCandidatesTab: handleSaveEdit called"); // New log
+    
 
     try {
         // Validate if the list_id exists in avp_candidate_lists
@@ -846,7 +922,7 @@ const ManageCandidatesTab: React.FC = () => {
 
   const handleDeleteConfirm = async () => {
     if (!candidateToDelete) return;
-    console.log("ManageCandidatesTab: handleDeleteConfirm called"); // New log
+    
     
     try {
       const { error } = await supabase
@@ -1327,12 +1403,12 @@ const CreateListTab: React.FC = () => {
   } | null>(null);
 
   useEffect(() => {
-    console.log("CreateListTab: useEffect triggered");
+    
     fetchCandidateLists();
   }, []);
 
   const fetchCandidateLists = async () => {
-    console.log("CreateListTab: fetchCandidateLists called");
+    
     try {
       setLoading(true);
       // Query the avp_candidate_lists table
@@ -1376,7 +1452,7 @@ const CreateListTab: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("CreateListTab: handleSubmit called");
+    
     
     if (!formData.name.trim()) {
       showToast('Please enter a list name', 'warning');
@@ -1580,27 +1656,27 @@ const CreateListTab: React.FC = () => {
 
 // Main Candidates component with tabs
 const Candidates: React.FC = () => {
-  console.log("Candidates component initializing");
+  
   const { isDarkMode } = useThemeStore();
   const { profile } = useAuthStore();
   const [selectedTabIndex, setSelectedTabIndex] = useState(profile?.candidate_access === 'view' ? 1 : 0); // Default to Manage Candidates tab (index 1) for view-only access
 
-  console.log(`Candidates component: initial selectedTabIndex = ${selectedTabIndex}`);
+  
 
   const hasEditAccess = profile?.candidate_access === 'edit';
 
   // useEffect is no longer needed for localStorage, 
   // but can be kept if other mount-time logic is added later.
   useEffect(() => {
-    console.log("Candidates component useEffect: (No localStorage interaction for tabs)");
+    
   }, []); // Runs once on mount
 
   const handleTabChange = (index: number) => {
     // Only allow tab change if user has edit access or is staying on the ManageCandidates tab
     if (hasEditAccess || index === 1) {
-      console.log(`🚀 Candidates component handleTabChange: CALLED WITH index = ${index}`);
+      
       setSelectedTabIndex(index);
-      console.log(`✅ Candidates component handleTabChange: selectedTabIndex NOW SET to ${index}`);
+      
     }
   };
 
@@ -1609,7 +1685,7 @@ const Candidates: React.FC = () => {
   const manageCandidatesTabComponent = useMemo(() => <ManageCandidatesTab />, []);
   const createListTabComponent = useMemo(() => <CreateListTab />, []);
 
-  console.log(`Candidates component render: current selectedTabIndex = ${selectedTabIndex}`);
+  
 
   return (
     <div className="p-4 sm:p-6 bg-white dark:bg-gray-900 min-h-screen transition-colors duration-300">
