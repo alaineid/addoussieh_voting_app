@@ -6,7 +6,6 @@ import {
   PieChart, Pie, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, Cell, XAxis, YAxis, AreaChart, Area
 } from 'recharts';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 import HorizontalPercentageBarChart from '../components/HorizontalPercentageBarChart';
 
 // Interface representing a voter from the avp_voters table
@@ -46,11 +45,11 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
       <div className="mr-3">
         {type === 'success' ? (
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 00-1.414 1.414l2 2a1 1 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
         ) : (
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 101.414 1.414L10 11.414l1.293 1.293a1 1 001.414-1.414L11.414 10l1.293-1.293a1 1 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
           </svg>
         )}
       </div>
@@ -60,17 +59,12 @@ const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
         className="ml-6 text-white hover:text-gray-200"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M4.293 4.293a1 1 011.414 0L10 8.586l4.293-4.293a1 1 011.414 1.414L11.414 10l4.293 4.293a1 1 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 01-1.414-1.414L8.586 10 4.293 5.707a1 1 010-1.414z" clipRule="evenodd" />
         </svg>
       </button>
     </div>
   );
 };
-
-const COLORS = [
-  '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', 
-  '#82CA9D', '#F06292', '#4DB6AC', '#FFB74D', '#9575CD'
-];
 
 const VotingStatistics: React.FC = () => {
   const { isDarkMode } = useThemeStore();
@@ -81,7 +75,6 @@ const VotingStatistics: React.FC = () => {
   const [voteTimestamps, setVoteTimestamps] = useState<Date[]>([]);
   const [lastHourVotes, setLastHourVotes] = useState<number>(0);
   const [votingTrendData, setVotingTrendData] = useState<any[]>([]);
-  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const votingStartTimeRef = useRef<Date | null>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
   
@@ -168,80 +161,6 @@ const VotingStatistics: React.FC = () => {
     setLastHourVotes(votesInLastHour);
   };
 
-  // Setup realtime subscription to voter changes
-  const setupRealtimeSubscription = () => {
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-    }
-
-    const channel = supabase
-      .channel('voting-statistics-changes-' + Date.now()) // Add timestamp to make each channel name unique
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'avp_voters' },
-        (payload) => {
-          console.log('Voter change detected in voting statistics:', payload);
-          
-          // Get the current gender filter based on permissions
-          const genderFilter = getGenderFilter();
-          
-          if (payload.eventType === 'UPDATE' && 
-              payload.new && payload.old && 
-              !payload.old.has_voted && payload.new.has_voted) {
-            
-            // Only track votes for the gender we're allowed to see
-            if (genderFilter && payload.new.gender !== genderFilter) {
-              return;
-            }
-            
-            // This is a new vote - track the timestamp
-            const now = new Date();
-            setVoteTimestamps(prev => [...prev, now]);
-          }
-
-          // For all changes, refetch data
-          fetchVoters();
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Subscribed to voting statistics changes!');
-          subscriptionErrorCountRef.current = 0; // Reset error count on successful subscription
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Realtime channel error:', err);
-          
-          subscriptionErrorCountRef.current += 1;
-          
-          // If we've had multiple errors, show a toast to the user
-          if (subscriptionErrorCountRef.current >= 3) {
-            setToast({
-              message: 'Having trouble with live updates. You may need to refresh the page.',
-              type: 'error',
-              visible: true
-            });
-          }
-          
-          // Try to reestablish connection after a delay
-          setTimeout(() => {
-            if (subscriptionErrorCountRef.current < 5) { // Don't keep trying forever
-              setupRealtimeSubscription();
-            }
-          }, 5000);
-        }
-        if (status === 'TIMED_OUT') {
-          console.warn('Realtime connection timed out.');
-          // Try to reconnect after timeout
-          setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 5000);
-        }
-      });
-
-    // Store the channel reference for cleanup
-    realtimeChannelRef.current = channel;
-  };
-
   // Initialize data and subscription
   useEffect(() => {
     if (profile?.voting_day_access === 'none') {
@@ -254,7 +173,7 @@ const VotingStatistics: React.FC = () => {
     
     fetchVoters()
       .then(() => {
-        setupRealtimeSubscription();
+        // Removed subscription setup logic
       })
       .catch(err => {
         console.error('Initial data fetch error:', err);
@@ -267,9 +186,6 @@ const VotingStatistics: React.FC = () => {
     
     return () => {
       clearInterval(intervalId);
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-      }
     };
   }, [profile?.id]);
 
@@ -288,16 +204,10 @@ const VotingStatistics: React.FC = () => {
     // Clear existing data to avoid showing incorrect filtered data momentarily
     setVoters([]);
     
-    // Clean up existing subscription if it exists
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-      realtimeChannelRef.current = null;
-    }
-    
     // Fetch data with new filter
     fetchVoters()
       .then(() => {
-        setupRealtimeSubscription();
+        // Removed subscription setup logic
         
         // Show success toast for better UX feedback
         setToast({

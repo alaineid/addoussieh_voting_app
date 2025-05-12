@@ -194,30 +194,3 @@ export function initializeAuthListener() {
         authListener?.subscription.unsubscribe();
     };
 }
-
-// Set up a realtime subscription to monitor profile changes
-export function setupProfileChangeListener() {
-    const { user, refreshUserProfile } = useAuthStore.getState();
-    
-    if (!user) return null;
-    
-    // Subscribe to changes on the avp_profiles table for the current user
-    const channel = supabase
-        .channel('profile-changes')
-        .on(
-            'postgres_changes',
-            { 
-                event: 'UPDATE', 
-                schema: 'public', 
-                table: 'avp_profiles',
-                filter: `id=eq.${user.id}`
-            },
-            (payload) => {
-                console.log('Profile updated:', payload);
-                refreshUserProfile();
-            }
-        )
-        .subscribe();
-        
-    return channel;
-}

@@ -541,12 +541,7 @@ const ManageCandidatesTab: React.FC = () => {
     fetchCandidates();
     fetchCandidateLists(); // Add this to fetch candidate lists
     checkDatabaseSchema(); // Add this function call
-    setupRealtimeListener();
     
-    return () => {
-      const channel = supabase.channel('candidates-channel');
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   // Add this function to check the database schema
@@ -595,18 +590,6 @@ const ManageCandidatesTab: React.FC = () => {
     } catch (err) {
       console.error("Error checking database schema:", err);
     }
-  };
-
-  const setupRealtimeListener = () => {
-    const channel = supabase.channel('candidates-channel')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'avp_candidates' },
-        () => {
-          fetchCandidates();
-        }
-      )
-      .subscribe();
   };
 
   const fetchCandidates = async () => {

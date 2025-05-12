@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
-import { RealtimeChannel } from '@supabase/supabase-js';
 import Toast from '../components/Toast'; // Import shared Toast component
 import { useNavigate } from 'react-router-dom'; // Added import
 
@@ -89,7 +88,6 @@ const VoteCounting: React.FC = () => {
   
   // Candidates data state
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
 
   const userVoteCountingRight = profile?.vote_counting; 
 
@@ -259,14 +257,6 @@ const VoteCounting: React.FC = () => {
   // Fetch candidates data and setup real-time subscription
   useEffect(() => {
     fetchCandidates();
-    setupRealtimeSubscription();
-
-    // Cleanup function
-    return () => {
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-      }
-    };
   }, []);
 
   // Add visibility change handler to refresh data when tab becomes active
@@ -287,103 +277,6 @@ const VoteCounting: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
-
-  // Setup realtime subscription
-  const setupRealtimeSubscription = () => {
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-    }
-
-    const channel = supabase
-      .channel('candidates-scoring-' + Date.now(), {
-        config: {
-          broadcast: {
-            self: true // Receive events from own client's writes
-          }
-        }
-      })
-      .on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'avp_candidates',
-          // No filter - we want all changes
-        },
-        (payload) => {
-          console.log('Candidate change detected!', payload);
-          
-          // For score-related changes, only update scores without refreshing the whole page
-          if (payload.eventType === 'UPDATE' && payload.new && payload.old) {
-            // If only the score changed, use the lightweight update
-            if ( (payload.new.score_from_female !== payload.old.score_from_female || payload.new.score_from_male !== payload.old.score_from_male) &&
-                payload.new.list_name === payload.old.list_name && 
-                payload.new.candidate_of === payload.old.candidate_of) {
-              
-              // Use the lightweight score update that doesn't cause blinking
-              fetchCandidateScores();
-              
-              // Also highlight the updated row
-              setTimeout(() => {
-                setCandidates(prev => prev.map(cand => 
-                  cand.id === payload.new.id 
-                    ? { ...cand, isUpdating: true } 
-                    : cand
-                ));
-                
-                // Remove the highlight after 1.5 seconds
-                setTimeout(() => {
-                  setCandidates(prev => prev.map(cand => 
-                    cand.id === payload.new.id 
-                      ? { ...cand, isUpdating: false } 
-                      : cand
-                  ));
-                }, 1500);
-              }, 200);
-            } else {
-              // For other types of changes, do a full refresh
-              fetchCandidates();
-            }
-          } else {
-            // For non-update changes (insert/delete), do a full refresh
-            fetchCandidates();
-          }
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Subscribed to candidate scoring changes!');
-          
-          // Set up a periodic refresh to ensure data stays in sync
-          // even if some realtime events are missed - now set to 30 seconds
-          const intervalId = setInterval(() => {
-            // Use lightweight score updates for interval refreshes
-            console.log('Running periodic backup refresh (30s interval)');
-            fetchCandidateScores();
-          }, 30000); // Refresh every 30 seconds instead of 3 seconds
-          
-          // Store the interval ID for cleanup
-          return () => clearInterval(intervalId);
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Realtime channel error:', err);
-          
-          // Try to reestablish connection after a delay
-          setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 5000);
-        }
-        if (status === 'TIMED_OUT') {
-          console.warn('Realtime connection timed out.');
-          // Try to reconnect after timeout
-          setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 5000);
-        }
-      });
-
-    realtimeChannelRef.current = channel;
-  };
 
   // Fetch candidates data
   const fetchCandidates = async () => {

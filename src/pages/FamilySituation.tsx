@@ -206,10 +206,6 @@ const FamilySituation: React.FC = () => {
   const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
   const [exportExcelModalOpen, setExportExcelModalOpen] = useState(false);
   
-  // Reference for realtime subscription
-  const realtimeChannelRef = useRef<any>(null);
-  const subscriptionErrorCountRef = useRef<number>(0);
-
   // Check if user has permission to view the page
   const hasPermission = profile?.family_situation_access === 'view' || profile?.family_situation_access === 'edit';
 
@@ -274,58 +270,7 @@ const FamilySituation: React.FC = () => {
     }
   };
 
-  // Setup realtime subscription for updates
-  const setupRealtimeSubscription = () => {
-    // Clean up existing subscription if it exists
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-    }
-
-    // Create new subscription
-    const channel = supabase
-      .channel('family-stats-changes-' + Date.now()) // Add timestamp to make each channel name unique
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'avp_voters' },
-        () => {
-          // Refetch data when any voter changes
-          console.log('Voter change detected, refreshing family statistics');
-          fetchFamilyStatistics(); 
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Subscribed to family statistics changes!');
-          subscriptionErrorCountRef.current = 0; // Reset error count on successful subscription
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Realtime channel error:', err);
-          
-          subscriptionErrorCountRef.current += 1;
-          
-          // If we've had multiple errors, show a toast to the user
-          if (subscriptionErrorCountRef.current >= 3) {
-            setToast({
-              message: 'Having trouble with live updates. You may need to refresh the page.',
-              type: 'warning',
-              visible: true
-            });
-          }
-          
-          // Try to reestablish connection after a delay
-          setTimeout(() => {
-            if (subscriptionErrorCountRef.current < 5) { // Don't keep trying forever
-              setupRealtimeSubscription();
-            }
-          }, 5000);
-        }
-      });
-
-    // Store the channel reference for cleanup
-    realtimeChannelRef.current = channel;
-  };
-
-  // Initial data fetch and realtime subscription setup
+  // Initial data fetch and subscription setup
   useEffect(() => {
     if (!hasPermission) {
       setError('You do not have permission to view this page.');
@@ -337,8 +282,7 @@ const FamilySituation: React.FC = () => {
     
     fetchFamilyStatistics()
       .then(() => {
-        // Setup realtime subscription after initial data fetch succeeds
-        setupRealtimeSubscription();
+        // Setup  subscription after initial data fetch succeeds
       })
       .catch(err => {
         console.error('Initial data fetch error:', err);
@@ -347,12 +291,6 @@ const FamilySituation: React.FC = () => {
         setLoading(false);
       });
 
-    // Cleanup function
-    return () => {
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-      }
-    };
   }, [hasPermission]);
 
   // Close toast notification

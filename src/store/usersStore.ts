@@ -17,13 +17,9 @@ interface UsersState {
   error: string | null;
   initialized: boolean;
   fetchUsers: (force?: boolean) => Promise<void>;
-  setupRealtimeListeners: () => void;
-  cleanupRealtimeListeners: () => void;
   updateUserInStore: (user: Partial<UserProfileWithEmail> & { id: string }) => void;
   removeUserFromStore: (id: string) => void;
 }
-
-const REALTIME_CHANNEL_NAME = 'avp_profiles_changes';
 
 export const useUsersStore = create<UsersState>((set, get) => ({
   users: [],
@@ -80,65 +76,4 @@ export const useUsersStore = create<UsersState>((set, get) => ({
       return { users: updatedUsers };
     });
   },
-
-  setupRealtimeListeners: () => {
-    get().cleanupRealtimeListeners();
-
-    const channel = supabase
-      .channel(REALTIME_CHANNEL_NAME)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'avp_profiles'
-        },
-        (payload) => {
-          if (payload.new && payload.new.id) {
-            get().updateUserInStore(payload.new as Partial<UserProfileWithEmail> & { id: string });
-          } else {
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'avp_profiles'
-        },
-        (payload) => {
-          if (payload.new && payload.new.id) {
-            get().updateUserInStore(payload.new as Partial<UserProfileWithEmail> & { id: string });
-          } else {
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'avp_profiles'
-        },
-        (payload) => {
-          if (payload.old?.id) {
-            get().removeUserFromStore(payload.old.id as string);
-          } else {
-          }
-        }
-      )
-      .subscribe((status, err) => {
-        if (err) {
-          set({ error: `Realtime subscription failed: ${err.message}` });
-        }
-      });
-
-  },
-
-  cleanupRealtimeListeners: () => {
-    supabase.removeChannel(supabase.channel(REALTIME_CHANNEL_NAME))
-      .then(status => {})
-      .catch(error => {});
-  }
 }));

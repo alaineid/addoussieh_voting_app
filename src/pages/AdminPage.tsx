@@ -361,7 +361,7 @@ const ManageUsersTab = () => {
   const { isDarkMode } = useThemeStore();
   
   // Use the global users store instead of local state
-  const { users, loading, error, fetchUsers, setupRealtimeListeners, cleanupRealtimeListeners } = useUsersStore();
+  const { users, loading, error, fetchUsers } = useUsersStore();
   
   const [editingId, setEditingId] = useState<string | null>(null);
   const [serverMessage, setServerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -615,24 +615,12 @@ const ManageUsersTab = () => {
     onSortingChange: setSorting,
   });
 
-  // Initialize data fetching and realtime listeners
+  // Initialize data fetching
   useEffect(() => {
-    // Check if session exists, fetchUsers doesn't need the token anymore
-    if (session) { 
-      // Call fetchUsers without the token, it uses the client's session
-      fetchUsers(); 
-      setupRealtimeListeners();
-    } else {
-      // Optionally clear users if session is lost?
-      // useUsersStore.setState({ users: [], initialized: false, error: null });
+    if (session) {
+      fetchUsers();
     }
-    
-    // Clean up when component unmounts or dependencies change
-    return () => {
-      cleanupRealtimeListeners();
-    };
-  // Add dependencies: session, fetchUsers, setupRealtimeListeners, cleanupRealtimeListeners
-  }, [session, fetchUsers, setupRealtimeListeners, cleanupRealtimeListeners]);
+  }, [session, fetchUsers]);
 
   const startEdit = (user: UserProfileWithEmail) => {
     setEditingId(user.id);

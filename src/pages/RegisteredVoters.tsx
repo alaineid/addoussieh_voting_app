@@ -78,7 +78,6 @@ const RegisteredVoters: React.FC = () => {
   const [globalFilter, setGlobalFilter] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const userSelectedViewMode = useRef<boolean>(false);
-  const realtimeChannelRef = useRef<any>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
   
   // Export PDF modal state
@@ -904,7 +903,7 @@ const RegisteredVoters: React.FC = () => {
               onChange={handleInputChange}
               className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
             >
-              <option value="">Select...</option> 
+              <option value="">Select...</option>
               <option value="الذكور">الذكور</option>
               <option value="الإناث">الإناث</option>
               {/* Add other options if needed */}
@@ -1150,7 +1149,7 @@ const RegisteredVoters: React.FC = () => {
 
   // Fetch voters function
   const fetchVoters = async () => {
-    // No need to set loading true here if it's called by realtime updates
+    // No need to set loading true here if it's called by updates
     setError(null);
 
     try {
@@ -1190,67 +1189,7 @@ const RegisteredVoters: React.FC = () => {
     }
   };
 
-  // Setup realtime subscription function
-  const setupRealtimeSubscription = () => {
-    // Clean up existing subscription if it exists
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-    }
-
-    // Create new subscription
-    const channel = supabase
-      .channel('voter-list-changes-' + Date.now()) // Add timestamp to make each channel name unique
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'avp_voters' },
-        (payload) => {
-          console.log('Change received!', payload);
-          // Refetch data when changes occur
-          fetchVoters(); 
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Subscribed to registered voters changes!');
-          subscriptionErrorCountRef.current = 0; // Reset error count on successful subscription
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Realtime channel error:', err);
-          const errMessage = err?.message || 'Unknown error';
-          console.error(`Realtime connection error: ${errMessage}`);
-          
-          subscriptionErrorCountRef.current += 1;
-          
-          // If we've had multiple errors, show a toast to the user
-          if (subscriptionErrorCountRef.current >= 3) {
-            setToast({
-              message: 'Having trouble with live updates. You may need to refresh the page.',
-              type: 'warning',
-              visible: true
-            });
-          }
-          
-          // Try to reestablish connection after a delay
-          setTimeout(() => {
-            if (subscriptionErrorCountRef.current < 5) { // Don't keep trying forever
-              setupRealtimeSubscription();
-            }
-          }, 5000);
-        }
-        if (status === 'TIMED_OUT') {
-          console.warn('Realtime connection timed out.');
-          // Try to reconnect after timeout
-          setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 5000);
-        }
-      });
-
-    // Store the channel reference for cleanup
-    realtimeChannelRef.current = channel;
-  };
-
-  // Initial data fetch and real-time subscription setup
+  // Initial data fetch
   useEffect(() => {
     if (profile?.registered_voters_access === 'none') {
       setError('You do not have permission to view this page.');
@@ -1263,8 +1202,7 @@ const RegisteredVoters: React.FC = () => {
     // Fetch initial data
     fetchVoters()
       .then(() => {
-        // Setup realtime subscription after initial data fetch succeeds
-        setupRealtimeSubscription();
+        // Setup subscription after initial data fetch succeeds
       })
       .catch(err => {
         console.error('Initial data fetch error:', err);
@@ -1272,13 +1210,6 @@ const RegisteredVoters: React.FC = () => {
       .finally(() => {
         setLoading(false);
       });
-
-    // Cleanup function
-    return () => {
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-      }
-    };
 
   }, [profile]); // Rerun effect if profile changes
 

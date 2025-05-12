@@ -5,7 +5,6 @@ import {
   PieChart, Pie, BarChart, Bar, XAxis, YAxis, 
   CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
 } from 'recharts';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Interface representing a voter from the avp_voters table
 interface Voter {
@@ -33,7 +32,6 @@ const Statistics: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastHourVotes, setLastHourVotes] = useState<number>(0);
   const [predictionData, setPredictionData] = useState<any>(null);
-  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   
   // Timestamps to track voting trends
   const [voteTimestamps, setVoteTimestamps] = useState<Date[]>([]);
@@ -138,45 +136,9 @@ const Statistics: React.FC = () => {
     }
   };
 
-  // Setup realtime subscription to voter changes
-  const setupRealtimeSubscription = () => {
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-    }
-
-    const channel = supabase
-      .channel('statistics-voter-changes-' + Date.now())
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'avp_voters' },
-        (payload) => {
-          console.log('Voter change detected in statistics:', payload);
-
-          if (payload.eventType === 'UPDATE' && 
-              payload.new && payload.old && 
-              !payload.old.has_voted && payload.new.has_voted) {
-            // This is a new vote - track the timestamp
-            const now = new Date();
-            setVoteTimestamps(prev => [...prev, now]);
-          }
-
-          // Refresh data on any change
-          fetchVoters();
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Subscribed to voter statistics changes!');
-        }
-      });
-
-    realtimeChannelRef.current = channel;
-  };
-
-  // Initialize data and subscription
+  // Initialize data
   useEffect(() => {
     fetchVoters();
-    setupRealtimeSubscription();
     
     // Update hourly votes every minute
     const intervalId = setInterval(() => {
@@ -185,9 +147,6 @@ const Statistics: React.FC = () => {
     
     return () => {
       clearInterval(intervalId);
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-      }
     };
   }, []);
 

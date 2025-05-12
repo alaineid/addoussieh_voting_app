@@ -13,10 +13,7 @@ import {
   getPaginationRowModel, 
   SortingState, 
   ColumnFiltersState,
-  flexRender, // Import flexRender
-  ColumnMeta // Import ColumnMeta type
-} from '@tanstack/react-table';
-import { RealtimeChannel } from '@supabase/supabase-js';
+  flexRender} from '@tanstack/react-table';
 import ExportPDFModal from '../components/ExportPDFModal';
 import ExportExcelModal from '../components/ExportExcelModal'; // Import ExcelModal
 import { jsPDF } from 'jspdf';
@@ -142,7 +139,6 @@ const VotingDay: React.FC = () => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
-  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const subscriptionErrorCountRef = useRef<number>(0);
   
   // Export PDF modal state
@@ -742,8 +738,7 @@ const VotingDay: React.FC = () => {
     // Fetch initial data
     fetchVoters()
       .then(() => {
-        // Setup realtime subscription after initial data fetch succeeds
-        setupRealtimeSubscription();
+        // Setup subscription after initial data fetch succeeds
       })
       .catch(err => {
         console.error('Initial data fetch error:', err);
@@ -751,13 +746,6 @@ const VotingDay: React.FC = () => {
       .finally(() => {
         setLoading(false);
       });
-
-    // Cleanup function
-    return () => {
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-      }
-    };
 
   }, [profile?.id]); // Only run on initial mount or when user changes
 
@@ -777,16 +765,9 @@ const VotingDay: React.FC = () => {
     // Clear existing data to avoid showing incorrect filtered data momentarily
     setVoters([]);
     
-    // Clean up existing subscription if it exists
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-      realtimeChannelRef.current = null;
-    }
-    
     // Fetch data with new filter
     fetchVoters()
       .then(() => {
-        setupRealtimeSubscription();
         
         // Show success toast for better UX feedback
         setToast({
@@ -872,86 +853,6 @@ const VotingDay: React.FC = () => {
       console.error('Error fetching voters:', err);
       setVotersLoading(false);
     }
-  };
-
-  // Setup realtime subscription function
-  const setupRealtimeSubscription = () => {
-    // Clean up existing subscription if it exists
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-    }
-
-    // Create new subscription
-    const channel = supabase
-      .channel('voting-day-changes-' + Date.now()) // Add timestamp to make each channel name unique
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'avp_voters' },
-        (payload) => {
-          console.log('Voter change detected!', payload);
-          
-          // Get the current gender filter based on permissions
-          const genderFilter = getGenderFilter();
-          
-          // Handle INSERT and DELETE events with a full refetch to maintain permission filters
-          if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
-            fetchVoters();
-            return;
-          }
-
-          // For UPDATE events, check if the voter should be included based on gender filter
-          if (payload.eventType === 'UPDATE' && payload.new && payload.new.id) {
-            // If we have a gender filter and the voter doesn't match, skip the update
-            if (genderFilter && payload.new.gender !== genderFilter) {
-              return;
-            }
-            
-            // Otherwise update the voter in our local state
-            setVoters(currentVoters => 
-              currentVoters.map(voter => 
-                voter.id === payload.new.id ? { ...voter, ...payload.new } : voter
-              )
-            );
-          }
-        }
-      )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('Subscribed to voting day changes!');
-          subscriptionErrorCountRef.current = 0; // Reset error count on successful subscription
-        }
-        if (status === 'CHANNEL_ERROR') {
-          console.error('Realtime channel error:', err);
-          
-          subscriptionErrorCountRef.current += 1;
-          
-          // If we've had multiple errors, show a toast to the user
-          if (subscriptionErrorCountRef.current >= 3) {
-            setToast({
-              message: 'Having trouble with live updates. You may need to refresh the page.',
-              type: 'error',
-              visible: true
-            });
-          }
-          
-          // Try to reestablish connection after a delay
-          setTimeout(() => {
-            if (subscriptionErrorCountRef.current < 5) { // Don't keep trying forever
-              setupRealtimeSubscription();
-            }
-          }, 5000);
-        }
-        if (status === 'TIMED_OUT') {
-          console.warn('Realtime connection timed out.');
-          // Try to reconnect after timeout
-          setTimeout(() => {
-            setupRealtimeSubscription();
-          }, 5000);
-        }
-      });
-
-    // Store the channel reference for cleanup
-    realtimeChannelRef.current = channel;
   };
 
   // Initialize the table instance
