@@ -76,7 +76,6 @@ const VotingStatistics: React.FC = () => {
   const [lastHourVotes, setLastHourVotes] = useState<number>(0);
   const [votingTrendData, setVotingTrendData] = useState<any[]>([]);
   const votingStartTimeRef = useRef<Date | null>(null);
-  const subscriptionErrorCountRef = useRef<number>(0);
   
   // Toast state
   const [toast, setToast] = useState<{
@@ -85,9 +84,7 @@ const VotingStatistics: React.FC = () => {
     visible: boolean;
   } | null>(null);
 
-  // Determine permissions based on voting_day_access (same structure as VotingDay)
-  const hasViewPermission = profile?.voting_day_access?.includes('view') || profile?.voting_day_access?.includes('edit') || false;
-  
+ 
   // Get gender filter based on permission
   const getGenderFilter = () => {
     if (!profile || !profile.voting_day_access) return null;
@@ -161,7 +158,6 @@ const VotingStatistics: React.FC = () => {
     setLastHourVotes(votesInLastHour);
   };
 
-  // Initialize data and subscription
   useEffect(() => {
     if (profile?.voting_day_access === 'none') {
       setError('You do not have permission to view this page.');
@@ -173,7 +169,6 @@ const VotingStatistics: React.FC = () => {
     
     fetchVoters()
       .then(() => {
-        // Removed subscription setup logic
       })
       .catch(err => {
         console.error('Initial data fetch error:', err);
@@ -207,7 +202,6 @@ const VotingStatistics: React.FC = () => {
     // Fetch data with new filter
     fetchVoters()
       .then(() => {
-        // Removed subscription setup logic
         
         // Show success toast for better UX feedback
         setToast({

@@ -139,7 +139,6 @@ const VotingDay: React.FC = () => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
-  const subscriptionErrorCountRef = useRef<number>(0);
   
   // Export PDF modal state
   const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
@@ -725,7 +724,6 @@ const VotingDay: React.FC = () => {
     }
   };
 
-  // Initial data fetch and real-time subscription setup
   useEffect(() => {
     if (profile?.voting_day_access === 'none') {
       setError('You do not have permission to view this page.');
@@ -738,7 +736,6 @@ const VotingDay: React.FC = () => {
     // Fetch initial data
     fetchVoters()
       .then(() => {
-        // Setup subscription after initial data fetch succeeds
       })
       .catch(err => {
         console.error('Initial data fetch error:', err);

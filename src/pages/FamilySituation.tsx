@@ -270,7 +270,6 @@ const FamilySituation: React.FC = () => {
     }
   };
 
-  // Initial data fetch and subscription setup
   useEffect(() => {
     if (!hasPermission) {
       setError('You do not have permission to view this page.');
@@ -282,7 +281,6 @@ const FamilySituation: React.FC = () => {
     
     fetchFamilyStatistics()
       .then(() => {
-        // Setup  subscription after initial data fetch succeeds
       })
       .catch(err => {
         console.error('Initial data fetch error:', err);

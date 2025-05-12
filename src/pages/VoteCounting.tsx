@@ -254,7 +254,6 @@ const VoteCounting: React.FC = () => {
     setCheckedVotes(initialCheckedVotes);
   }, [candidates.length]); // Only run when candidates length changes
 
-  // Fetch candidates data and setup real-time subscription
   useEffect(() => {
     fetchCandidates();
   }, []);

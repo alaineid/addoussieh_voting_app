@@ -72,13 +72,12 @@ const RegisteredVoters: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const { profile } = useAuthStore();
-  const { isDarkMode } = useThemeStore();
+  useThemeStore();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const userSelectedViewMode = useRef<boolean>(false);
-  const subscriptionErrorCountRef = useRef<number>(0);
   
   // Export PDF modal state
   const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
@@ -544,7 +543,7 @@ const RegisteredVoters: React.FC = () => {
         return;
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('avp_voters')
         .update(changesToSend) // Use the carefully constructed changesToSend
         .eq('id', editingId)
@@ -1202,7 +1201,6 @@ const RegisteredVoters: React.FC = () => {
     // Fetch initial data
     fetchVoters()
       .then(() => {
-        // Setup subscription after initial data fetch succeeds
       })
       .catch(err => {
         console.error('Initial data fetch error:', err);
