@@ -20,10 +20,9 @@ interface Candidate {
   isUpdating?: boolean;
 }
 
-// Checkbox state interface with edit mode
-interface CheckboxState {
+// Simple candidate vote state
+interface CandidateVoteState {
   checked: boolean;
-  disabled: boolean;
 }
 
 // Confirmation modal for manually posting votes
@@ -188,9 +187,7 @@ const VoteCounting: React.FC = () => {
   );
 
   // Checkbox tracking state for each candidate
-  const [checkedVotes, setCheckedVotes] = useState<{ [candidateId: number]: boolean[] }>({});
-  const [checkboxStates, setCheckboxStates] = useState<{ [candidateId: number]: CheckboxState[] }>({});
-  const [editMode, setEditMode] = useState<{ [candidateId: number]: boolean }>({});
+  const [checkedVotes, setCheckedVotes] = useState<{ [candidateId: number]: CandidateVoteState }>({});
   
   // Confirmation modal state
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -208,33 +205,11 @@ const VoteCounting: React.FC = () => {
   // Initialize checked votes state when candidates are loaded
   useEffect(() => {
     // Initialize checkedVotes for all candidates
-    const initialCheckedVotes: { [candidateId: number]: boolean[] } = {};
+    const initialCheckedVotes: { [candidateId: number]: CandidateVoteState } = {};
     candidates.forEach(candidate => {
-      initialCheckedVotes[candidate.id] = Array(20).fill(false);
+      initialCheckedVotes[candidate.id] = { checked: false };
     });
     setCheckedVotes(initialCheckedVotes);
-  }, [candidates.length]); // Only run when candidates length changes
-
-  // Initialize checkbox state tracking with disabled property when candidates are loaded
-  useEffect(() => {
-    // Initialize checkboxStates for all candidates
-    const initialCheckedVotes: { [candidateId: number]: boolean[] } = {};
-    const initialCheckboxStates: { [candidateId: number]: CheckboxState[] } = {};
-    const initialEditMode: { [candidateId: number]: boolean } = {};
-    
-    candidates.forEach(candidate => {
-      initialCheckedVotes[candidate.id] = Array(20).fill(false);
-      // Set sequential checkbox states - only first one is enabled initially
-      initialCheckboxStates[candidate.id] = Array(20).fill(0).map((_, index) => ({ 
-        checked: false, 
-        disabled: index !== 0 // Only enable the first checkbox
-      }));
-      initialEditMode[candidate.id] = false;
-    });
-    
-    setCheckedVotes(initialCheckedVotes);
-    setCheckboxStates(initialCheckboxStates);
-    setEditMode(initialEditMode);
   }, [candidates.length]); // Only run when candidates length changes
 
   // Fetch candidates data and setup real-time subscription
@@ -445,174 +420,21 @@ const VoteCounting: React.FC = () => {
   };
 
   // Handle checkbox change
-  const handleCheckboxChange = (candidateId: number, checkboxIndex: number) => {
+  const handleCheckboxChange = (candidateId: number) => {
     setCheckedVotes(prev => {
       const updatedVotes = { ...prev };
       
       // Toggle the checkbox
       if (updatedVotes[candidateId]) {
-        updatedVotes[candidateId] = [...updatedVotes[candidateId]];
-        const newCheckedValue = !updatedVotes[candidateId][checkboxIndex];
-        updatedVotes[candidateId][checkboxIndex] = newCheckedValue;
-        
-        // Update checkbox states for sequential selection
-        setCheckboxStates(prevStates => {
-          const newStates = { ...prevStates };
-          if (newStates[candidateId]) {
-            newStates[candidateId] = [...newStates[candidateId]];
-            
-            if (editMode[candidateId]) {
-              // If in edit mode, follow edit mode rules
-              if (!newCheckedValue && editMode[candidateId]) {
-                // Exit edit mode
-                setEditMode(prevEditMode => ({
-                  ...prevEditMode,
-                  [candidateId]: false
-                }));
-                
-                // Recalculate sequential state based on checked boxes
-                const checkedCount = updatedVotes[candidateId].filter(Boolean).length;
-                newStates[candidateId] = newStates[candidateId].map((state, idx) => {
-                  // If in edit mode and unchecking, reestablish sequential order
-                  const isChecked = updatedVotes[candidateId][idx];
-                  return {
-                    checked: isChecked,
-                    // Only enable the next unchecked box after the last checked one
-                    disabled: isChecked || idx !== checkedCount
-                  };
-                });
-              } else {
-                // Normal edit mode updates
-                newStates[candidateId][checkboxIndex] = { 
-                  checked: newCheckedValue, 
-                  disabled: newCheckedValue 
-                };
-              }
-            } else {
-              // Sequential mode - disable all except the next one to be checked
-              const nextIndex = checkboxIndex + 1;
-              
-              // Disable the current checkbox since it was just checked
-              newStates[candidateId][checkboxIndex] = { 
-                checked: newCheckedValue, 
-                disabled: newCheckedValue 
-              };
-              
-              // Enable the next checkbox if within bounds
-              if (nextIndex < 20) {
-                newStates[candidateId][nextIndex] = { 
-                  checked: false, 
-                  disabled: false // Enable the next checkbox
-                };
-              }
-              
-              // Ensure all previous checkboxes remain checked and disabled
-              for (let i = 0; i < checkboxIndex; i++) {
-                newStates[candidateId][i] = { checked: true, disabled: true };
-              }
-              
-              // Ensure all checkboxes after next one are disabled
-              for (let i = nextIndex + 1; i < 20; i++) {
-                newStates[candidateId][i] = { checked: false, disabled: true };
-              }
-            }
-          }
-          return newStates;
-        });
-        
-        // Check if this update results in any candidate having exactly 20 checked boxes
-        // Count the updated votes directly from the updated state we just created
-        const newCount = updatedVotes[candidateId]?.filter(checked => checked).length || 0;
-        if (newCount === 20) {
-          // Important: Pass the updated votes state to handlePostAllScores
-          // This ensures we're using the latest state with all 20 votes counted
-          setTimeout(() => {
-            handlePostAllScores(updatedVotes);
-          }, 100);
-        }
+        updatedVotes[candidateId] = { checked: !updatedVotes[candidateId].checked };
       }
       
       return updatedVotes;
     });
   };
 
-  // Toggle edit mode for a row
-  const toggleEditMode = (candidateId: number) => {
-    setEditMode(prev => {
-      const newEditMode = { ...prev };
-      newEditMode[candidateId] = !prev[candidateId];
-      
-      // Update checkbox states based on new edit mode
-      setCheckboxStates(prevStates => {
-        const newStates = { ...prevStates };
-        if (newStates[candidateId]) {
-          if (newEditMode[candidateId]) {
-            // Entering edit mode: enable checked boxes, disable unchecked boxes
-            newStates[candidateId] = newStates[candidateId].map((state, index) => ({
-              ...state,
-              disabled: !checkedVotes[candidateId][index] // Enable checked boxes only
-            }));
-          } else {
-            // Exiting edit mode: restore sequential behavior
-            const checkedCount = checkedVotes[candidateId].filter(Boolean).length;
-            newStates[candidateId] = newStates[candidateId].map((state, index) => {
-              if (index < checkedCount) {
-                // Previous checked boxes remain checked and disabled
-                return { checked: true, disabled: true };
-              } else if (index === checkedCount) {
-                // Only the next box is enabled
-                return { checked: false, disabled: false };
-              } else {
-                // All future boxes are disabled
-                return { checked: false, disabled: true };
-              }
-            });
-          }
-        }
-        return newStates;
-      });
-      
-      return newEditMode;
-    });
-  };
-
-  // Cancel editing and revert to sequential mode
-  const cancelEdit = (candidateId: number) => {
-    setEditMode(prev => ({
-      ...prev,
-      [candidateId]: false
-    }));
-    
-    // Reset to sequential mode
-    setCheckboxStates(prevStates => {
-      const newStates = { ...prevStates };
-      if (newStates[candidateId]) {
-        const checkedCount = checkedVotes[candidateId].filter(Boolean).length;
-        newStates[candidateId] = newStates[candidateId].map((state, index) => {
-          if (index < checkedCount) {
-            // Previous checked boxes remain checked and disabled
-            return { checked: true, disabled: true };
-          } else if (index === checkedCount) {
-            // Only the next box is enabled
-            return { checked: false, disabled: false };
-          } else {
-            // All future boxes are disabled
-            return { checked: false, disabled: true };
-          }
-        });
-      }
-      return newStates;
-    });
-  };
-
-  // Get the count of checked boxes for a candidate
-  const getCheckedCount = (candidateId: number): number => {
-    const candidateVotes = checkedVotes[candidateId] || [];
-    return candidateVotes.filter(checked => checked).length;
-  };
-
   // Handle posting scores for ALL candidates and reset ALL checkboxes
-  const handlePostAllScores = async (updatedVotes: { [candidateId: number]: boolean[] }) => {
+  const handlePostAllScores = async (updatedVotes: { [candidateId: number]: CandidateVoteState }) => {
     try {
       // Array to hold all update promises
       const updatePromises = [];
@@ -626,11 +448,10 @@ const VoteCounting: React.FC = () => {
       // Process each candidate
       for (const candidateId of Object.keys(updatedVotes).map(Number)) {
         // Calculate checked count directly from updatedVotes
-        const candidateVotes = updatedVotes[candidateId] || [];
-        const checkedCount = candidateVotes.filter(checked => checked).length;
+        const candidateVotes = updatedVotes[candidateId];
         
         // Only update candidates with at least one checked vote
-        if (checkedCount > 0) {
+        if (candidateVotes.checked) {
           const candidate = candidates.find(c => c.id === candidateId);
           if (candidate) {
             const updatePayload: { score_from_female?: number; score_from_male?: number } = {};
@@ -638,13 +459,13 @@ const VoteCounting: React.FC = () => {
 
             if (userVoteCountingRight === 'count female votes') {
               currentRelevantScore = candidate.score_from_female || 0;
-              updatePayload.score_from_female = currentRelevantScore + checkedCount;
+              updatePayload.score_from_female = currentRelevantScore + 1;
             } else if (userVoteCountingRight === 'count male votes') {
               currentRelevantScore = candidate.score_from_male || 0;
-              updatePayload.score_from_male = currentRelevantScore + checkedCount;
+              updatePayload.score_from_male = currentRelevantScore + 1;
             }
             
-            console.log(`Updating candidate ${candidate.full_name}: current relevant score=${currentRelevantScore}, checked=${checkedCount}, new score=${currentRelevantScore + checkedCount} for ${userVoteCountingRight}`);
+            console.log(`Updating candidate ${candidate.full_name}: current relevant score=${currentRelevantScore}, new score=${currentRelevantScore + 1} for ${userVoteCountingRight}`);
             
             // Add update promise to array
             updatePromises.push(
@@ -661,24 +482,14 @@ const VoteCounting: React.FC = () => {
       if (updatePromises.length > 0) {
         await Promise.all(updatePromises);
         
-        // Reset all checkboxes with proper sequential state
-        const resetCheckedVotes: { [candidateId: number]: boolean[] } = {};
-        const resetCheckboxStates: { [candidateId: number]: CheckboxState[] } = {};
-        const resetEditMode: { [candidateId: number]: boolean } = {};
+        // Reset all checkboxes
+        const resetCheckedVotes: { [candidateId: number]: CandidateVoteState } = {};
         
         candidates.forEach(candidate => {
-          resetCheckedVotes[candidate.id] = Array(20).fill(false);
-          // Initialize with sequential state - only first checkbox enabled
-          resetCheckboxStates[candidate.id] = Array(20).fill(0).map((_, index) => ({
-            checked: false,
-            disabled: index !== 0 // Only the first checkbox should be enabled
-          }));
-          resetEditMode[candidate.id] = false;
+          resetCheckedVotes[candidate.id] = { checked: false };
         });
         
         setCheckedVotes(resetCheckedVotes);
-        setCheckboxStates(resetCheckboxStates);
-        setEditMode(resetEditMode);
         
         // Use the non-blinking score update instead of full page refresh
         fetchCandidateScores();
@@ -727,7 +538,7 @@ const VoteCounting: React.FC = () => {
       // Reset checkboxes for this candidate
       setCheckedVotes(prev => ({
         ...prev,
-        [candidateId]: Array(20).fill(false)
+        [candidateId]: { checked: false }
       }));
       
       showToast(`Score updated for ${candidate.full_name} (${scoreTypeMessage})`, 'success');
@@ -760,10 +571,10 @@ const VoteCounting: React.FC = () => {
       
       // Process each candidate
       for (const candidateId of Object.keys(checkedVotes).map(Number)) {
-        const checkedCount = getCheckedCount(candidateId);
+        const candidateVotes = checkedVotes[candidateId];
         
         // Only update candidates with at least one checked vote
-        if (checkedCount > 0) {
+        if (candidateVotes.checked) {
           const candidate = candidates.find(c => c.id === candidateId);
           if (candidate) {
             const updatePayload: { score_from_female?: number; score_from_male?: number } = {};
@@ -771,13 +582,13 @@ const VoteCounting: React.FC = () => {
 
             if (userVoteCountingRight === 'count female votes') {
               currentRelevantScore = candidate.score_from_female || 0;
-              updatePayload.score_from_female = currentRelevantScore + checkedCount;
+              updatePayload.score_from_female = currentRelevantScore + 1;
             } else if (userVoteCountingRight === 'count male votes') {
               currentRelevantScore = candidate.score_from_male || 0;
-              updatePayload.score_from_male = currentRelevantScore + checkedCount;
+              updatePayload.score_from_male = currentRelevantScore + 1;
             }
             
-            console.log(`Updating candidate ${candidate.full_name} (manual): current relevant score=${currentRelevantScore}, checked=${checkedCount}, new score=${currentRelevantScore + checkedCount} for ${userVoteCountingRight}`);
+            console.log(`Updating candidate ${candidate.full_name} (manual): current relevant score=${currentRelevantScore}, new score=${currentRelevantScore + 1} for ${userVoteCountingRight}`);
             
             // Add update promise to array
             updatePromises.push(
@@ -794,24 +605,14 @@ const VoteCounting: React.FC = () => {
       if (updatePromises.length > 0) {
         await Promise.all(updatePromises);
         
-        // Reset all checkboxes with proper sequential state (only first checkbox enabled)
-        const resetCheckedVotes: { [candidateId: number]: boolean[] } = {};
-        const resetCheckboxStates: { [candidateId: number]: CheckboxState[] } = {};
-        const resetEditMode: { [candidateId: number]: boolean } = {};
+        // Reset all checkboxes
+        const resetCheckedVotes: { [candidateId: number]: CandidateVoteState } = {};
         
         candidates.forEach(candidate => {
-          resetCheckedVotes[candidate.id] = Array(20).fill(false);
-          // Initialize with sequential state - only first checkbox enabled
-          resetCheckboxStates[candidate.id] = Array(20).fill(0).map((_, index) => ({
-            checked: false,
-            disabled: index !== 0 // Only the first checkbox should be enabled
-          }));
-          resetEditMode[candidate.id] = false;
+          resetCheckedVotes[candidate.id] = { checked: false };
         });
         
         setCheckedVotes(resetCheckedVotes);
-        setCheckboxStates(resetCheckboxStates);
-        setEditMode(resetEditMode);
         
         showToast('All scores updated successfully', 'success');
         
@@ -833,23 +634,13 @@ const VoteCounting: React.FC = () => {
 
   const handleConfirmReset = () => {
     // Reset checked votes
-    const resetCheckedVotes: { [candidateId: number]: boolean[] } = {};
-    const resetCheckboxStates: { [candidateId: number]: CheckboxState[] } = {};
-    const resetEditMode: { [candidateId: number]: boolean } = {};
+    const resetCheckedVotes: { [candidateId: number]: CandidateVoteState } = {};
     
     candidates.forEach(candidate => {
-      resetCheckedVotes[candidate.id] = Array(20).fill(false);
-      // Set sequential checkbox states - only first one is enabled initially
-      resetCheckboxStates[candidate.id] = Array(20).fill(0).map((_, index) => ({
-        checked: false,
-        disabled: index !== 0 // Only the first checkbox should be enabled
-      }));
-      resetEditMode[candidate.id] = false;
+      resetCheckedVotes[candidate.id] = { checked: false };
     });
     
     setCheckedVotes(resetCheckedVotes);
-    setCheckboxStates(resetCheckboxStates);
-    setEditMode(resetEditMode);
     
     showToast('All checkboxes reset', 'info');
   };
@@ -1075,7 +866,7 @@ const VoteCounting: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">Candidate</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">Position</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">Vote Count</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">Checkboxes (20)</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">Checkbox</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -1089,48 +880,23 @@ const VoteCounting: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-3 py-1 inline-flex text-sm leading-5 font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                          {getCheckedCount(candidate.id)} / 20
+                          {checkedVotes[candidate.id]?.checked ? 1 : 0} / 1
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-wrap gap-1 items-center">
-                          {Array(20).fill(0).map((_, index) => (
-                            <label 
-                              key={index} 
-                              className={`inline-flex items-center ${checkboxStates[candidate.id]?.[index]?.disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checkboxStates[candidate.id]?.[index]?.checked || false}
-                                onChange={() => handleCheckboxChange(candidate.id, index)}
-                                disabled={checkboxStates[candidate.id]?.[index]?.disabled || false}
-                                className={`form-checkbox h-5 w-5 transition duration-150 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500 ${
-                                  checkboxStates[candidate.id]?.[index]?.disabled ? 'opacity-70 bg-gray-200 dark:bg-gray-700' : 'text-blue-600 dark:text-blue-500'
-                                }`}
-                              />
-                            </label>
-                          ))}
-                          
-                          {/* Edit/Cancel Button */}
-                          <div className="ml-2">
-                            {editMode[candidate.id] ? (
-                              <button
-                                onClick={() => cancelEdit(candidate.id)}
-                                className="p-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
-                                title="Cancel editing"
-                              >
-                                <i className="fas fa-times"></i>
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => toggleEditMode(candidate.id)}
-                                className="p-2 text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300"
-                                title="Edit checkboxes"
-                              >
-                                <i className="fas fa-edit"></i>
-                              </button>
-                            )}
-                          </div>
+                        <div className="flex items-center">
+                          <label 
+                            className={`inline-flex items-center ${checkedVotes[candidate.id]?.checked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checkedVotes[candidate.id]?.checked || false}
+                              onChange={() => handleCheckboxChange(candidate.id)}
+                              className={`form-checkbox h-5 w-5 transition duration-150 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500 ${
+                                checkedVotes[candidate.id]?.checked ? 'opacity-70 bg-gray-200 dark:bg-gray-700' : 'text-blue-600 dark:text-blue-500'
+                              }`}
+                            />
+                          </label>
                         </div>
                       </td>
                     </tr>
