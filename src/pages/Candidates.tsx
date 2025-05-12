@@ -526,7 +526,7 @@ const ManageCandidatesTab: React.FC = () => {
   const startEdit = (candidate: Candidate) => {
     setEditingId(candidate.id);
     setEditFormData({
-      list_name: candidate.list_name,
+      list_id: candidate.list_id,
       candidate_of: candidate.candidate_of
     });
   };
@@ -806,27 +806,40 @@ const ManageCandidatesTab: React.FC = () => {
     console.log("ManageCandidatesTab: handleSaveEdit called"); // New log
 
     try {
-      const { error } = await supabase
-        .from('avp_candidates')
-        .update({
-          list_id: parseInt(editFormData.list_id?.toString() || '0'),
-          candidate_of: editFormData.candidate_of
-        })
-        .eq('id', editingId);
+        // Validate if the list_id exists in avp_candidate_lists
+        const { data: validList, error: listError } = await supabase
+            .from('avp_candidate_lists')
+            .select('id')
+            .eq('id', parseInt(editFormData.list_id?.toString() || '0'))
+            .single();
 
-      if (error) {
-        throw error;
-      }
+        if (listError || !validList) {
+            console.error('Invalid list_id:', listError);
+            showToast('Selected list does not exist. Please choose a valid list.', 'error');
+            return;
+        }
 
-      showToast('Candidate updated successfully', 'success');
-      setEditingId(null);
-      setEditFormData({});
-      fetchCandidates(); // Refresh the list
+        const { error } = await supabase
+            .from('avp_candidates')
+            .update({
+                list_id: parseInt(editFormData.list_id?.toString() || '0'),
+                candidate_of: editFormData.candidate_of
+            })
+            .eq('id', editingId);
+
+        if (error) {
+            throw error;
+        }
+
+        showToast('Candidate updated successfully', 'success');
+        setEditingId(null);
+        setEditFormData({});
+        fetchCandidates(); // Refresh the list
     } catch (err: any) {
-      console.error('Error updating candidate:', err.message);
-      showToast(`Failed to update candidate: ${err.message}`, 'error');
+        console.error('Error updating candidate:', err.message);
+        showToast(`Failed to update candidate: ${err.message}`, 'error');
     }
-  };
+};
 
   const confirmDelete = (candidate: Candidate) => {
     setCandidateToDelete(candidate);
@@ -883,13 +896,15 @@ const ManageCandidatesTab: React.FC = () => {
         if (hasEditAccess && editingId === candidate.id) {
           return (
             <select
-              name="list_name"
-              value={editFormData.list_name}
+              name="list_id"
+              value={editFormData.list_id}
               onChange={handleInputChange}
               className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
             >
               {candidateLists.map(list => (
-                <option key={list.id} value={list.name}>{list.name}</option>
+                <option key={list.id} value={list.id}>
+                  {list.name}
+                </option>
               ))}
             </select>
           );
