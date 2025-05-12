@@ -22,8 +22,7 @@ import ExportExcelModal from '../components/ExportExcelModal';
 import SimplePDFModal from '../components/SimplePDFModal'; // Import the simplified PDF modal
 import { exportTableDataToExcel } from '../utils/excelExport';
 import { exportDataToPDF } from '../utils/pdfExport';
-
-console.log("Candidates.tsx module loaded"); // New log
+import { useRealtime } from '../lib/useRealtime';
 
 // Candidate interface
 interface Candidate {
@@ -117,7 +116,6 @@ const CreateCandidateTab: React.FC = () => {
   };
 
   useEffect(() => {
-    console.log("CreateCandidateTab: useEffect for fetchVoters triggered"); // New log
     fetchVoters();
     fetchCandidateLists(); // Add this line to fetch candidate lists
   }, []);

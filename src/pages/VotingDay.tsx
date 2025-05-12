@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
+import { useRealtime } from '../lib/useRealtime'; // Import useRealtime hook
 import SearchFilter from '../components/SearchFilter';  // Import the SearchFilter component
 import Toast from '../components/Toast'; // Import shared Toast component
 import { 
@@ -154,7 +155,7 @@ const VotingDay: React.FC = () => {
   // Toast state
   const [toast, setToast] = useState<{
     message: string;
-    type: 'success' | 'error';
+    type: 'success' | 'error' | 'info';
     visible: boolean;
   } | null>(null);
 
@@ -165,6 +166,22 @@ const VotingDay: React.FC = () => {
   
   // Determine permissions and which voters to show
   const hasEditPermission = profile?.voting_day_access?.includes('edit') || false;
+
+  // Setup real-time updates with useRealtime hook
+  useRealtime({
+    table: 'avp_voters',
+    event: 'UPDATE',
+    onChange: (payload) => {
+      // Simply update the voters state with the new data
+      const updatedVoter = payload.new as Voter;
+      
+      setVoters(prev => 
+        prev.map(voter => 
+          voter.id === updatedVoter.id ? { ...voter, ...updatedVoter } : voter
+        )
+      );
+    }
+  });
   
   // Get gender filter based on permission
   const getGenderFilter = () => {
@@ -674,13 +691,16 @@ const VotingDay: React.FC = () => {
       
       if (error) throw error;
       
+      // Find the voter in our local state to get their name
+      const voter = voters.find(v => v.id === voterId);
+      
       // Update local state
       setVoters(prev => prev.map(voter => 
         voter.id === voterId ? { ...voter, has_voted: true, voting_time: new Date().toISOString() } : voter
       ));
       
       setToast({
-        message: 'Voter marked as voted',
+        message: voter ? `Voter "${voter.full_name}" has voted` : 'Voter has been marked as voted',
         type: 'success',
         visible: true
       });

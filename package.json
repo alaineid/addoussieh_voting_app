@@ -10,7 +10,9 @@
   "dependencies": {
     "@headlessui/react": "^1.7.14",
     "@hookform/resolvers": "^5.0.1",
-    "@supabase/supabase-js": "^2.49.4",
+    "@supabase/realtime-js": "^2.11.7",
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.39.5",
     "@tanstack/react-table": "^8.21.3",
     "@types/file-saver": "^2.0.7",
     "@types/zxcvbn": "^4.4.5",
