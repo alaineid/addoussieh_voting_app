@@ -5,6 +5,7 @@ import { useThemeStore } from '../store/themeStore';
 import Toast from '../components/Toast';
 import SimplePDFModal from '../components/SimplePDFModal';
 import ExportExcelModal from '../components/ExportExcelModal';
+import BallotCounter from '../components/BallotCounter'; // Import the new BallotCounter component
 
 import { exportTableDataToExcel } from '../utils/excelExport';
 import { exportDataToPDF } from '../utils/pdfExport';
@@ -48,13 +49,9 @@ const LiveScores: React.FC = () => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [sortedCandidates, setSortedCandidates] = useState<Candidate[]>([]);
   
-  // Add ballot count state
-  const [ballotCount, setBallotCount] = useState<BallotCount>({
-    female_ballots: 0,
-    male_ballots: 0,
-    total_ballots: 0
-  });
-  
+  // Remove the old ballot count state and fetch function since we're using the BallotCounter component
+  // Instead, we'll use the BallotCounter component which has its own state and data fetching
+
   // Export modals state
   const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
   const [exportExcelModalOpen, setExportExcelModalOpen] = useState(false);
@@ -114,12 +111,10 @@ const LiveScores: React.FC = () => {
   // Fetch candidates data on initial load
   useEffect(() => {
     fetchCandidates();
-    fetchBallotCount();
     
     // Set up a regular refresh interval instead of updates
     const refreshInterval = setInterval(() => {
       fetchCandidateScores();
-      fetchBallotCount();
     }, 30000); // Refresh every 30 seconds
     
     return () => {
@@ -132,7 +127,6 @@ const LiveScores: React.FC = () => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         fetchCandidates();
-        fetchBallotCount();
       }
     };
 
@@ -142,35 +136,7 @@ const LiveScores: React.FC = () => {
     };
   }, []);
 
-  // Add function to fetch ballot count
-  const fetchBallotCount = async () => {
-    try {
-      // Query for ballot counts directly from avp_candidates
-      const { data, error } = await supabase
-        .from('avp_candidates')
-        .select('score_from_female, score_from_male');
-
-      if (error) {
-        console.error('Error fetching ballot count:', error);
-        return;
-      }
-
-      if (data) {
-        // Calculate total ballots from the scores
-        const female_ballots = data.reduce((sum, candidate) => sum + (candidate.score_from_female || 0), 0);
-        const male_ballots = data.reduce((sum, candidate) => sum + (candidate.score_from_male || 0), 0);
-        const total_ballots = female_ballots + male_ballots;
-
-        setBallotCount({
-          female_ballots,
-          male_ballots,
-          total_ballots
-        });
-      }
-    } catch (err) {
-      console.error('Error in fetchBallotCount:', err);
-    }
-  };
+  // Remove the old fetchBallotCount function since we're using the BallotCounter component
 
   // Fetch full candidates data
   const fetchCandidates = async () => {
@@ -405,13 +371,12 @@ const LiveScores: React.FC = () => {
       )}
       
       <div className="mb-8">
-        <h2 className="text-4xl font-bold mb-2 text-blue-800 dark:text-blue-300">Scores</h2>
+        <h2 className="text-4xl font-bold mb-2 text-blue-800 dark:text-blue-300">Live Scores</h2>
         <p className="text-gray-600 dark:text-gray-400">
           Vote counts updated every 30 seconds
           <button 
             onClick={() => {
               fetchCandidates();
-              fetchBallotCount();
               showToast('Data refreshed', 'success');
             }}
             className="ml-4 px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/30"
@@ -421,34 +386,8 @@ const LiveScores: React.FC = () => {
         </p>
       </div>
 
-      {/* Ballot Count Section */}
       <section className="mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-blue-200 dark:border-blue-900 overflow-hidden">
-          <div className="bg-blue-50 dark:bg-blue-900/30 px-6 py-4">
-            <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-300 flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Ballot Count
-            </h3>
-          </div>
-          <div className="px-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-pink-50 dark:bg-pink-900/20 rounded-lg p-4 text-center">
-                <span className="block text-sm font-medium text-pink-700 dark:text-pink-300 mb-1">Female Ballots</span>
-                <span className="text-2xl font-bold text-pink-600 dark:text-pink-400">{ballotCount.female_ballots}</span>
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 text-center">
-                <span className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">Male Ballots</span>
-                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{ballotCount.male_ballots}</span>
-              </div>
-              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 text-center">
-                <span className="block text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">Total Ballots</span>
-                <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{ballotCount.total_ballots}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <BallotCounter className="mb-0" />
       </section>
 
       {/* Combined Total Scores Section */}
