@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { useRealtime } from '../lib/useRealtime';
 
 interface BallotCountProps {
   className?: string; // Optional styling class
@@ -32,12 +33,8 @@ const BallotCounter: React.FC<BallotCountProps> = ({ className = '' }) => {
     female_invalid: 0
   });
 
-  // Fetch ballot counts when component mounts
-  useEffect(() => {
-    fetchBallotCount();
-  }, []);
-
-  const fetchBallotCount = async () => {
+  // Memoize the fetchBallotCount function with useCallback
+  const fetchBallotCount = useCallback(async () => {
     try {
       // Query distinct ballot_ids from avp_ballots table
       const { data, error } = await supabase
@@ -100,7 +97,22 @@ const BallotCounter: React.FC<BallotCountProps> = ({ className = '' }) => {
     } catch (err) {
       console.error('Error in fetchBallotCount:', err);
     }
-  };
+  }, []);
+
+  // Fetch ballot counts when component mounts
+  useEffect(() => {
+    fetchBallotCount();
+  }, [fetchBallotCount]);
+
+  // Subscribe to real-time changes in avp_ballots table
+  useRealtime({
+    table: 'avp_ballots',
+    event: 'INSERT', // Only listen for new ballots
+    onChange: (payload) => {
+      console.log('Real-time ballot update:', payload);
+      fetchBallotCount(); // Refetch counts when a new ballot is added
+    }
+  });
 
   // Function to refresh the ballot count (can be called externally)
   const refreshBallotCount = () => {
