@@ -667,6 +667,126 @@ const VoteCounting: React.FC = () => {
     }
   };
 
+  // Handle blank ballot submission
+  const handleBlankBallot = async () => {
+    try {
+      const userVoteCountingRight = profile?.vote_counting;
+      if (!userVoteCountingRight || (userVoteCountingRight !== 'count female votes' && userVoteCountingRight !== 'count male votes')) {
+        showToast('Permission denied: Cannot determine ballot source.', 'error');
+        return;
+      }
+
+      // Generate timestamp-based ballot ID
+      const ballotId = Math.floor(Date.now() / 1000);
+      const ballotSource = userVoteCountingRight === 'count female votes' ? 'female' : 'male';
+      const currentTime = new Date().toISOString();
+      
+      // Array to hold ballot inserts
+      const ballotInserts = [];
+      
+      // Create a record for each candidate with vote=0 and ballot_type='blank'
+      for (const candidate of candidates) {
+        ballotInserts.push({
+          ballot_id: ballotId,
+          candidate_id: candidate.id,
+          vote: 0,
+          ballot_type: 'blank',
+          ballot_source: ballotSource,
+          post_date: currentTime
+        });
+      }
+      
+      // Insert all records into avp_ballots
+      const { error: ballotsError } = await supabase
+        .from('avp_ballots')
+        .insert(ballotInserts);
+      
+      if (ballotsError) {
+        console.error('Error inserting blank ballot records:', ballotsError);
+        showToast(`Failed to record blank ballot: ${ballotsError.message}`, 'error');
+        return;
+      }
+      
+      // Reset all checkboxes
+      const resetCheckedVotes: { [candidateId: number]: CandidateVoteState } = {};
+      
+      candidates.forEach(candidate => {
+        resetCheckedVotes[candidate.id] = { checked: false };
+      });
+      
+      setCheckedVotes(resetCheckedVotes);
+      
+      showToast('Blank ballot recorded successfully', 'success');
+      
+      // Update the ballot count
+      fetchBallotCount();
+      
+    } catch (err: any) {
+      console.error('Error recording blank ballot:', err);
+      showToast(`Failed to record blank ballot: ${err.message}`, 'error');
+    }
+  };
+
+  // Handle invalid ballot submission
+  const handleInvalidBallot = async () => {
+    try {
+      const userVoteCountingRight = profile?.vote_counting;
+      if (!userVoteCountingRight || (userVoteCountingRight !== 'count female votes' && userVoteCountingRight !== 'count male votes')) {
+        showToast('Permission denied: Cannot determine ballot source.', 'error');
+        return;
+      }
+
+      // Generate timestamp-based ballot ID
+      const ballotId = Math.floor(Date.now() / 1000);
+      const ballotSource = userVoteCountingRight === 'count female votes' ? 'female' : 'male';
+      const currentTime = new Date().toISOString();
+      
+      // Array to hold ballot inserts
+      const ballotInserts = [];
+      
+      // Create a record for each candidate with vote=-1 and ballot_type='invalid'
+      for (const candidate of candidates) {
+        ballotInserts.push({
+          ballot_id: ballotId,
+          candidate_id: candidate.id,
+          vote: -1,
+          ballot_type: 'invalid',
+          ballot_source: ballotSource,
+          post_date: currentTime
+        });
+      }
+      
+      // Insert all records into avp_ballots
+      const { error: ballotsError } = await supabase
+        .from('avp_ballots')
+        .insert(ballotInserts);
+      
+      if (ballotsError) {
+        console.error('Error inserting invalid ballot records:', ballotsError);
+        showToast(`Failed to record invalid ballot: ${ballotsError.message}`, 'error');
+        return;
+      }
+      
+      // Reset all checkboxes
+      const resetCheckedVotes: { [candidateId: number]: CandidateVoteState } = {};
+      
+      candidates.forEach(candidate => {
+        resetCheckedVotes[candidate.id] = { checked: false };
+      });
+      
+      setCheckedVotes(resetCheckedVotes);
+      
+      showToast('Invalid ballot recorded successfully', 'success');
+      
+      // Update the ballot count
+      fetchBallotCount();
+      
+    } catch (err: any) {
+      console.error('Error recording invalid ballot:', err);
+      showToast(`Failed to record invalid ballot: ${err.message}`, 'error');
+    }
+  };
+
   // Reset all checkboxes
   const handleResetAll = () => {
     setIsResetModalOpen(true);
@@ -885,6 +1005,20 @@ const VoteCounting: React.FC = () => {
             Post Ballot
           </button>
           <button
+            onClick={handleBlankBallot}
+            className="px-5 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-50 shadow-md flex items-center"
+          >
+            <i className="fas fa-file-alt mr-2"></i>
+            Blank Ballot
+          </button>
+          <button
+            onClick={handleInvalidBallot}
+            className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 shadow-md flex items-center"
+          >
+            <i className="fas fa-times-circle mr-2"></i>
+            Invalid Ballot
+          </button>
+          <button
             onClick={handleResetAll}
             className="px-5 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 shadow-md flex items-center"
           >
@@ -952,6 +1086,39 @@ const VoteCounting: React.FC = () => {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Buttons duplicated for easier access */}
+      <div className="mt-6 flex flex-wrap gap-4">
+        <button
+          onClick={handlePostManually}
+          disabled={!isAnyCheckboxChecked()}
+          className={`px-5 py-2.5 ${isAnyCheckboxChecked() ? 'bg-green-600 hover:bg-green-700' : 'bg-green-300 cursor-not-allowed'} text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-md flex items-center`}
+        >
+          <i className="fas fa-upload mr-2"></i>
+          Post Ballot
+        </button>
+        <button
+          onClick={handleBlankBallot}
+          className="px-5 py-2.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-50 shadow-md flex items-center"
+        >
+          <i className="fas fa-file-alt mr-2"></i>
+          Blank Ballot
+        </button>
+        <button
+          onClick={handleInvalidBallot}
+          className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 shadow-md flex items-center"
+        >
+          <i className="fas fa-times-circle mr-2"></i>
+          Invalid Ballot
+        </button>
+        <button
+          onClick={handleResetAll}
+          className="px-5 py-2.5 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-50 shadow-md flex items-center"
+        >
+          <i className="fas fa-undo mr-2"></i>
+          Reset All Checkboxes
+        </button>
       </div>
     </div>
   );
