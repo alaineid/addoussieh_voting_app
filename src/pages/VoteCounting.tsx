@@ -550,7 +550,9 @@ const VoteCounting: React.FC = () => {
 
   // Handle "Post Manually" button click
   const handlePostManually = () => {
-    setIsConfirmModalOpen(true);
+    // Removed setting modal open
+    // Just directly call the post function
+    handleConfirmPost();
   };
 
   // Handle confirmation of manual posting
@@ -559,22 +561,46 @@ const VoteCounting: React.FC = () => {
       // Prevent default behavior that might cause refresh
       e?.preventDefault();
       
-      const userVoteCountingRight = profile?.vote_counting; // Changed from profile?.app_metadata?.vote_counting
+      const userVoteCountingRight = profile?.vote_counting;
       if (!userVoteCountingRight || (userVoteCountingRight !== 'count female votes' && userVoteCountingRight !== 'count male votes')) {
         showToast('Permission denied: Cannot determine which scores to update.', 'error');
-        setIsConfirmModalOpen(false); // Close modal
         return;
       }
 
+      // Check if any checkboxes are checked
+      const hasVotes = isAnyCheckboxChecked();
+      if (!hasVotes) {
+        showToast('No votes to post', 'info');
+        return;
+      }
+
+      // Generate timestamp-based ballot ID (Unix timestamp)
+      const ballotId = Math.floor(Date.now() / 1000);
+      const ballotSource = userVoteCountingRight === 'count female votes' ? 'female' : 'male';
+      const currentTime = new Date().toISOString();
+      
       // Array to hold all update promises
       const updatePromises = [];
+      // Array to hold ballot inserts
+      const ballotInserts = [];
       
       // Process each candidate
       for (const candidateId of Object.keys(checkedVotes).map(Number)) {
         const candidateVotes = checkedVotes[candidateId];
+        const vote = candidateVotes.checked ? 1 : 0;
         
-        // Only update candidates with at least one checked vote
-        if (candidateVotes.checked) {
+        // Add each candidate to the ballot inserts array
+        ballotInserts.push({
+          ballot_id: ballotId,
+          candidate_id: candidateId,
+          vote: vote,
+          ballot_type: 'valid',
+          ballot_source: ballotSource,
+          post_date: currentTime
+        });
+        
+        // Only update candidates with checked votes in the avp_candidates table
+        if (vote === 1) {
           const candidate = candidates.find(c => c.id === candidateId);
           if (candidate) {
             const updatePayload: { score_from_female?: number; score_from_male?: number } = {};
@@ -601,7 +627,18 @@ const VoteCounting: React.FC = () => {
         }
       }
       
-      // Execute all updates in parallel
+      // Insert all records into avp_ballots
+      const { error: ballotsError } = await supabase
+        .from('avp_ballots')
+        .insert(ballotInserts);
+      
+      if (ballotsError) {
+        console.error('Error inserting ballot records:', ballotsError);
+        showToast(`Failed to record ballot: ${ballotsError.message}`, 'error');
+        return;
+      }
+      
+      // Execute all updates in parallel for the candidates table
       if (updatePromises.length > 0) {
         await Promise.all(updatePromises);
         
@@ -614,7 +651,10 @@ const VoteCounting: React.FC = () => {
         
         setCheckedVotes(resetCheckedVotes);
         
-        showToast('All scores updated successfully', 'success');
+        showToast('Ballot posted successfully', 'success');
+        
+        // Update the ballot count
+        fetchBallotCount();
         
         // Use the non-blinking score update instead of fetchCandidates
         fetchCandidateScores();
@@ -669,6 +709,11 @@ const VoteCounting: React.FC = () => {
     if (toast) {
       setToast(null);
     }
+  };
+
+  // Add a function to check if any checkbox is checked
+  const isAnyCheckboxChecked = (): boolean => {
+    return Object.values(checkedVotes).some(vote => vote.checked);
   };
 
   // Loading state
@@ -833,7 +878,8 @@ const VoteCounting: React.FC = () => {
         <div className="mt-6 flex flex-wrap gap-4">
           <button
             onClick={handlePostManually}
-            className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-md flex items-center"
+            disabled={!isAnyCheckboxChecked()}
+            className={`px-5 py-2.5 ${isAnyCheckboxChecked() ? 'bg-green-600 hover:bg-green-700' : 'bg-green-300 cursor-not-allowed'} text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 shadow-md flex items-center`}
           >
             <i className="fas fa-upload mr-2"></i>
             Post Ballot
