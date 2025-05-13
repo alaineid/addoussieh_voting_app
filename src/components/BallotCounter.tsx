@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useRealtime } from '../lib/useRealtime';
 
@@ -19,7 +19,13 @@ interface BallotCounts {
   female_invalid: number;
 }
 
-const BallotCounter: React.FC<BallotCountProps> = ({ className = '' }) => {
+// Ref interface for parent components to call methods
+export interface BallotCounterRef {
+  updateLocalCount: (type: 'valid' | 'blank' | 'invalid', source: 'male' | 'female') => void;
+  fetchBallotCount: () => Promise<void>;
+}
+
+const BallotCounter = forwardRef<BallotCounterRef, BallotCountProps>(({ className = '' }, ref) => {
   // Ballot count state
   const [ballotCount, setBallotCount] = useState<BallotCounts>({
     total_valid: 0,
@@ -99,6 +105,37 @@ const BallotCounter: React.FC<BallotCountProps> = ({ className = '' }) => {
     }
   }, []);
 
+  // Function to update local ballot count without waiting for realtime
+  const updateLocalCount = useCallback((type: 'valid' | 'blank' | 'invalid', source: 'male' | 'female') => {
+    setBallotCount(prev => {
+      const newCount = {...prev};
+      
+      if (type === 'valid') {
+        newCount.total_valid += 1;
+        if (source === 'male') newCount.male_valid += 1;
+        else if (source === 'female') newCount.female_valid += 1;
+      } 
+      else if (type === 'blank') {
+        newCount.total_blank += 1;
+        if (source === 'male') newCount.male_blank += 1;
+        else if (source === 'female') newCount.female_blank += 1;
+      }
+      else if (type === 'invalid') {
+        newCount.total_invalid += 1;
+        if (source === 'male') newCount.male_invalid += 1;
+        else if (source === 'female') newCount.female_invalid += 1;
+      }
+      
+      return newCount;
+    });
+  }, []);
+
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    updateLocalCount,
+    fetchBallotCount
+  }));
+
   // Fetch ballot counts when component mounts
   useEffect(() => {
     fetchBallotCount();
@@ -113,11 +150,6 @@ const BallotCounter: React.FC<BallotCountProps> = ({ className = '' }) => {
       fetchBallotCount(); // Refetch counts when a new ballot is added
     }
   });
-
-  // Function to refresh the ballot count (can be called externally)
-  const refreshBallotCount = () => {
-    fetchBallotCount();
-  };
 
   return (
     <div className={`mb-6 ${className}`}>
@@ -181,6 +213,6 @@ const BallotCounter: React.FC<BallotCountProps> = ({ className = '' }) => {
       </div>
     </div>
   );
-};
+});
 
 export default BallotCounter;

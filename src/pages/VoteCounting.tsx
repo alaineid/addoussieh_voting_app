@@ -4,7 +4,8 @@ import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import Toast from '../components/Toast'; // Import shared Toast component
 import { useNavigate } from 'react-router-dom'; // Added import
-import BallotCounter from '../components/BallotCounter'; // Import the new BallotCounter component
+import BallotCounter, { BallotCounterRef } from '../components/BallotCounter'; // Import the BallotCounter component with ref type
+import { useRealtime } from '../lib/useRealtime'; // Import the real-time hook
 
 // Candidate interface with the new database structure
 interface Candidate {
@@ -90,15 +91,30 @@ const VoteCounting: React.FC = () => {
   // Candidates data state
   const [candidates, setCandidates] = useState<Candidate[]>([]);
 
+  // Create ref for the ballot counter
+  const ballotCounterRef = useRef<BallotCounterRef>(null);
+
   const userVoteCountingRight = profile?.vote_counting; 
+
+  // Use the useRealtime hook to subscribe to changes in the avp_ballots table
+  useRealtime({
+    table: 'avp_ballots',
+    event: 'INSERT',
+    onChange: (payload) => {
+      console.log('New ballot inserted:', payload);
+      // Update candidate scores when a new ballot is inserted
+      fetchCandidateScores();
+    }
+  });
 
   // Removed the ballotCount state and fetchBallotCount function as they are now in the BallotCounter component
   // We'll now use the BallotCounter component directly in the render
 
+  // Simplified fetchBallotCount function that uses the ref
   const fetchBallotCount = async () => {
-    // This function is kept as a reference for other functions that call it
-    // It will simply trigger a refresh of the BallotCounter component
-    // The actual implementation is now in the BallotCounter component
+    if (ballotCounterRef.current) {
+      await ballotCounterRef.current.fetchBallotCount();
+    }
   };
 
   useEffect(() => {
@@ -521,8 +537,10 @@ const VoteCounting: React.FC = () => {
         
         showToast('Ballot posted successfully', 'success');
         
-        // Update the ballot count
-        fetchBallotCount();
+        // Directly update the ballot counter state without waiting for realtime events
+        if (ballotCounterRef.current) {
+          ballotCounterRef.current.updateLocalCount('valid', ballotSource as 'male' | 'female');
+        }
         
         // Use the non-blinking score update instead of fetchCandidates
         fetchCandidateScores();
@@ -586,8 +604,10 @@ const VoteCounting: React.FC = () => {
       
       showToast('Blank ballot recorded successfully', 'success');
       
-      // Update the ballot count
-      fetchBallotCount();
+      // Directly update the ballot counter state without waiting for realtime events
+      if (ballotCounterRef.current) {
+        ballotCounterRef.current.updateLocalCount('blank', ballotSource as 'male' | 'female');
+      }
       
     } catch (err: any) {
       console.error('Error recording blank ballot:', err);
@@ -646,8 +666,10 @@ const VoteCounting: React.FC = () => {
       
       showToast('Invalid ballot recorded successfully', 'success');
       
-      // Update the ballot count
-      fetchBallotCount();
+      // Directly update the ballot counter state without waiting for realtime events
+      if (ballotCounterRef.current) {
+        ballotCounterRef.current.updateLocalCount('invalid', ballotSource as 'male' | 'female');
+      }
       
     } catch (err: any) {
       console.error('Error recording invalid ballot:', err);
@@ -795,7 +817,7 @@ const VoteCounting: React.FC = () => {
         <p className="text-gray-600 dark:text-gray-400">Track and update candidate votes in real-time</p>
       </div>
       
-      <BallotCounter />
+      <BallotCounter ref={ballotCounterRef} />
 
       {/* Live Scores Section */}
       <div className="mb-10">
