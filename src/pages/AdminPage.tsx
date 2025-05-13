@@ -1197,7 +1197,7 @@ const ResetVotingDataTab = () => {
         // Reset voting marks
         const { error: votingError } = await supabase
           .from('avp_voters')
-          .update({ comments: null, has_voted: false })
+          .update({ comments: null, has_voted: false, voting_time: null })
           .neq('id', 0); // Make sure we update all records
         
         if (votingError) {
@@ -1215,6 +1215,30 @@ const ResetVotingDataTab = () => {
         if (ballotsError) {
           throw new Error(`Error resetting ballots: ${ballotsError.message}`);
         }
+      }
+      
+      // Create a record in the reset_events table to notify other clients
+      try {
+        const { error: resetEventError } = await supabase
+          .from('reset_events')
+          .insert([{
+            type: confirmAction,
+            reset_by: session.user.id,
+            reset_time: new Date().toISOString()
+          }]);
+          
+        if (resetEventError) {
+          console.error('Error creating reset event:', resetEventError);
+          // Don't throw here, as the main reset operation already succeeded
+          // But add more detailed logging to help debug the issue
+          if (resetEventError.code === 'PGRST301') {
+            console.error('Permission denied - make sure your user has admin role in JWT token');
+          }
+        } else {
+          console.log('Reset event successfully recorded in reset_events table');
+        }
+      } catch (insertError) {
+        console.error('Exception when inserting reset event:', insertError);
       }
       
       // Show success message
@@ -1300,19 +1324,19 @@ const ResetVotingDataTab = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Reset Voting Marks Card */}
-          <div className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden">
-            <div className="p-5">
+            <div className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden flex flex-col h-full">
+            <div className="p-5 flex flex-col flex-grow">
               <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center mb-4">
                 <i className="fas fa-check-square text-blue-600 dark:text-blue-400 text-xl"></i>
               </div>
               <h4 className="font-semibold text-lg mb-2 text-blue-800 dark:text-blue-300">Reset Voting Marks</h4>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 flex-grow">
                 Clear all "has_voted" flags and comments from candidates. This will not affect the ballot counts.
               </p>
               <button
                 onClick={handleResetVotingMarks}
                 disabled={isLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 transition-colors mt-auto"
               >
                 {isLoading ? 'Processing...' : 'Reset Voting Marks'}
               </button>
@@ -1320,19 +1344,19 @@ const ResetVotingDataTab = () => {
           </div>
           
           {/* Reset Ballots Card */}
-          <div className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden">
-            <div className="p-5">
+          <div className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden flex flex-col h-full">
+            <div className="p-5 flex flex-col flex-grow">
               <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center mb-4">
                 <i className="fas fa-vote-yea text-orange-600 dark:text-orange-400 text-xl"></i>
               </div>
               <h4 className="font-semibold text-lg mb-2 text-blue-800 dark:text-blue-300">Reset Ballots</h4>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 flex-grow">
                 Delete all ballot records from the database. This will reset all voting counts.
               </p>
               <button
                 onClick={handleResetBallots}
                 disabled={isLoading}
-                className="w-full bg-orange-600 hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-800 text-white py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 transition-colors"
+                className="w-full bg-orange-600 hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-800 text-white py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 transition-colors mt-auto"
               >
                 {isLoading ? 'Processing...' : 'Reset Ballots'}
               </button>
@@ -1340,19 +1364,19 @@ const ResetVotingDataTab = () => {
           </div>
           
           {/* Reset All Card */}
-          <div className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden">
-            <div className="p-5">
+          <div className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden flex flex-col h-full">
+            <div className="p-5 flex flex-col flex-grow">
               <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center mb-4">
                 <i className="fas fa-redo-alt text-red-600 dark:text-red-400 text-xl"></i>
               </div>
               <h4 className="font-semibold text-lg mb-2 text-blue-800 dark:text-blue-300">Reset Everything</h4>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 flex-grow">
                 Reset all voting marks and delete all ballot records. This fully resets the voting state.
               </p>
               <button
                 onClick={handleResetAll}
                 disabled={isLoading}
-                className="w-full bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 text-white py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 transition-colors"
+                className="w-full bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 text-white py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 transition-colors mt-auto"
               >
                 {isLoading ? 'Processing...' : 'Reset Everything'}
               </button>
