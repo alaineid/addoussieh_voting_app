@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { supabase } from '../lib/supabaseClient';
+import { useRealtime } from '../lib/useRealtime';
 import {
   PieChart, Pie, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, Cell, XAxis, YAxis, AreaChart, Area
@@ -135,6 +136,15 @@ const VotingStatistics: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Use the Supabase real-time subscription to update statistics
+  useRealtime({
+    table: 'avp_voters',
+    event: '*', // Listen to all changes (INSERT, UPDATE, DELETE)
+    onChange: (payload) => {
+      fetchVoters(); // Refresh the voter data when changes occur
+    }
+  });
 
   // Calculate last hour votes based on actual voting_time from the database
   const calculateLastHourVotes = (votersData: Voter[] = voters) => {

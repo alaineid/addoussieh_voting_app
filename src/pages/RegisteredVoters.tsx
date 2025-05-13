@@ -20,6 +20,7 @@ import SimplePDFModal from '../components/SimplePDFModal';
 import ExportExcelModal from '../components/ExportExcelModal';
 import { exportDataToPDF, formatDateForExport } from '../utils/pdfExport';
 import { exportTableDataToExcel } from '../utils/excelExport';
+import { useRealtime } from '../lib/useRealtime';
 
 // Define the structure of a voter record based on the requested columns
 interface Voter {
@@ -1210,6 +1211,15 @@ const RegisteredVoters: React.FC = () => {
       });
 
   }, [profile]); // Rerun effect if profile changes
+
+  // Add real-time subscription to update voters data
+  useRealtime({
+    table: 'avp_voters',
+    event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+    onChange: (payload) => {
+      fetchVoters(); // Refresh the voter data when changes occur
+    }
+  });
 
   // Initialize the table instance
   const table = useReactTable({

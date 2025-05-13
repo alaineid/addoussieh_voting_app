@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useThemeStore } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabaseClient';
+import { useRealtime } from '../lib/useRealtime';
 import {
   createColumnHelper,
   getCoreRowModel,
@@ -290,6 +291,16 @@ const FamilySituation: React.FC = () => {
       });
 
   }, [hasPermission]);
+
+  // Add real-time subscription to update family statistics when voter data changes
+  useRealtime({
+    table: 'avp_voters',
+    event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+    onChange: (payload) => {
+      console.log('Real-time update received for voters:', payload);
+      fetchFamilyStatistics(); // Refresh the statistics when voter data changes
+    }
+  });
 
   // Close toast notification
   const closeToast = () => {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useThemeStore } from '../store/themeStore';
 import { supabase } from '../lib/supabaseClient';
+import { useRealtime } from '../lib/useRealtime';
 import {
   PieChart, Pie, BarChart, Bar, XAxis, YAxis, 
   CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
@@ -149,6 +150,16 @@ const Statistics: React.FC = () => {
       clearInterval(intervalId);
     };
   }, []);
+  
+  // Add real-time subscription to update statistics when voter data changes
+  useRealtime({
+    table: 'avp_voters',
+    event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+    onChange: (payload) => {
+      console.log('Real-time update received for statistics:', payload);
+      fetchVoters(); // Refresh all statistics when voter data changes
+    }
+  });
 
   // Update last hour votes when vote timestamps change
   useEffect(() => {
