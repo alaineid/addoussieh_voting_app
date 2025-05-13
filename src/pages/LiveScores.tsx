@@ -144,7 +144,7 @@ const LiveScores: React.FC = () => {
       setLoading(true);
       
       const { data, error: fetchError } = await supabase
-        .from('avp_candidates')
+        .from('avp_candiate_votes')
         .select(`
           id, 
           list_id,
@@ -188,7 +188,7 @@ const LiveScores: React.FC = () => {
   const fetchCandidateScores = async () => {
     try {
       const { data, error: fetchError } = await supabase
-        .from('avp_candidates')
+        .from('avp_candiate_votes')
         .select('id, score_from_female, score_from_male');
 
       if (fetchError) {

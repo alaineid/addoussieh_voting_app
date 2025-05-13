@@ -216,7 +216,7 @@ const VoteCounting: React.FC = () => {
       
       // Query candidates with voter information and list information
       const { data, error: fetchError } = await supabase
-        .from('avp_candidates')
+        .from('avp_candiate_votes')
         .select(`
           id, 
           list_id,
@@ -262,7 +262,7 @@ const VoteCounting: React.FC = () => {
     try {
       // Query only the necessary data for scores
       const { data, error: fetchError } = await supabase // Renamed error
-        .from('avp_candidates')
+        .from('avp_candiate_votes')
         .select('id, score_from_female, score_from_male');
 
       if (fetchError) {
@@ -338,7 +338,7 @@ const VoteCounting: React.FC = () => {
             // Add update promise to array
             updatePromises.push(
               supabase
-                .from('avp_candidates')
+                .from('avp_candiate_votes')
                 .update(updatePayload)
                 .eq('id', candidateId)
             );
@@ -397,7 +397,7 @@ const VoteCounting: React.FC = () => {
       
       // Update the score in the database
       const { error: updateError } = await supabase // Renamed error
-        .from('avp_candidates')
+        .from('avp_candiate_votes')
         .update(updatePayload)
         .eq('id', candidateId);
       
@@ -467,7 +467,7 @@ const VoteCounting: React.FC = () => {
           post_date: currentTime
         });
         
-        // Only update candidates with checked votes in the avp_candidates table
+        // Only update candidates with checked votes in the avp_candiate_votes view
         if (vote === 1) {
           const candidate = candidates.find(c => c.id === candidateId);
           if (candidate) {
@@ -487,7 +487,7 @@ const VoteCounting: React.FC = () => {
             // Add update promise to array
             updatePromises.push(
               supabase
-                .from('avp_candidates')
+                .from('avp_candiate_votes')
                 .update(updatePayload)
                 .eq('id', candidateId)
             );
