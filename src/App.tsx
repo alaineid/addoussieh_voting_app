@@ -19,6 +19,7 @@ import VotingStatistics from './pages/VotingStatistics';
 import Candidates from './pages/Candidates';
 import VoteCounting from './pages/VoteCounting'; 
 import LiveScores from './pages/LiveScores'; // Import the new LiveScores component
+import BallotAnalysis from './pages/BallotAnalysis';
 import RootRedirector from './components/RootRedirector'; // Import the new component
 
 const Banner = () => (
@@ -116,6 +117,9 @@ const Nav = () => {
         <div className="menu-items">
           {canAccessCandidates && (
             <NavLink to="/candidates" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Candidates</NavLink>
+          )}
+          {isAdmin && (
+            <NavLink to="/ballot-analysis" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Ballot Analysis</NavLink>
           )}
           {canViewVotingDay && (
             <NavLink to="/voting-day" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Day</NavLink>
@@ -377,6 +381,14 @@ export default function App() {
               element={
                 <PrivateRoute permissionCheck={() => hasLiveScoreAccess(profile)}>
                   <LiveScores />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/ballot-analysis"
+              element={
+                <PrivateRoute permissionCheck={() => isAdminUser(profile)}>
+                  <BallotAnalysis />
                 </PrivateRoute>
               }
             />
