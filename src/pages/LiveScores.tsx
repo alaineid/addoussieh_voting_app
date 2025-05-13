@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import Toast from '../components/Toast';
 import SimplePDFModal from '../components/SimplePDFModal';
 import ExportExcelModal from '../components/ExportExcelModal';
-import BallotCounter from '../components/BallotCounter'; // Import the new BallotCounter component
+import BallotCounter, { BallotCounterRef } from '../components/BallotCounter'; // Import the BallotCounter component with ref type
 
 import { exportTableDataToExcel } from '../utils/excelExport';
 import { exportDataToPDF } from '../utils/pdfExport';
@@ -49,6 +49,12 @@ const LiveScores: React.FC = () => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [sortedCandidates, setSortedCandidates] = useState<Candidate[]>([]);
   
+  // Handle ballot updates from the BallotCounter component
+  const handleBallotUpdate = useCallback(() => {
+    console.log("Ballot update detected, refreshing candidate scores");
+    fetchCandidateScores();
+  }, []);
+
   // Remove the old ballot count state and fetch function since we're using the BallotCounter component
   // Instead, we'll use the BallotCounter component which has its own state and data fetching
 
@@ -112,14 +118,6 @@ const LiveScores: React.FC = () => {
   useEffect(() => {
     fetchCandidates();
     
-    // Set up a regular refresh interval instead of updates
-    const refreshInterval = setInterval(() => {
-      fetchCandidateScores();
-    }, 30000); // Refresh every 30 seconds
-    
-    return () => {
-      clearInterval(refreshInterval);
-    };
   }, []);
 
   // Refresh data when tab becomes active
@@ -371,23 +369,11 @@ const LiveScores: React.FC = () => {
       )}
       
       <div className="mb-8">
-        <h2 className="text-4xl font-bold mb-2 text-blue-800 dark:text-blue-300">Live Scores</h2>
-        <p className="text-gray-600 dark:text-gray-400">
-          Vote counts updated every 30 seconds
-          <button 
-            onClick={() => {
-              fetchCandidates();
-              showToast('Data refreshed', 'success');
-            }}
-            className="ml-4 px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/30"
-          >
-            Refresh Now
-          </button>
-        </p>
+        <h2 className="text-4xl font-bold mb-2 text-blue-800 dark:text-blue-300">Live Scores</h2>        
       </div>
 
       <section className="mb-8">
-        <BallotCounter className="mb-0" />
+        <BallotCounter onBallotUpdate={handleBallotUpdate} />
       </section>
 
       {/* Combined Total Scores Section */}

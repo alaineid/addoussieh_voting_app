@@ -5,7 +5,6 @@ import { useThemeStore } from '../store/themeStore';
 import Toast from '../components/Toast'; // Import shared Toast component
 import { useNavigate } from 'react-router-dom'; // Added import
 import BallotCounter, { BallotCounterRef } from '../components/BallotCounter'; // Import the BallotCounter component with ref type
-import { useRealtime } from '../lib/useRealtime'; // Import the real-time hook
 
 // Candidate interface with the new database structure
 interface Candidate {
@@ -809,18 +808,30 @@ const VoteCounting: React.FC = () => {
                   return (
                     <div 
                       key={candidate.id} 
-                      className={`flex justify-between items-center p-3 rounded-lg transition-all ${
+                      className={`flex items-center p-3 rounded-lg transition-all ${
                         candidate.isUpdating 
                           ? 'bg-yellow-100 dark:bg-yellow-900/30 animate-pulse' 
                           : 'bg-blue-50 dark:bg-blue-900/20'
                       }`}
                     >
-                      <div>
+                      <div className="flex-grow truncate mr-3">
                         <span className="font-medium text-gray-900 dark:text-white">{candidate.full_name}</span>
                         <span className="text-sm text-gray-500 dark:text-gray-400 ml-2"> ({candidate.candidate_of})</span>
                       </div>
-                      <div className="flex items-center">
-                        <span className="text-lg font-bold text-blue-700 dark:text-blue-400">{liveScoreDisplay || 0}</span>
+                      <div className="flex items-center flex-shrink-0">
+                        <div className="flex flex-col items-end mr-4 w-20">
+                          <div className="flex items-center w-full">
+                            <span className="text-sm text-pink-500 dark:text-pink-400 w-6 text-center">♀</span>
+                            <span className="text-sm font-medium text-pink-600 dark:text-pink-400 w-6 text-center">{candidate.score_from_female || 0}</span>
+                          </div>
+                          <div className="flex items-center w-full">
+                            <span className="text-sm text-blue-500 dark:text-blue-400 w-6 text-center">♂</span>
+                            <span className="text-sm font-medium text-blue-600 dark:text-blue-400 w-6 text-center">{candidate.score_from_male || 0}</span>
+                          </div>
+                        </div>
+                        <div className="pl-3 border-l border-gray-200 dark:border-gray-700 w-12 text-center">
+                          <span className="text-lg font-bold text-purple-700 dark:text-purple-400">{(candidate.score_from_female || 0) + (candidate.score_from_male || 0)}</span>
+                        </div>
                       </div>
                     </div>
                   );
