@@ -166,7 +166,7 @@ const BallotAnalysis = () => {
         ballot_id: parseInt(ballotId),
         candidate_votes: candidateVotes,
         ballot_type: firstBallot.ballot_type,
-        post_date: new Date(firstBallot.post_date).toLocaleString(),
+        post_date: new Date(firstBallot.post_date).toLocaleString('en-US', { timeZone: 'Asia/Beirut' }),
         is_valid: isValid,
         is_blank: isBlank
       };
