@@ -96,16 +96,14 @@ const VoteCounting: React.FC = () => {
 
   const userVoteCountingRight = profile?.vote_counting; 
 
-  // Use the useRealtime hook to subscribe to changes in the avp_ballots table
-  useRealtime({
-    table: 'avp_ballots',
-    event: 'INSERT',
-    onChange: (payload) => {
-      console.log('New ballot inserted:', payload);
-      // Update candidate scores when a new ballot is inserted
-      fetchCandidateScores();
-    }
-  });
+  // Handle ballot updates from the BallotCounter component
+  const handleBallotUpdate = useCallback(() => {
+    console.log("Ballot update detected, refreshing candidate scores");
+    fetchCandidateScores();
+  }, []);
+
+  // No need for separate useRealtime for avp_ballots since BallotCounter
+  // is already handling that and will notify us via the callback
 
   // Removed the ballotCount state and fetchBallotCount function as they are now in the BallotCounter component
   // We'll now use the BallotCounter component directly in the render
@@ -275,6 +273,7 @@ const VoteCounting: React.FC = () => {
 
   // Fetch only scores data (lightweight update)
   const fetchCandidateScores = async () => {
+    console.log('Fetching candidate scores...');
     try {
       // Query only the necessary data for scores
       const { data, error: fetchError } = await supabase // Renamed error
@@ -463,8 +462,6 @@ const VoteCounting: React.FC = () => {
       const ballotSource = userVoteCountingRight === 'count female votes' ? 'female' : 'male';
       const currentTime = new Date().toISOString();
       
-      // Array to hold all update promises
-      const updatePromises = [];
       // Array to hold ballot inserts
       const ballotInserts = [];
       
@@ -482,33 +479,6 @@ const VoteCounting: React.FC = () => {
           ballot_source: ballotSource,
           post_date: currentTime
         });
-        
-        // Only update candidates with checked votes in the avp_candiate_votes view
-        if (vote === 1) {
-          const candidate = candidates.find(c => c.id === candidateId);
-          if (candidate) {
-            const updatePayload: { score_from_female?: number; score_from_male?: number } = {};
-            let currentRelevantScore = 0;
-
-            if (userVoteCountingRight === 'count female votes') {
-              currentRelevantScore = candidate.score_from_female || 0;
-              updatePayload.score_from_female = currentRelevantScore + 1;
-            } else if (userVoteCountingRight === 'count male votes') {
-              currentRelevantScore = candidate.score_from_male || 0;
-              updatePayload.score_from_male = currentRelevantScore + 1;
-            }
-            
-            console.log(`Updating candidate ${candidate.full_name} (manual): current relevant score=${currentRelevantScore}, new score=${currentRelevantScore + 1} for ${userVoteCountingRight}`);
-            
-            // Add update promise to array
-            updatePromises.push(
-              supabase
-                .from('avp_candiate_votes')
-                .update(updatePayload)
-                .eq('id', candidateId)
-            );
-          }
-        }
       }
       
       // Insert all records into avp_ballots
@@ -522,31 +492,24 @@ const VoteCounting: React.FC = () => {
         return;
       }
       
-      // Execute all updates in parallel for the candidates table
-      if (updatePromises.length > 0) {
-        await Promise.all(updatePromises);
-        
-        // Reset all checkboxes
-        const resetCheckedVotes: { [candidateId: number]: CandidateVoteState } = {};
-        
-        candidates.forEach(candidate => {
-          resetCheckedVotes[candidate.id] = { checked: false };
-        });
-        
-        setCheckedVotes(resetCheckedVotes);
-        
-        showToast('Ballot posted successfully', 'success');
-        
-        // Directly update the ballot counter state without waiting for realtime events
-        if (ballotCounterRef.current) {
-          ballotCounterRef.current.updateLocalCount('valid', ballotSource as 'male' | 'female');
-        }
-        
-        // Use the non-blinking score update instead of fetchCandidates
-        fetchCandidateScores();
-      } else {
-        showToast('No votes to post', 'info');
+      // Reset all checkboxes
+      const resetCheckedVotes: { [candidateId: number]: CandidateVoteState } = {};
+      
+      candidates.forEach(candidate => {
+        resetCheckedVotes[candidate.id] = { checked: false };
+      });
+      
+      setCheckedVotes(resetCheckedVotes);
+      
+      showToast('Ballot posted successfully', 'success');
+      
+      // Directly update the ballot counter state without waiting for realtime events
+      if (ballotCounterRef.current) {
+        ballotCounterRef.current.updateLocalCount('valid', ballotSource as 'male' | 'female');
       }
+      
+      // Fetch the updated candidate scores from the view
+      fetchCandidateScores();
     } catch (err: any) {
       console.error('Error posting scores manually:', err);
       showToast(`Failed to update scores: ${err.message}`, 'error');
@@ -817,7 +780,7 @@ const VoteCounting: React.FC = () => {
         <p className="text-gray-600 dark:text-gray-400">Track and update candidate votes in real-time</p>
       </div>
       
-      <BallotCounter ref={ballotCounterRef} />
+      <BallotCounter ref={ballotCounterRef} onBallotUpdate={handleBallotUpdate} />
 
       {/* Live Scores Section */}
       <div className="mb-10">

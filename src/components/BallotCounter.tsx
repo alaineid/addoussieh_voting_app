@@ -4,6 +4,7 @@ import { useRealtime } from '../lib/useRealtime';
 
 interface BallotCountProps {
   className?: string; // Optional styling class
+  onBallotUpdate?: () => void; // Callback for when ballots are updated
 }
 
 // BallotCount interface for the component state
@@ -23,9 +24,10 @@ interface BallotCounts {
 export interface BallotCounterRef {
   updateLocalCount: (type: 'valid' | 'blank' | 'invalid', source: 'male' | 'female') => void;
   fetchBallotCount: () => Promise<void>;
+  getBallotCounts: () => BallotCounts;
 }
 
-const BallotCounter = forwardRef<BallotCounterRef, BallotCountProps>(({ className = '' }, ref) => {
+const BallotCounter = forwardRef<BallotCounterRef, BallotCountProps>(({ className = '', onBallotUpdate }, ref) => {
   // Ballot count state
   const [ballotCount, setBallotCount] = useState<BallotCounts>({
     total_valid: 0,
@@ -87,8 +89,14 @@ const BallotCounter = forwardRef<BallotCounterRef, BallotCountProps>(({ classNam
           }
         });
 
+        console.log('Ballot count data fetched:', {
+          valid: valid_ballots.size,
+          male_valid: male_valid_ballots.size,
+          female_valid: female_valid_ballots.size
+        });
+
         // Use the size of each Set to get distinct counts
-        setBallotCount({
+        const newCounts = {
           total_valid: valid_ballots.size,
           male_valid: male_valid_ballots.size,
           female_valid: female_valid_ballots.size,
@@ -98,12 +106,19 @@ const BallotCounter = forwardRef<BallotCounterRef, BallotCountProps>(({ classNam
           total_invalid: invalid_ballots.size,
           male_invalid: male_invalid_ballots.size,
           female_invalid: female_invalid_ballots.size
-        });
+        };
+        
+        setBallotCount(newCounts);
+        
+        // Call the callback if provided to notify parent about ballot updates
+        if (onBallotUpdate) {
+          onBallotUpdate();
+        }
       }
     } catch (err) {
       console.error('Error in fetchBallotCount:', err);
     }
-  }, []);
+  }, [onBallotUpdate]);
 
   // Function to update local ballot count without waiting for realtime
   const updateLocalCount = useCallback((type: 'valid' | 'blank' | 'invalid', source: 'male' | 'female') => {
@@ -128,12 +143,23 @@ const BallotCounter = forwardRef<BallotCounterRef, BallotCountProps>(({ classNam
       
       return newCount;
     });
-  }, []);
+    
+    // Call the callback if provided to notify parent about ballot updates
+    if (onBallotUpdate) {
+      onBallotUpdate();
+    }
+  }, [onBallotUpdate]);
+  
+  // Function to get current ballot counts
+  const getBallotCounts = useCallback(() => {
+    return ballotCount;
+  }, [ballotCount]);
 
   // Expose methods to parent component via ref
   useImperativeHandle(ref, () => ({
     updateLocalCount,
-    fetchBallotCount
+    fetchBallotCount,
+    getBallotCounts
   }));
 
   // Fetch ballot counts when component mounts
@@ -141,13 +167,13 @@ const BallotCounter = forwardRef<BallotCounterRef, BallotCountProps>(({ classNam
     fetchBallotCount();
   }, [fetchBallotCount]);
 
-  // Subscribe to real-time changes in avp_ballots table
+  // Use the existing useRealtime hook to subscribe to the avp_ballots table
   useRealtime({
     table: 'avp_ballots',
-    event: 'INSERT', // Only listen for new ballots
+    event: 'INSERT',
     onChange: (payload) => {
-      console.log('Real-time ballot update:', payload);
-      fetchBallotCount(); // Refetch counts when a new ballot is added
+      console.log('Realtime ballot INSERT:', payload);
+      fetchBallotCount();
     }
   });
 
