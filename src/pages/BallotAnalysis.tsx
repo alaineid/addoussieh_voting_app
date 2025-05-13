@@ -1,6 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/authStore';
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  getPaginationRowModel,
+  useReactTable
+} from '@tanstack/react-table';
+import ExportExcelModal from '../components/ExportExcelModal';
+import { exportTableDataToExcel } from '../utils/excelExport';
+import Toast from '../components/Toast';
 
 interface Ballot {
   id: number;
@@ -34,6 +44,20 @@ const BallotAnalysis = () => {
   const [candidateIds, setCandidateIds] = useState<number[]>([]);
   const [candidates, setCandidates] = useState<{[key: number]: Candidate}>({});
   const { profile } = useAuthStore();
+  
+  // Export modal states
+  const [exportExcelModalOpen, setExportExcelModalOpen] = useState(false);
+  // Toast state for notifications
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+    visible: boolean;
+  } | null>(null);
+  
+  // Close toast function
+  const closeToast = () => {
+    setToast(null);
+  };
 
   // Fetch all ballots and candidates
   useEffect(() => {
@@ -116,7 +140,12 @@ const BallotAnalysis = () => {
       
       // Fill in the actual votes
       for (const ballot of groupBallots) {
-        candidateVotes[ballot.candidate_id] = ballot.vote;
+        // Convert -1 votes to "-" string for display
+        if (ballot.vote === -1) {
+          candidateVotes[ballot.candidate_id] = "-";
+        } else {
+          candidateVotes[ballot.candidate_id] = ballot.vote;
+        }
         
         // Check if this is a blank ballot
         if (ballot.vote !== 0) {
@@ -170,6 +199,140 @@ const BallotAnalysis = () => {
   const invalidBallots = formattedBallots.filter(b => !b.is_blank && !b.is_valid).length;
   const blankBallots = formattedBallots.filter(b => b.is_blank).length;
   const totalBallots = formattedBallots.length;
+
+  // Setup table with pagination
+  const columnHelper = createColumnHelper<FormattedBallot>();
+  const columns = useMemo(() => [
+    columnHelper.accessor('ballot_id', {
+      header: 'Ballot #',
+      cell: info => info.getValue(),
+    }),
+    ...candidateIds.map(id => 
+      columnHelper.accessor(
+        row => row.candidate_votes[id], 
+        {
+          id: `candidate-${id}`,
+          header: candidates[id]?.full_name || `Candidate ${id}`,
+          cell: info => {
+            const value = info.getValue();
+            return (
+              <span className={`${
+                value === 1 ? 'text-green-600 dark:text-green-400 font-bold' : 
+                value === 0 ? 'text-gray-500 dark:text-gray-400' :
+                value === "-" ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-400 dark:text-gray-500'
+              }`}>
+                {value}
+              </span>
+            );
+          }
+        }
+      )
+    ),
+    columnHelper.accessor('post_date', {
+      header: 'Timestamp',
+      cell: info => info.getValue(),
+    }),
+    columnHelper.accessor(
+      row => getBallotStatus(row),
+      {
+        id: 'status',
+        header: 'Status',
+        cell: info => {
+          const status = info.getValue();
+          return (
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getBallotStatusClass(status)}`}>
+              {status}
+            </span>
+          );
+        }
+      }
+    ),
+  ], [candidateIds, candidates]);
+
+  const table = useReactTable({
+    data: formattedBallots,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: 50,
+      },
+    },
+  });
+
+  // Available columns for export
+  const availableColumns = useMemo(() => [
+    { id: 'ballot_id', label: 'Ballot #' },
+    ...candidateIds.map(id => ({
+      id: `candidate-${id}`,
+      label: candidates[id]?.full_name || `Candidate ${id}`
+    })),
+    { id: 'post_date', label: 'Timestamp' },
+    { id: 'status', label: 'Status' }
+  ], [candidateIds, candidates]);
+
+  // Generate and download Excel function
+  const handleExportExcel = async (fileName: string) => {
+    try {
+      setToast({
+        message: 'Preparing Excel export...',
+        type: 'info',
+        visible: true
+      });
+      
+      // Get the current filtered data from the table
+      const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
+      
+      if (!filteredData || filteredData.length === 0) {
+        setToast({
+          message: 'No data to export. Please adjust your filters.',
+          type: 'error',
+          visible: true
+        });
+        return;
+      }
+
+      // Create headers for Excel
+      const headers = [
+        'Ballot #',
+        ...candidateIds.map(id => candidates[id]?.full_name || `Candidate ${id}`),
+        'Timestamp',
+        'Status'
+      ];
+
+      // Format row data
+      const rows = filteredData.map(ballot => {
+        const status = getBallotStatus(ballot);
+        return [
+          ballot.ballot_id.toString(),
+          ...candidateIds.map(id => {
+            const value = ballot.candidate_votes[id];
+            return value === null || value === undefined ? '-' : String(value);
+          }),
+          ballot.post_date,
+          status
+        ];
+      });
+
+      // Export data to Excel
+      exportTableDataToExcel(headers, rows, fileName);
+
+      // Show success message
+      setToast({
+        message: 'Excel exported successfully',
+        type: 'success',
+        visible: true
+      });
+    } catch (err: any) {
+      console.error('Error generating Excel:', err);
+      setToast({
+        message: err.message || 'Error generating Excel',
+        type: 'error',
+        visible: true
+      });
+    }
+  };
 
   if (!profile || profile.role !== 'admin') {
     return (
@@ -237,6 +400,23 @@ const BallotAnalysis = () => {
 
   return (
     <div className="p-4 sm:p-6 bg-white dark:bg-gray-900 min-h-screen">
+      {/* Toast notification */}
+      {toast && toast.visible && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={closeToast}
+        />
+      )}
+      
+      {/* Export Excel Modal */}
+      <ExportExcelModal
+        isOpen={exportExcelModalOpen}
+        onClose={() => setExportExcelModalOpen(false)}
+        onExport={handleExportExcel}
+        defaultFileName="BallotAnalysis.xlsx"
+      />
+      
       <h2 className="text-3xl font-bold mb-2 text-blue-800 dark:text-blue-300">Ballot Analysis</h2>
       <p className="text-gray-600 dark:text-gray-400 mb-6">Review and analyze all submitted ballots</p>
       
@@ -330,78 +510,181 @@ const BallotAnalysis = () => {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-blue-100 dark:border-gray-700 overflow-hidden">
-        <div className="p-4 border-b border-blue-100 dark:border-gray-700 bg-blue-50 dark:bg-gray-750">
-          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300">Detailed Ballot Analysis</h3>
+        <div className="p-4 border-b border-blue-100 dark:border-gray-700 bg-blue-50 dark:bg-gray-750 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+          <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-2 sm:mb-0">Detailed Ballot Analysis</h3>
+          
+          {/* Export buttons */}
+          <div className="flex items-center space-x-2 justify-end">
+            <button
+              onClick={() => setExportExcelModalOpen(true)}
+              className="h-8 px-2 py-0 text-sm rounded flex items-center text-green-600 hover:text-green-700 dark:text-green-500 dark:hover:text-green-400 focus:outline-none"
+              aria-label="Export Excel"
+              title="Export Excel"
+            >
+              <i className="fas fa-file-excel text-base"></i>
+              <span className="ml-1">Excel</span>
+            </button>
+          </div>
         </div>
         
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">
-                  Ballot #
-                </th>
-                {candidateIds.map(id => (
-                  <th key={`header-${id}`} className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">
-                    {candidates[id]?.full_name || `Candidate ${id}`}
+                {table.getFlatHeaders().map(header => (
+                  <th key={header.id} className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">
+                    {flexRender(header.column.columnDef.header, header.getContext())}
                   </th>
                 ))}
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">
-                  Timestamp
-                </th>
-                <th className="px-6 py-3.5 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">
-                  Status
-                </th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {formattedBallots.length === 0 && (
+              {table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={candidateIds.length + 3} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={table.getFlatHeaders().length} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                     No ballots found. Ballots will appear here once they are submitted.
                   </td>
                 </tr>
+              ) : (
+                table.getRowModel().rows.map(row => {
+                  const ballot = row.original;
+                  const status = getBallotStatus(ballot);
+                  
+                  return (
+                    <tr 
+                      key={`ballot-${ballot.ballot_id}`}
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                        status === 'Invalid' ? 'bg-red-50 dark:bg-red-900/20' : 
+                        status === 'Blank' ? 'bg-gray-50 dark:bg-gray-700/30' : 
+                        'bg-white dark:bg-gray-800'
+                      }`}
+                    >
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id} className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })
               )}
-              
-              {formattedBallots.map((ballot) => {
-                const status = getBallotStatus(ballot);
-                return (
-                  <tr 
-                    key={`ballot-${ballot.ballot_id}`}
-                    className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                      status === 'Invalid' ? 'bg-red-50 dark:bg-red-900/20' : 
-                      status === 'Blank' ? 'bg-gray-50 dark:bg-gray-700/30' : 
-                      'bg-white dark:bg-gray-800'
-                    }`}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                      {ballot.ballot_id}
-                    </td>
-                    {candidateIds.map(id => (
-                      <td key={`ballot-${ballot.ballot_id}-candidate-${id}`} className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                        <span className={`${
-                          ballot.candidate_votes[id] === 1 ? 'text-green-600 dark:text-green-400 font-bold' : 
-                          ballot.candidate_votes[id] === 0 ? 'text-gray-500 dark:text-gray-400' :
-                          ballot.candidate_votes[id] === -1 ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-400 dark:text-gray-500'
-                        }`}>
-                          {ballot.candidate_votes[id]}
-                        </span>
-                      </td>
-                    ))}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                      {ballot.post_date}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getBallotStatusClass(status)}`}>
-                        {status}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {table.getRowModel().rows.length > 0 && (
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 px-6 pb-6">
+            <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <span>
+                Showing <span className="font-semibold text-blue-900 dark:text-blue-300">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> to{" "}
+                <span className="font-semibold text-blue-900 dark:text-blue-300">
+                  {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, formattedBallots.length)}
+                </span> of{" "}
+                <span className="font-semibold text-blue-900 dark:text-blue-300">{formattedBallots.length}</span> ballots
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => table.setPageIndex(0)}
+                disabled={!table.getCanPreviousPage()}
+                className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                aria-label="Go to first page"
+                title="First page"
+              >
+                <i className="fas fa-angle-double-left w-5 h-5"></i>
+              </button>
+              <button
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                aria-label="Go to previous page"
+                title="Previous page"
+              >
+                <i className="fas fa-angle-left w-5 h-5"></i>
+              </button>
+
+              <div className="hidden sm:flex items-center">
+                {Array.from({length: Math.min(5, table.getPageCount())}, (_, i) => {
+                  const pageIndex = table.getState().pagination.pageIndex;
+                  let showPage: number;
+                  
+                  if (table.getPageCount() <= 5) {
+                    showPage = i;
+                  } else if (pageIndex < 3) {
+                    showPage = i;
+                  } else if (pageIndex > table.getPageCount() - 4) {
+                    showPage = table.getPageCount() - 5 + i;
+                  } else {
+                    showPage = pageIndex - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={showPage}
+                      onClick={() => table.setPageIndex(showPage)}
+                      disabled={pageIndex === showPage}
+                      className={`px-3.5 py-2 mx-1 rounded-md text-sm font-medium border transition-colors ${
+                        pageIndex === showPage 
+                          ? 'bg-blue-600 dark:bg-blue-800 text-white border-blue-600 dark:border-blue-800' 
+                          : 'bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/30'
+                      }`}
+                      aria-label={`Go to page ${showPage + 1}`}
+                      aria-current={pageIndex === showPage ? 'page' : undefined}
+                    >
+                      {showPage + 1}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <div className="sm:hidden flex items-center">
+                <span className="px-3 py-1.5 text-sm text-blue-700 dark:text-blue-300 font-medium">
+                  Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+                </span>
+              </div>
+
+              <button
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                aria-label="Go to next page"
+                title="Next page"
+              >
+                <i className="fas fa-angle-right w-5 h-5"></i>
+              </button>
+              <button
+                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                disabled={!table.getCanNextPage()}
+                className="p-2 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                aria-label="Go to last page"
+                title="Last page"
+              >
+                <i className="fas fa-angle-double-right w-5 h-5"></i>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                Per page:
+                <select
+                  value={table.getState().pagination.pageSize}
+                  onChange={e => {
+                    table.setPageSize(Number(e.target.value));
+                  }}
+                  className="ml-2 px-3 py-1.5 text-sm border border-blue-200 dark:border-blue-800 rounded-md bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {[10, 20, 50, 100].map(pageSize => (
+                    <option key={pageSize} value={pageSize}>
+                      {pageSize}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

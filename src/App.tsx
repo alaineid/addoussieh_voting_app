@@ -117,10 +117,7 @@ const Nav = () => {
         <div className="menu-items">
           {canAccessCandidates && (
             <NavLink to="/candidates" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Candidates</NavLink>
-          )}
-          {isAdmin && (
-            <NavLink to="/ballot-analysis" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Ballot Analysis</NavLink>
-          )}
+          )}          
           {canViewVotingDay && (
             <NavLink to="/voting-day" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Day</NavLink>
           )}
@@ -129,6 +126,9 @@ const Nav = () => {
           )}
           {canViewLiveScores && (
             <NavLink to="/live-scores" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Live Scores</NavLink>
+          )}
+          {isAdmin && (
+            <NavLink to="/ballot-analysis" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Ballot Analysis</NavLink>
           )}
           {canViewVotingDay && (
             <NavLink to="/voting-statistics" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Statistics</NavLink>
