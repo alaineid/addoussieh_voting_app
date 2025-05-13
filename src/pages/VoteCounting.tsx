@@ -821,11 +821,11 @@ const VoteCounting: React.FC = () => {
                       <div className="flex items-center flex-shrink-0">
                         <div className="flex flex-col items-end mr-4 w-20">
                           <div className="flex items-center w-full">
-                            <span className="text-sm text-pink-500 dark:text-pink-400 w-6 text-center">♀</span>
+                            <span className="text-sm text-pink-500 dark:text-pink-400 w-6 text-center">F</span>
                             <span className="text-sm font-medium text-pink-600 dark:text-pink-400 w-6 text-center">{candidate.score_from_female || 0}</span>
                           </div>
                           <div className="flex items-center w-full">
-                            <span className="text-sm text-blue-500 dark:text-blue-400 w-6 text-center">♂</span>
+                            <span className="text-sm text-blue-500 dark:text-blue-400 w-6 text-center">M</span>
                             <span className="text-sm font-medium text-blue-600 dark:text-blue-400 w-6 text-center">{candidate.score_from_male || 0}</span>
                           </div>
                         </div>

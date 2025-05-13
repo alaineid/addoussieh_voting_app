@@ -1121,6 +1121,270 @@ const ManageUsersTab = () => {
   );
 };
 
+// Type definition for edit form
+interface EditFormValues {
+  id: string;
+  full_name: string;
+  role: 'admin' | 'user';
+  registered_voters_access: 'none' | 'view' | 'edit';
+  family_situation_access: 'none' | 'view' | 'edit';
+  statistics_access: 'none' | 'view';
+  voting_day_access: 'none' | 'view female' | 'view male' | 'view both' | 'edit female' | 'edit male' | 'edit both';
+  vote_counting: 'none' | 'count female votes' | 'count male votes';
+  live_score_access: 'none' | 'view';
+  candidate_access: 'none' | 'view' | 'edit';
+}
+
+// Reset Voting Data Tab Component
+const ResetVotingDataTab = () => {
+  const { isDarkMode } = useThemeStore();
+  const { session } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // State for confirmation modal
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<string>('');
+  
+  // Toast state
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+    visible: boolean;
+  } | null>(null);
+  
+  // Alert modal state
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    title: '',
+    message: '',
+    type: 'info'
+  });
+  
+  const closeToast = () => {
+    setToast(null);
+  };
+  
+  const handleResetVotingMarks = () => {
+    setConfirmAction('resetVotingMarks');
+    setConfirmModalOpen(true);
+  };
+  
+  const handleResetBallots = () => {
+    setConfirmAction('resetBallots');
+    setConfirmModalOpen(true);
+  };
+  
+  const handleResetAll = () => {
+    setConfirmAction('resetAll');
+    setConfirmModalOpen(true);
+  };
+  
+  const executeReset = async () => {
+    setIsLoading(true);
+    
+    try {
+      if (!session?.access_token) {
+        throw new Error('Authentication error: No access token found.');
+      }
+      
+      const { supabase } = await import('../lib/supabaseClient');
+      
+      if (confirmAction === 'resetVotingMarks' || confirmAction === 'resetAll') {
+        // Reset voting marks
+        const { error: votingError } = await supabase
+          .from('avp_voters')
+          .update({ comments: null, has_voted: false })
+          .neq('id', 0); // Make sure we update all records
+        
+        if (votingError) {
+          throw new Error(`Error resetting voting marks: ${votingError.message}`);
+        }
+      }
+      
+      if (confirmAction === 'resetBallots' || confirmAction === 'resetAll') {
+        // Delete all ballots
+        const { error: ballotsError } = await supabase
+          .from('avp_ballots')
+          .delete()
+          .neq('id', 0); // Make sure we delete all records
+        
+        if (ballotsError) {
+          throw new Error(`Error resetting ballots: ${ballotsError.message}`);
+        }
+      }
+      
+      // Show success message
+      setToast({
+        message: getSuccessMessage(),
+        type: 'success',
+        visible: true
+      });
+      
+      // Close the confirmation modal
+      setConfirmModalOpen(false);
+      
+    } catch (error: any) {
+      console.error('Error resetting voting data:', error);
+      
+      setAlertConfig({
+        title: 'Error',
+        message: error.message || 'An unknown error occurred',
+        type: 'error'
+      });
+      setAlertModalOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const getSuccessMessage = () => {
+    switch (confirmAction) {
+      case 'resetVotingMarks':
+        return 'All voting marks have been reset successfully.';
+      case 'resetBallots':
+        return 'All ballots have been deleted successfully.';
+      case 'resetAll':
+        return 'All voting marks and ballots have been reset successfully.';
+      default:
+        return 'Operation completed successfully.';
+    }
+  };
+  
+  const getConfirmationMessage = () => {
+    switch (confirmAction) {
+      case 'resetVotingMarks':
+        return 'Are you sure you want to reset all voting marks? This will set all candidate "has_voted" flags to false and clear all comments. This action cannot be undone.';
+      case 'resetBallots':
+        return 'Are you sure you want to delete all ballot records? This will remove all voting counts. This action cannot be undone.';
+      case 'resetAll':
+        return 'Are you sure you want to reset ALL voting data? This will reset all voting marks and delete all ballot records. This action cannot be undone.';
+      default:
+        return 'Are you sure you want to proceed? This action cannot be undone.';
+    }
+  };
+  
+  return (
+    <div className="p-6 bg-white dark:bg-gray-800 rounded-lg transition-colors duration-300">
+      {/* Toast notification */}
+      {toast && toast.visible && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={closeToast}
+        />
+      )}
+      
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-8">
+          <h3 className="text-xl font-bold text-blue-800 dark:text-blue-300 mb-2">Reset Voting Data</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            Use the options below to reset different parts of the voting data. All actions are permanent and cannot be undone.
+          </p>
+          <div className="bg-amber-50 border-l-4 border-amber-500 p-4 dark:bg-amber-900/30 dark:border-amber-600 rounded-md mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <i className="fas fa-exclamation-triangle text-amber-500 dark:text-amber-400"></i>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  Warning: These actions will permanently delete voting data. Please make sure you have a backup if needed.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Reset Voting Marks Card */}
+          <div className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden">
+            <div className="p-5">
+              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center mb-4">
+                <i className="fas fa-check-square text-blue-600 dark:text-blue-400 text-xl"></i>
+              </div>
+              <h4 className="font-semibold text-lg mb-2 text-blue-800 dark:text-blue-300">Reset Voting Marks</h4>
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                Clear all "has_voted" flags and comments from candidates. This will not affect the ballot counts.
+              </p>
+              <button
+                onClick={handleResetVotingMarks}
+                disabled={isLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 transition-colors"
+              >
+                {isLoading ? 'Processing...' : 'Reset Voting Marks'}
+              </button>
+            </div>
+          </div>
+          
+          {/* Reset Ballots Card */}
+          <div className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden">
+            <div className="p-5">
+              <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center mb-4">
+                <i className="fas fa-vote-yea text-orange-600 dark:text-orange-400 text-xl"></i>
+              </div>
+              <h4 className="font-semibold text-lg mb-2 text-blue-800 dark:text-blue-300">Reset Ballots</h4>
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                Delete all ballot records from the database. This will reset all voting counts.
+              </p>
+              <button
+                onClick={handleResetBallots}
+                disabled={isLoading}
+                className="w-full bg-orange-600 hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-800 text-white py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 transition-colors"
+              >
+                {isLoading ? 'Processing...' : 'Reset Ballots'}
+              </button>
+            </div>
+          </div>
+          
+          {/* Reset All Card */}
+          <div className="bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden">
+            <div className="p-5">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center mb-4">
+                <i className="fas fa-redo-alt text-red-600 dark:text-red-400 text-xl"></i>
+              </div>
+              <h4 className="font-semibold text-lg mb-2 text-blue-800 dark:text-blue-300">Reset Everything</h4>
+              <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                Reset all voting marks and delete all ballot records. This fully resets the voting state.
+              </p>
+              <button
+                onClick={handleResetAll}
+                disabled={isLoading}
+                className="w-full bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 text-white py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 transition-colors"
+              >
+                {isLoading ? 'Processing...' : 'Reset Everything'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={confirmModalOpen}
+        onClose={() => setConfirmModalOpen(false)}
+        onConfirm={executeReset}
+        title="Confirm Reset Action"
+        message={getConfirmationMessage()}
+        confirmText="Yes, Reset Data"
+        cancelText="Cancel"
+        confirmButtonClass="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
+      />
+      
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={alertModalOpen}
+        onClose={() => setAlertModalOpen(false)}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+      />
+    </div>
+  );
+};
+
 // Main AdminPage component with tabs
 const AdminPage = () => {
   const { isDarkMode } = useThemeStore();
@@ -1145,6 +1409,7 @@ const AdminPage = () => {
   // Use useMemo to persist the tab components across renders
   const createUserTabComponent = useMemo(() => <CreateUserTab />, []);
   const manageUsersTabComponent = useMemo(() => <ManageUsersTab />, []);
+  const resetVotingDataTabComponent = useMemo(() => <ResetVotingDataTab />, []);
 
   return (
     <div className="p-4 sm:p-6 bg-white dark:bg-gray-900 min-h-screen transition-colors duration-300">
@@ -1178,10 +1443,22 @@ const AdminPage = () => {
             >
               Manage Users
             </Tab>
+            <Tab
+              className={({ selected }: { selected: boolean }) =>
+                `px-6 py-3 text-sm font-medium leading-5 focus:outline-none transition-colors ${
+                  selected
+                    ? 'text-blue-700 dark:text-blue-300 border-b-2 border-blue-600 dark:border-blue-500 bg-white dark:bg-gray-700'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100/50 dark:hover:bg-blue-900/30'
+                }`
+              }
+            >
+              Reset Voting Data
+            </Tab>
           </Tab.List>
           <Tab.Panels>
             <Tab.Panel>{createUserTabComponent}</Tab.Panel>
             <Tab.Panel>{manageUsersTabComponent}</Tab.Panel>
+            <Tab.Panel>{resetVotingDataTabComponent}</Tab.Panel>
           </Tab.Panels>
         </Tab.Group>
       </div>
