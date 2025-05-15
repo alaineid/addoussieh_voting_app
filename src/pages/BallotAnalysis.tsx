@@ -6,7 +6,9 @@ import {
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
-  useReactTable
+  useReactTable,
+  getSortedRowModel,
+  SortingState
 } from '@tanstack/react-table';
 import ExportExcelModal from '../components/ExportExcelModal';
 import { exportTableDataToExcel } from '../utils/excelExport';
@@ -43,6 +45,7 @@ const BallotAnalysis = () => {
   const [error, setError] = useState<string | null>(null);
   const [candidateIds, setCandidateIds] = useState<number[]>([]);
   const [candidates, setCandidates] = useState<{[key: number]: Candidate}>({});
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'post_date', desc: true }]);
   const { profile } = useAuthStore();
   
   // Export modal states
@@ -229,7 +232,25 @@ const BallotAnalysis = () => {
       )
     ),
     columnHelper.accessor('post_date', {
-      header: 'Timestamp',
+      header: ({ column }) => {
+        return (
+          <button
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="flex items-center gap-1 group"
+          >
+            Timestamp
+            <span className="text-gray-400 dark:text-gray-500">
+              {column.getIsSorted() === "asc" ? (
+                <i className="fas fa-sort-up"></i>
+              ) : column.getIsSorted() === "desc" ? (
+                <i className="fas fa-sort-down"></i>
+              ) : (
+                <i className="fas fa-sort opacity-50"></i>
+              )}
+            </span>
+          </button>
+        );
+      },
       cell: info => info.getValue(),
     }),
     columnHelper.accessor(
@@ -252,12 +273,23 @@ const BallotAnalysis = () => {
   const table = useReactTable({
     data: formattedBallots,
     columns,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     initialState: {
       pagination: {
         pageSize: 50,
       },
+      sorting: [
+        {
+          id: 'post_date',
+          desc: true,
+        },
+      ],
     },
   });
 

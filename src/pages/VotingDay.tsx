@@ -260,8 +260,7 @@ const VotingDay: React.FC = () => {
       let query = supabase
         .from('avp_voters')
         .select(selectedColumns.join(', ')) // Only select the columns we need
-        .eq('has_voted', false) // Only get voters who haven't voted yet
-        .not('situation', 'in', '(MILITARY,DEATH,IMMIGRANT,NO VOTE)'); // Exclude specific situations
+        .eq('has_voted', false); // Only get voters who haven't voted yet
 
       // Filter by the selected registers (if any)
       if (selectedRegisters.length > 0) {
@@ -343,7 +342,7 @@ const VotingDay: React.FC = () => {
       pdf.text(`Generated on: ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`, 14, 22);
       
       // Update filter text in PDF metadata
-      let filterText = 'Filters: Non-voted and eligible voters only';
+      let filterText = 'Filters: Non-voted and eligible voters only (including MILITARY and DEATH)';
       if (selectedRegisters.length > 0) {
         filterText += ` | Registers: ${selectedRegisters.join(', ')}`;
       }
@@ -820,7 +819,7 @@ const VotingDay: React.FC = () => {
       let query = supabase
         .from('avp_voters')
         .select('id, full_name, register, register_sect, comments, has_voted, gender, voting_time, situation')
-        .not('situation', 'in', '(MILITARY,DEATH)')
+        // Include all voters, including MILITARY and DEATH
         .order('register', { ascending: true })
         .order('register_sect', { ascending: true })
         .order('full_name', { ascending: true });
