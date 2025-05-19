@@ -892,7 +892,6 @@ const VoteCounting: React.FC = () => {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">Candidate</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">Position</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">Vote Count</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wider">Checkbox</th>
                   </tr>
                 </thead>
@@ -904,11 +903,6 @@ const VoteCounting: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {candidate.candidate_of}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-3 py-1 inline-flex text-sm leading-5 font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                          {checkedVotes[candidate.id]?.checked ? 1 : 0} / 1
-                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
