@@ -687,6 +687,28 @@ const VoteCounting: React.FC = () => {
   const isAnyCheckboxChecked = (): boolean => {
     return Object.values(checkedVotes).some(vote => vote.checked);
   };
+  
+  // Check if all checkboxes in a specific list are checked
+  const areAllListCheckboxesChecked = (listName: string): boolean => {
+    const listCandidates = candidatesByList[listName]?.candidates || [];
+    return listCandidates.length > 0 && listCandidates.every(candidate => 
+      checkedVotes[candidate.id]?.checked === true
+    );
+  };
+  
+  // Handle check all for a specific list
+  const handleCheckAllForList = (listName: string, checked: boolean) => {
+    const listCandidates = candidatesByList[listName]?.candidates || [];
+    const updatedVotes = { ...checkedVotes };
+    
+    listCandidates.forEach(candidate => {
+      if (updatedVotes[candidate.id]) {
+        updatedVotes[candidate.id] = { checked };
+      }
+    });
+    
+    setCheckedVotes(updatedVotes);
+  };
 
   // Loading state
   if (loading || !profile) { // Also wait for profile to be available for permission checks
@@ -896,6 +918,23 @@ const VoteCounting: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  <tr className="bg-gray-50 dark:bg-gray-700">
+                    <td colSpan={2} className="px-6 py-2 text-sm text-gray-500 dark:text-gray-400 text-right font-medium">
+                      Check all candidates in this list:
+                    </td>
+                    <td className="px-6 py-2 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <label className="inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={areAllListCheckboxesChecked(listName)}
+                            onChange={(e) => handleCheckAllForList(listName, e.target.checked)}
+                            className="form-checkbox h-5 w-5 transition duration-150 rounded border-gray-300 dark:border-gray-600 focus:ring-blue-500 text-blue-600 dark:text-blue-500"
+                          />
+                        </label>
+                      </div>
+                    </td>
+                  </tr>
                   {candidatesByList[listName].candidates.map(candidate => (
                     <tr key={candidate.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
