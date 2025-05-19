@@ -143,12 +143,8 @@ const BallotAnalysis = () => {
       
       // Fill in the actual votes
       for (const ballot of groupBallots) {
-        // Convert -1 votes to "-" string for display
-        if (ballot.vote === -1) {
-          candidateVotes[ballot.candidate_id] = "-";
-        } else {
-          candidateVotes[ballot.candidate_id] = ballot.vote;
-        }
+        // Simply use the actual vote value
+        candidateVotes[ballot.candidate_id] = ballot.vote;
         
         // Check if this is a blank ballot
         if (ballot.vote !== 0) {
@@ -156,11 +152,8 @@ const BallotAnalysis = () => {
         }
       }
       
-      // Determine if valid or invalid
-      // A ballot is valid if it has at least one vote of 1
-      if (!isBlank) {
-        isValid = Object.values(candidateVotes).some(vote => vote === 1);
-      }
+      // Determine if valid or invalid based on ballot_type
+      isValid = groupBallots[0].ballot_type === 'valid';
 
       // Get ballot type and date from the first ballot in the group
       const firstBallot = groupBallots[0];
@@ -218,9 +211,13 @@ const BallotAnalysis = () => {
           header: candidates[id]?.full_name || `Candidate ${id}`,
           cell: info => {
             const value = info.getValue();
+            const row = info.row.original;
+            const isInvalid = !row.is_valid && !row.is_blank;
+            
             return (
               <span className={`${
-                value === 1 ? 'text-green-600 dark:text-green-400 font-bold' : 
+                value === 1 && !isInvalid ? 'text-green-600 dark:text-green-400 font-bold' : 
+                value === 1 && isInvalid ? 'text-amber-600 dark:text-amber-400 font-bold' : // Invalid but checked
                 value === 0 ? 'text-gray-500 dark:text-gray-400' :
                 value === "-" ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-400 dark:text-gray-500'
               }`}>

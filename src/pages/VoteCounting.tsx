@@ -594,12 +594,15 @@ const VoteCounting: React.FC = () => {
       // Array to hold ballot inserts
       const ballotInserts = [];
       
-      // Create a record for each candidate with vote=-1 and ballot_type='invalid'
-      for (const candidate of candidates) {
+      // Create a record for each candidate with actual vote values (1 for checked, 0 for unchecked) but ballot_type='invalid'
+      for (const candidateId of Object.keys(checkedVotes).map(Number)) {
+        const candidateVotes = checkedVotes[candidateId];
+        const vote = candidateVotes.checked ? 1 : 0;
+        
         ballotInserts.push({
           ballot_id: ballotId,
-          candidate_id: candidate.id,
-          vote: -1,
+          candidate_id: candidateId,
+          vote: vote,
           ballot_type: 'invalid',
           ballot_source: ballotSource,
           post_date: currentTime
