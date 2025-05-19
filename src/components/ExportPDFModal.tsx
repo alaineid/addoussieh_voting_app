@@ -37,7 +37,7 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
   onExport,
 }) => {
   const [selectedFamilies, setSelectedFamilies] = useState<string[]>([]);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>(['full_name', 'situation', 'family', 'register_sect']);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(['full_name', 'situation', 'family', 'register', 'register_sect']);
 
   // Format family options for react-select
   const familySelectOptions = familyOptions.map(family => ({
@@ -55,7 +55,7 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setSelectedFamilies([]);
-      setSelectedColumns(['full_name', 'situation', 'family', 'register_sect']);
+      setSelectedColumns(['full_name', 'situation', 'family', 'register', 'register_sect']);
     }
   }, [isOpen]);
 

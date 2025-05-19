@@ -885,7 +885,8 @@ const VoteCounting: React.FC = () => {
           </button>
           <button
             onClick={handleInvalidBallot}
-            className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 shadow-md flex items-center"
+            disabled={!isAnyCheckboxChecked()}
+            className={`px-5 py-2.5 ${isAnyCheckboxChecked() ? 'bg-red-500 hover:bg-red-600' : 'bg-red-300 cursor-not-allowed'} text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 shadow-md flex items-center`}
           >
             <i className="fas fa-times-circle mr-2"></i>
             Invalid Ballot
@@ -990,7 +991,8 @@ const VoteCounting: React.FC = () => {
         </button>
         <button
           onClick={handleInvalidBallot}
-          className="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 shadow-md flex items-center"
+          disabled={!isAnyCheckboxChecked()}
+          className={`px-5 py-2.5 ${isAnyCheckboxChecked() ? 'bg-red-500 hover:bg-red-600' : 'bg-red-300 cursor-not-allowed'} text-white rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-50 shadow-md flex items-center`}
         >
           <i className="fas fa-times-circle mr-2"></i>
           Invalid Ballot
