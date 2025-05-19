@@ -6,8 +6,8 @@ interface ExportPDFModalProps {
   isOpen: boolean;
   onClose: () => void;
   registerOptions: string[];
-  registerSectOptions: string[]; // Add prop for register sect options
-  onExport: (selectedRegisters: string[], selectedRegisterSects: string[], selectedColumns: string[], fileName: string) => void; // Update onExport signature
+  familyOptions: string[]; // Keep only family options
+  onExport: (selectedFamilies: string[], selectedColumns: string[], fileName: string) => void; // Remove registerSects from signature
 }
 
 // Define available columns for export
@@ -33,23 +33,16 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
   isOpen,
   onClose,
   registerOptions = [], // Default to empty array
-  registerSectOptions = [], // Default to empty array
+  familyOptions = [], // Default to empty array
   onExport,
 }) => {
-  const [selectedRegisters, setSelectedRegisters] = useState<string[]>([]);
-  const [selectedRegisterSects, setSelectedRegisterSects] = useState<string[]>([]); // Add state for selected register sects
-  const [selectedColumns, setSelectedColumns] = useState<string[]>(['full_name', 'situation', 'register', 'register_sect']);
+  const [selectedFamilies, setSelectedFamilies] = useState<string[]>([]);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(['full_name', 'situation', 'family', 'register_sect']);
 
-  // Format register options for react-select
-  const registerSelectOptions = registerOptions.map(register => ({
-    value: register,
-    label: register
-  }));
-
-  // Format register sect options for react-select
-  const registerSectSelectOptions = registerSectOptions.map(sect => ({
-    value: sect,
-    label: sect
+  // Format family options for react-select
+  const familySelectOptions = familyOptions.map(family => ({
+    value: family,
+    label: family
   }));
 
   // Format column options for react-select
@@ -61,22 +54,20 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
   // Reset selections when modal opens
   useEffect(() => {
     if (isOpen) {
-      setSelectedRegisters([]);
-      setSelectedRegisterSects([]); // Reset selected register sects
-      setSelectedColumns(['full_name', 'situation', 'register', 'register_sect']);
+      setSelectedFamilies([]);
+      setSelectedColumns(['full_name', 'situation', 'family', 'register_sect']);
     }
   }, [isOpen]);
 
-  // Handle register selection change
-  const handleRegisterChange = (selected: any) => {
+  // Handle family selection change
+  const handleFamilyChange = (selected: any) => {
     const selectedValues = selected ? selected.map((item: any) => item.value) : [];
-    setSelectedRegisters(selectedValues);
+    setSelectedFamilies(selectedValues);
   };
 
-  // Handle register sect selection change
-  const handleRegisterSectChange = (selected: any) => {
-    const selectedValues = selected ? selected.map((item: any) => item.value) : [];
-    setSelectedRegisterSects(selectedValues);
+  // Select all families
+  const handleSelectAllFamilies = () => {
+    setSelectedFamilies(familyOptions);
   };
 
   // Handle column selection change
@@ -85,17 +76,10 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
     setSelectedColumns(selectedValues);
   };
 
-  // Get currently selected register options for the Select component
-  const getSelectedRegisterOptions = () => {
-    return registerSelectOptions.filter(option => 
-      selectedRegisters.includes(option.value)
-    );
-  };
-
-  // Get currently selected register sect options for the Select component
-  const getSelectedRegisterSectOptions = () => {
-    return registerSectSelectOptions.filter(option =>
-      selectedRegisterSects.includes(option.value)
+  // Get currently selected family options for the Select component
+  const getSelectedFamilyOptions = () => {
+    return familySelectOptions.filter(option => 
+      selectedFamilies.includes(option.value)
     );
   };
 
@@ -110,10 +94,10 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
   const handleExport = () => {
     const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14); // Format timestamp as ddMMyyyyhhmmss
     const formattedTimestamp = `${timestamp.slice(6, 8)}${timestamp.slice(4, 6)}${timestamp.slice(0, 4)}_${timestamp.slice(8, 10)}${timestamp.slice(10, 12)}${timestamp.slice(12, 14)}`;
-    const registerNames = selectedRegisters.join('-');
-    const fileName = `Register_${registerNames}_${formattedTimestamp}.pdf`;
+    const familyNames = selectedFamilies.length > 5 ? 'AllFamilies' : selectedFamilies.join('-');
+    const fileName = `Families_${familyNames}_${formattedTimestamp}.pdf`;
 
-    onExport(selectedRegisters, selectedRegisterSects, selectedColumns, fileName); // Pass selectedRegisterSects
+    onExport(selectedFamilies, selectedColumns, fileName); // Only pass selectedFamilies and selectedColumns
     onClose();
   };
 
@@ -133,19 +117,31 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
           ? 'var(--color-primary, #3b82f6)' 
           : 'var(--border-hover, #9ca3af)',
       },
+      minHeight: '38px',
+      width: '100%',
+    }),
+    valueContainer: (provided: any) => ({
+      ...provided,
+      padding: '2px 8px',
+      overflow: 'auto',
+      maxHeight: '100px', // Limit height and enable scrolling
     }),
     multiValue: (provided: any) => ({
       ...provided,
       backgroundColor: 'var(--bg-tag, #e5e7eb)',
+      margin: '2px',
     }),
     multiValueLabel: (provided: any) => ({
       ...provided,
       color: 'var(--text-tag, #374151)',
       fontSize: '0.875rem',
+      padding: '2px 6px',
+      whiteSpace: 'normal', // Allow text wrapping
     }),
     multiValueRemove: (provided: any) => ({
       ...provided,
       color: 'var(--text-tag, #374151)',
+      padding: '0 4px',
       '&:hover': {
         backgroundColor: 'var(--bg-tag-remove-hover, #d1d5db)',
         color: 'var(--text-tag-remove-hover, #1f2937)',
@@ -155,6 +151,17 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
       ...provided,
       backgroundColor: 'var(--bg-dropdown, #ffffff)',
       zIndex: 9999,
+      width: 'auto',
+      minWidth: '100%', // Ensure the menu is at least as wide as the control
+    }),
+    menuPortal: (provided: any) => ({
+      ...provided,
+      zIndex: 9999
+    }),
+    menuList: (provided: any) => ({
+      ...provided,
+      maxHeight: '300px', // Increase scrollable area
+      padding: '4px',
     }),
     option: (provided: any, state: any) => ({
       ...provided,
@@ -166,6 +173,10 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
       color: state.isSelected 
         ? 'var(--text-selected, #ffffff)' 
         : 'var(--text-normal, #1f2937)',
+      padding: '8px 12px',
+      fontSize: '0.875rem',
+      whiteSpace: 'normal', // Allow text wrapping in options
+      wordBreak: 'break-word',
       '&:active': {
         backgroundColor: 'var(--bg-active, #dbeafe)',
       },
@@ -176,49 +187,45 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Export PDF">
       <div className="space-y-6">
         <div>
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Registers</h4>
-          <Select
-            isMulti
-            isClearable
-            isSearchable
-            placeholder="Select registers..."
-            options={registerSelectOptions}
-            value={getSelectedRegisterOptions()}
-            onChange={handleRegisterChange}
-            className="react-select-container"
-            classNamePrefix="react-select"
-            styles={customStyles}
-            aria-label="Select registers"
-          />
-          {selectedRegisters.length === 0 && (
-            <p className="mt-1 text-xs text-red-500 dark:text-red-400">Please select at least one register.</p>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Families</h4>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">The dropdown menu is scrollable - use search to find specific families</p>
+          <div className="flex items-center mb-2">
+            <Select
+              isMulti
+              isClearable
+              isSearchable
+              placeholder="Select families..."
+              options={familySelectOptions}
+              value={getSelectedFamilyOptions()}
+              onChange={handleFamilyChange}
+              className="react-select-container flex-grow"
+              classNamePrefix="react-select"
+              styles={customStyles}
+              aria-label="Select families"
+              menuPortalTarget={document.body} 
+              menuPosition="fixed"
+              maxMenuHeight={300}
+              closeMenuOnScroll={false}
+              controlShouldRenderValue={true}
+              formatOptionLabel={(option: any) => (
+                <div className="py-1">{option.label}</div>
+              )}
+            />
+            <button
+              onClick={handleSelectAllFamilies}
+              className="ml-2 px-3 py-1 bg-blue-500 text-white text-xs rounded-md hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 transition-colors"
+            >
+              Select All
+            </button>
+          </div>
+          {selectedFamilies.length === 0 && (
+            <p className="mt-1 text-xs text-red-500 dark:text-red-400">Please select at least one family.</p>
           )}
-        </div>
-
-        {/* Add Register Sect Selector */}
-        <div>
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Register Sects</h4>
-          <Select
-            isMulti
-            isClearable
-            isSearchable
-            placeholder="Select register sects..."
-            options={registerSectSelectOptions}
-            value={getSelectedRegisterSectOptions()}
-            onChange={handleRegisterSectChange}
-            className="react-select-container"
-            classNamePrefix="react-select"
-            styles={customStyles}
-            aria-label="Select register sects"
-          />
-          {/* Optional: Add validation message if needed */}
-          {/* {selectedRegisterSects.length === 0 && (
-            <p className="mt-1 text-xs text-red-500 dark:text-red-400">Please select at least one register sect.</p>
-          )} */}
         </div>
 
         <div>
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Columns</h4>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">The dropdown menu is scrollable - use search to find specific columns</p>
           <Select
             isMulti
             isClearable
@@ -231,6 +238,14 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
             classNamePrefix="react-select"
             styles={customStyles}
             aria-label="Select columns"
+            menuPortalTarget={document.body}
+            menuPosition="fixed"
+            maxMenuHeight={300}
+            closeMenuOnScroll={false}
+            controlShouldRenderValue={true}
+            formatOptionLabel={(option: any) => (
+              <div className="py-1">{option.label}</div>
+            )}
           />
           {selectedColumns.length === 0 && (
             <p className="mt-1 text-xs text-red-500 dark:text-red-400">Please select at least one column.</p>
@@ -246,9 +261,9 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
           </button>
           <button
             onClick={handleExport}
-            disabled={selectedRegisters.length === 0 || selectedColumns.length === 0}
+            disabled={selectedFamilies.length === 0 || selectedColumns.length === 0}
             className={`px-5 py-2.5 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 ${
-              selectedRegisters.length === 0 || selectedColumns.length === 0
+              selectedFamilies.length === 0 || selectedColumns.length === 0
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
                 : 'bg-gradient-to-br from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white dark:from-red-600 dark:to-red-800 dark:hover:from-red-700 dark:hover:to-red-900'
             }`}
@@ -256,9 +271,9 @@ const ExportPDFModal: React.FC<ExportPDFModalProps> = ({
             <i className="fas fa-file-pdf text-red-100 mr-2 text-lg"></i>
             <span className="font-medium">Export PDF</span>
           </button>
-        </div> {/* Correctly closed div */}
-      </div> {/* Correctly closed div */}
-    </Modal> /* Correctly closed Modal */
+        </div>
+      </div>
+    </Modal>
   );
 };
 

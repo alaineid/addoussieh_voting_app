@@ -32,7 +32,8 @@ interface Voter {
   has_voted: boolean | null;
   gender: string | null;
   voting_time?: string | null;
-  situation?: string | null; // Add situation field
+  situation?: string | null;
+  family?: string | null; // Add family field
 }
 
 // Define custom column meta type that includes our filterComponent
@@ -163,6 +164,7 @@ const VotingDay: React.FC = () => {
   const [registerSectOptions, setRegisterSectOptions] = useState<string[]>([]);
   const [genderOptions, setGenderOptions] = useState<string[]>([]);
   const [registerOptions, setRegisterOptions] = useState<string[]>([]);
+  const [familyOptions, setFamilyOptions] = useState<string[]>([]); // Added family options
   
   // Determine permissions and which voters to show
   const hasEditPermission = profile?.voting_day_access?.includes('edit') || false;
@@ -248,7 +250,7 @@ const VotingDay: React.FC = () => {
   };
 
   // Generate and download PDF function
-  const handleExportPDF = async (selectedRegisters: string[], selectedRegisterSects: string[], selectedColumns: string[], fileName: string) => { // Add selectedRegisterSects parameter
+  const handleExportPDF = async (selectedFamilies: string[], selectedColumns: string[], fileName: string) => { // Removed registerSects parameter
     try {
       setToast({
         message: 'Preparing PDF export...',
@@ -256,20 +258,15 @@ const VotingDay: React.FC = () => {
         visible: true
       });
 
-      // Fetch fresh data from the database for the selected registers and sects
+      // Fetch fresh data from the database for the selected families
       let query = supabase
         .from('avp_voters')
         .select(selectedColumns.join(', ')) // Only select the columns we need
         .eq('has_voted', false); // Only get voters who haven't voted yet
 
-      // Filter by the selected registers (if any)
-      if (selectedRegisters.length > 0) {
-        query = query.in('register', selectedRegisters.map(r => Number(r)));
-      }
-
-      // Filter by the selected register sects (if any)
-      if (selectedRegisterSects.length > 0) {
-        query = query.in('register_sect', selectedRegisterSects);
+      // Filter by the selected families (if any)
+      if (selectedFamilies.length > 0) {
+        query = query.in('family', selectedFamilies);
       }
 
       // Apply gender filter based on permissions if needed
@@ -343,11 +340,8 @@ const VotingDay: React.FC = () => {
       
       // Update filter text in PDF metadata
       let filterText = 'Filters: Non-voted and eligible voters only (including MILITARY and DEATH)';
-      if (selectedRegisters.length > 0) {
-        filterText += ` | Registers: ${selectedRegisters.join(', ')}`;
-      }
-      if (selectedRegisterSects.length > 0) {
-        filterText += ` | Sects: ${selectedRegisterSects.join(', ')}`;
+      if (selectedFamilies.length > 0) {
+        filterText += ` | Families: ${selectedFamilies.length > 5 ? 'Multiple families selected' : selectedFamilies.join(', ')}`;
       }
       pdf.text(filterText, 14, 27);
 
@@ -818,7 +812,7 @@ const VotingDay: React.FC = () => {
       // Build query with required columns
       let query = supabase
         .from('avp_voters')
-        .select('id, full_name, register, register_sect, comments, has_voted, gender, voting_time, situation')
+        .select('id, full_name, register, register_sect, comments, has_voted, gender, voting_time, situation, family')
         // Include all voters, including MILITARY and DEATH
         .order('register', { ascending: true })
         .order('register_sect', { ascending: true })
@@ -864,6 +858,13 @@ const VotingDay: React.FC = () => {
           .map(register => String(register))
         )).sort((a, b) => Number(a) - Number(b));
         setRegisterOptions(registers);
+        
+        // Get unique family values
+        const families = Array.from(new Set(data
+          .map(voter => voter.family)
+          .filter(family => family !== null) as string[]
+        )).sort();
+        setFamilyOptions(families);
       }
     } catch (err: any) {
       console.error('Error fetching voters:', err);
@@ -962,7 +963,7 @@ const VotingDay: React.FC = () => {
         isOpen={exportPdfModalOpen}
         onClose={() => setExportPdfModalOpen(false)}
         registerOptions={registerOptions}
-        registerSectOptions={registerSectOptions} // Pass registerSectOptions prop
+        familyOptions={familyOptions} // Pass familyOptions prop
         onExport={handleExportPDF}
       />
       
