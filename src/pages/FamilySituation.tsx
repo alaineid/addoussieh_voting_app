@@ -331,15 +331,15 @@ const FamilySituation: React.FC = () => {
       // Create proper rows array with family name as first column
       const rows = familyStats.map(stat => {
         return [stat.family].concat([
-          stat.WITH_FLAG,
-          stat.AGAINST,
-          stat.N,
-          stat.N_PLUS,
-          stat.DEATH,
-          stat.IMMIGRANT,
-          stat.MILITARY,
-          stat.NO_VOTE,
-          stat.UNKNOWN
+          String(stat.WITH_FLAG),
+          String(stat.AGAINST),
+          String(stat.N),
+          String(stat.N_PLUS),
+          String(stat.DEATH),
+          String(stat.IMMIGRANT),
+          String(stat.MILITARY),
+          String(stat.NO_VOTE),
+          String(stat.UNKNOWN)
         ]);
       });
 
@@ -385,8 +385,34 @@ const FamilySituation: React.FC = () => {
         return;
       }
 
-      const headers = Object.keys(displayColumnNames).map(key => displayColumnNames[key]);
-      const rows = familyStats.map(stat => Object.values(stat));
+      // Create headers array with explicit ordering to match the data
+      const headers = [
+        'Family',
+        displayColumnNames.WITH_FLAG,
+        displayColumnNames.AGAINST,
+        displayColumnNames.N,
+        displayColumnNames.N_PLUS,
+        displayColumnNames.DEATH, 
+        displayColumnNames.IMMIGRANT,
+        displayColumnNames.MILITARY,
+        displayColumnNames.NO_VOTE,
+        displayColumnNames.UNKNOWN
+      ];
+      
+      // Create proper rows array with family name as first column and values in correct order
+      const rows = familyStats.map(stat => {
+        return [stat.family].concat([
+          String(stat.WITH_FLAG),
+          String(stat.AGAINST),
+          String(stat.N),
+          String(stat.N_PLUS),
+          String(stat.DEATH),
+          String(stat.IMMIGRANT),
+          String(stat.MILITARY),
+          String(stat.NO_VOTE),
+          String(stat.UNKNOWN)
+        ]);
+      });
 
       exportTableDataToExcel(headers, rows, fileName || 'family-situation.xlsx');
 
