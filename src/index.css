@@ -76,22 +76,18 @@ header {
 
 .top-banner {
     color: white;
-    padding: 25px 100px 25px 40px;
+    padding: 25px 40px;
     position: relative;
     border-bottom: 4px solid #cd202c;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background:
-        url('./assets/Flag_of_Lebanon.svg') no-repeat right 40px center / auto 50px,
-        #004e89;
+    background: #004e89;
 }
 
 .dark .top-banner {
     border-bottom-color: #9b1c2a;
-    background:
-        url('./assets/Flag_of_Lebanon.svg') no-repeat right 40px center / auto 50px,
-        #003660;
+    background: #003660;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
 }
 
@@ -293,6 +289,12 @@ header {
     border-color: #6b7280;
 }
 
+/* Arabic title styling */
+.arabic-title-container {
+    flex: 1;
+    padding: 0 20px;
+}
+
 @media (max-width: 992px) {
     .top-banner {
         flex-direction: row;
@@ -301,13 +303,11 @@ header {
         padding: 10px 20px;
         text-align: left;
         background:
-            url('./assets/Flag_of_Lebanon.svg') no-repeat right 20px center / auto 40px,
             #004e89;
     }
     
     .dark .top-banner {
         background:
-            url('./assets/Flag_of_Lebanon.svg') no-repeat right 20px center / auto 40px,
             #003660;
     }
     
@@ -393,16 +393,18 @@ header {
 }
 
 @media (max-width: 576px) {
+    .arabic-title-container h1 {
+        font-size: 1.25rem; /* Smaller font size on mobile */
+    }
+    
     .top-banner {
         padding: 8px 15px;
         background:
-            url('./assets/Flag_of_Lebanon.svg') no-repeat right 15px center / auto 35px,
             #004e89;
     }
     
     .dark .top-banner {
         background:
-            url('./assets/Flag_of_Lebanon.svg') no-repeat right 15px center / auto 35px,
             #003660;
     }
     

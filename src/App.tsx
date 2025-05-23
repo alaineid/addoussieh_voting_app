@@ -22,21 +22,27 @@ import LiveScores from './pages/LiveScores'; // Import the new LiveScores compon
 import BallotAnalysis from './pages/BallotAnalysis';
 import RootRedirector from './components/RootRedirector'; // Import the new component
 
-const Banner = () => (
-  <div className="banner-container">
-    <div className="top-banner">
-      <div className="logo-area">
-        <div className="logo">
-          <div className="logo-text">AVP</div>
+const Banner = () => {
+  // Import images dynamically
+  const logoPath = new URL('./assets/images/logo_cropped.png', import.meta.url).href;
+  const flagPath = new URL('./assets/Flag_of_Lebanon.svg', import.meta.url).href;
+  
+  return (
+    <div className="banner-container">
+      <div className="top-banner flex justify-between items-center py-4 px-8">
+        <div className="flag-container">
+          <img src={flagPath} alt="Lebanese Flag" className="h-14" />
+        </div>
+        <div className="arabic-title-container text-center ali">
+          <h1 className="text-white text-3xl">نظام إدارة التصويت</h1>
+        </div>
+        <div className="logo-container">
+          <img src={logoPath} alt="Addoussieh Voting Portal Logo" className="h-20" />
         </div>
       </div>
-      <div className="title-area">
-        <h1 className="portal-title">Addoussieh Voting Portal</h1>
-        <p className="portal-subtitle">Comprehensive voter management and analysis system</p>
-      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const Nav = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
