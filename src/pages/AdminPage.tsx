@@ -30,6 +30,7 @@ const schema = z.object({
   family_situation_access: z.enum(['none', 'view', 'edit']),
   statistics_access: z.enum(['none', 'view']),
   voting_day_access: z.enum(['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both']),
+  voting_statistics_access: z.enum(['none', 'view']),
   vote_counting: z.enum(['none', 'count female votes', 'count male votes']),
   live_score_access: z.enum(['none', 'view']),
   candidate_access: z.enum(['none', 'view', 'edit']),
@@ -46,6 +47,7 @@ const editSchema = z.object({
   family_situation_access: z.enum(['none', 'view', 'edit']),
   statistics_access: z.enum(['none', 'view']),
   voting_day_access: z.enum(['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both']),
+  voting_statistics_access: z.enum(['none', 'view']),
   vote_counting: z.enum(['none', 'count female votes', 'count male votes']),
   live_score_access: z.enum(['none', 'view']),
   candidate_access: z.enum(['none', 'view', 'edit']),
@@ -60,6 +62,7 @@ interface UserProfileWithEmail {
   family_situation_access: 'none' | 'view' | 'edit';
   statistics_access: 'none' | 'view';
   voting_day_access?: 'none' | 'view female' | 'view male' | 'view both' | 'edit female' | 'edit male' | 'edit both';
+  voting_statistics_access?: 'none' | 'view';
   vote_counting?: 'none' | 'count female votes' | 'count male votes';
   live_score_access?: 'none' | 'view';
   candidate_access?: 'none' | 'view' | 'edit';
@@ -132,6 +135,7 @@ const CreateUserTab = () => {
       family_situation_access: 'view',
       statistics_access: 'view',
       voting_day_access: 'none',
+      voting_statistics_access: 'none',
       vote_counting: 'none',
       live_score_access: 'none',
       candidate_access: 'none',
@@ -217,6 +221,7 @@ const CreateUserTab = () => {
           family_situation_access: data.family_situation_access,
           statistics_access: data.statistics_access,
           voting_day_access: data.voting_day_access,
+          voting_statistics_access: data.voting_statistics_access,
           vote_counting: data.vote_counting,
           live_score_access: data.live_score_access,
           candidate_access: data.candidate_access,
@@ -329,6 +334,7 @@ const CreateUserTab = () => {
         {renderSelect('family_situation_access', 'Family Situation Access', ['none', 'view', 'edit'])}
         {renderSelect('statistics_access', 'Statistics Access', ['none', 'view'])}
         {renderSelect('voting_day_access', 'Voting Day Access', ['none', 'view female', 'view male', 'view both', 'edit female', 'edit male', 'edit both'])}
+        {renderSelect('voting_statistics_access', 'Voting Statistics Access', ['none', 'view'])}
         {renderSelect('vote_counting', 'Vote Counting Access', ['none', 'count female votes', 'count male votes'])}
         {renderSelect('live_score_access', 'Live Score Access', ['none', 'view'])}
         {renderSelect('candidate_access', 'Candidate Access', ['none', 'view', 'edit'])}
@@ -503,6 +509,22 @@ const ManageUsersTab = () => {
         ) : getValue(),
       enableSorting: true,
     }),
+    columnHelper.accessor(row => row.voting_statistics_access, {
+      id: 'voting_statistics_access',
+      header: 'Voting Statistics Access',
+      cell: ({ row, getValue }) => 
+        editingId === row.original.id ? (
+          <select 
+            {...register('voting_statistics_access')} 
+            defaultValue={getValue() as string || 'none'} 
+            className="w-full p-1 border rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          >
+            <option value="none">None</option>
+            <option value="view">View</option>
+          </select>
+        ) : getValue() || 'none',
+      enableSorting: true,
+    }),
     columnHelper.accessor(row => row.vote_counting, {
       id: 'vote_counting',
       header: 'Vote Counting',
@@ -632,6 +654,7 @@ const ManageUsersTab = () => {
       family_situation_access: user.family_situation_access,
       statistics_access: user.statistics_access,
       voting_day_access: user.voting_day_access || 'none', // Include voting_day_access with fallback
+      voting_statistics_access: user.voting_statistics_access || 'none', // Include voting_statistics_access with fallback
       vote_counting: user.vote_counting || 'none', // Include vote_counting with fallback
       live_score_access: user.live_score_access || 'none', // Include live_score_access with fallback
       candidate_access: user.candidate_access || 'none' // Include candidate_access with fallback
@@ -660,8 +683,9 @@ const ManageUsersTab = () => {
       let voteCountingChanged = false;
 
       if (userBeingEdited) {
-        votingDayAccessChanged = userBeingEdited.voting_day_access !== data.voting_day_access;
-        voteCountingChanged = userBeingEdited.vote_counting !== data.vote_counting;
+        // Access the properties safely using string comparison
+        votingDayAccessChanged = String(userBeingEdited.voting_day_access) !== String(data.voting_day_access);
+        voteCountingChanged = String(userBeingEdited.vote_counting) !== String(data.vote_counting);
       }
       
       // Call our custom serverless function instead of directly updating
@@ -681,6 +705,7 @@ const ManageUsersTab = () => {
           family_situation_access: data.family_situation_access,
           statistics_access: data.statistics_access,
           voting_day_access: data.voting_day_access,
+          voting_statistics_access: data.voting_statistics_access,
           vote_counting: data.vote_counting,
           live_score_access: data.live_score_access,
           candidate_access: data.candidate_access
@@ -705,6 +730,7 @@ const ManageUsersTab = () => {
             family_situation_access: data.family_situation_access,
             statistics_access: data.statistics_access,
             voting_day_access: data.voting_day_access,
+            voting_statistics_access: data.voting_statistics_access,
             vote_counting: data.vote_counting,
             live_score_access: data.live_score_access,
             candidate_access: data.candidate_access
@@ -1130,6 +1156,7 @@ interface EditFormValues {
   family_situation_access: 'none' | 'view' | 'edit';
   statistics_access: 'none' | 'view';
   voting_day_access: 'none' | 'view female' | 'view male' | 'view both' | 'edit female' | 'edit male' | 'edit both';
+  voting_statistics_access: 'none' | 'view';
   vote_counting: 'none' | 'count female votes' | 'count male votes';
   live_score_access: 'none' | 'view';
   candidate_access: 'none' | 'view' | 'edit';

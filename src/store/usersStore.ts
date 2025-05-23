@@ -9,6 +9,11 @@ export interface UserProfileWithEmail {
   registered_voters_access: string;
   family_situation_access: string;
   statistics_access: string;
+  voting_day_access?: string;
+  voting_statistics_access?: string;
+  vote_counting?: string;
+  live_score_access?: string;
+  candidate_access?: string;
 }
 
 interface UsersState {

@@ -142,6 +142,9 @@ const VotingDay: React.FC = () => {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   
+  // Standard situation options
+  const standardSituationOptions = ['WITH', 'AGAINST', 'N', 'N+', 'N-', 'DEATH', 'IMMIGRANT', 'MILITARY', 'NO_VOTE', 'UNKNOWN'];
+  
   // Export PDF modal state
   const [exportPdfModalOpen, setExportPdfModalOpen] = useState(false);
   
@@ -539,8 +542,9 @@ const VotingDay: React.FC = () => {
         const value = info.getValue();
         const colorClass = value === 'WITH' ? 'text-green-600 dark:text-green-400' :
                           value === 'AGAINST' ? 'text-red-600 dark:text-red-400' :
-                          value === 'NEUTRAL' ? 'text-blue-500 dark:text-blue-300' :
-                          value === 'NEUTRAL+' ? 'text-indigo-500 dark:text-indigo-300' :
+                          value === 'N' ? 'text-blue-500 dark:text-blue-300' :
+                          value === 'N+' ? 'text-indigo-500 dark:text-indigo-300' :
+                          value === 'N-' ? 'text-purple-500 dark:text-purple-300' :
                           value === 'DEATH' ? 'text-gray-600 dark:text-gray-400' :
                           value === 'IMMIGRANT' ? 'text-yellow-600 dark:text-yellow-400' :
                           value === 'MILITARY' ? 'text-purple-600 dark:text-purple-400' :
@@ -831,8 +835,23 @@ const VotingDay: React.FC = () => {
         throw fetchError;
       }
 
+      // Update NEUTRAL values to N values for backward compatibility
+      const updatedData = (data || []).map(voter => {
+        // Clone the voter object
+        const updatedVoter = {...voter};
+        
+        // Replace old NEUTRAL terminology with new N terminology
+        if (updatedVoter.situation === 'NEUTRAL') {
+          updatedVoter.situation = 'N';
+        } else if (updatedVoter.situation === 'NEUTRAL+') {
+          updatedVoter.situation = 'N+';
+        }
+        
+        return updatedVoter;
+      });
+      
       // Set voters data
-      setVoters(data as Voter[] || []);
+      setVoters(updatedData as Voter[] || []);
       setVotersLoading(false);
 
       // Extract unique values for dropdown filters

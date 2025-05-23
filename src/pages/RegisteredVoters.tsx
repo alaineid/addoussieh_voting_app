@@ -740,8 +740,9 @@ const RegisteredVoters: React.FC = () => {
           const value = info.getValue();
           const colorClass = value === 'WITH' ? 'text-green-600 dark:text-green-400' :
                             value === 'AGAINST' ? 'text-red-600 dark:text-red-400' :
-                            value === 'NEUTRAL' ? 'text-blue-500 dark:text-blue-300' :
-                            value === 'NEUTRAL+' ? 'text-indigo-500 dark:text-indigo-300' :
+                            value === 'N' ? 'text-blue-500 dark:text-blue-300' :
+                            value === 'N+' ? 'text-indigo-500 dark:text-indigo-300' :
+                            value === 'N-' ? 'text-purple-500 dark:text-purple-300' :
                             value === 'DEATH' ? 'text-gray-600 dark:text-gray-400' :
                             value === 'IMMIGRANT' ? 'text-yellow-600 dark:text-yellow-400' :
                             value === 'MILITARY' ? 'text-purple-600 dark:text-purple-400' :
@@ -1165,8 +1166,23 @@ const RegisteredVoters: React.FC = () => {
         throw fetchError;
       }
 
+      // Update NEUTRAL values to N values for backward compatibility
+      const updatedData = (data || []).map(voter => {
+        // Clone the voter object
+        const updatedVoter = {...voter};
+        
+        // Replace old NEUTRAL terminology with new N terminology
+        if (updatedVoter.situation === 'NEUTRAL') {
+          updatedVoter.situation = 'N';
+        } else if (updatedVoter.situation === 'NEUTRAL+') {
+          updatedVoter.situation = 'N+';
+        }
+        
+        return updatedVoter;
+      });
+      
       // Type assertion to tell TypeScript that this data matches our Voter interface
-      setVoters(data as Voter[] || []);
+      setVoters(updatedData as Voter[] || []);
       
       // Fetch distinct situation values
       const { data: situationData, error: situationError } = await supabase
@@ -1176,10 +1192,17 @@ const RegisteredVoters: React.FC = () => {
         
       if (!situationError && situationData) {
         // Extract unique situation values
-        const uniqueSituations = Array.from(
+        // Get unique situations from data
+const dataUniqueSituations = Array.from(
           new Set(situationData.map(item => item.situation).filter(Boolean))
-        ).sort() as string[];
-        setSituationOptions(uniqueSituations);
+        ) as string[];
+        
+// Ensure standard options are always available
+const standardOptions = ['WITH', 'AGAINST', 'N', 'N+', 'N-', 'DEATH', 'IMMIGRANT', 'MILITARY', 'NO_VOTE', 'UNKNOWN'];
+
+// Combine and sort all options
+const allOptions = [...new Set([...dataUniqueSituations, ...standardOptions])].sort();
+setSituationOptions(allOptions);
       }
 
     } catch (err: any) {

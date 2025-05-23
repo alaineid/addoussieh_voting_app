@@ -91,6 +91,7 @@ const Nav = () => {
   const canViewFamily = profile?.family_situation_access !== 'none';
   const canViewStats = profile?.statistics_access === 'view';
   const canViewVotingDay = profile?.voting_day_access !== 'none';
+  const canViewVotingStatistics = profile?.voting_statistics_access === 'view';
   const canVoteCounting = profile?.vote_counting === 'count female votes' || profile?.vote_counting === 'count male votes';
   const canViewLiveScores = profile?.live_score_access === 'view';
   const canAccessCandidates = !!profile && profile.candidate_access !== 'none';
@@ -130,7 +131,7 @@ const Nav = () => {
           {isAdmin && (
             <NavLink to="/ballot-analysis" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Ballot Analysis</NavLink>
           )}
-          {canViewVotingDay && (
+          {canViewVotingStatistics && (
             <NavLink to="/voting-statistics" className={({ isActive }) => isActive ? 'active' : ''} onClick={() => setIsMenuOpen(false)}>Voting Statistics</NavLink>
           )}  
           {canViewVoters && (
@@ -216,6 +217,7 @@ const hasVoterAccess = (profile: UserProfile | null) => !!profile && profile.reg
 const hasFamilyAccess = (profile: UserProfile | null) => !!profile && profile.family_situation_access !== 'none';
 const hasStatsAccess = (profile: UserProfile | null) => !!profile && profile.statistics_access === 'view';
 const hasVotingDayAccess = (profile: UserProfile | null) => !!profile && profile.voting_day_access !== 'none';
+const hasVotingStatisticsAccess = (profile: UserProfile | null) => !!profile && profile.voting_statistics_access === 'view';
 const isAdminUser = (profile: UserProfile | null) => !!profile && profile.role === 'admin';
 const hasVoteCountingAccess = (profile: UserProfile | null) => !!profile && (profile.vote_counting === 'count female votes' || profile.vote_counting === 'count male votes');
 const hasLiveScoreAccess = (profile: UserProfile | null) => !!profile && profile.live_score_access === 'view';
@@ -317,11 +319,11 @@ export default function App() {
               }
             />
             
-            {/* VotingStatistics route uses the same permissions as VotingDay */}
+            {/* VotingStatistics route uses its own permission check */}
             <Route
               path="/voting-statistics"
               element={
-                <PrivateRoute permissionCheck={() => hasVotingDayAccess(profile)}>
+                <PrivateRoute permissionCheck={() => hasVotingStatisticsAccess(profile)}>
                   <VotingStatistics />
                 </PrivateRoute>
               }

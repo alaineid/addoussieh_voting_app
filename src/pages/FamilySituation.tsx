@@ -25,6 +25,7 @@ interface FamilyStatistics {
   MILITARY: number;
   N: number;
   N_PLUS: number;
+  N_MINUS: number;
   NO_VOTE: number;
   WITH_FLAG: number;
   UNKNOWN: number;
@@ -36,8 +37,9 @@ const displayColumnNames: Record<string, string> = {
   DEATH: 'Death',
   IMMIGRANT: 'Immigrant',
   MILITARY: 'Military',
-  N: 'Neutral',
-  N_PLUS: 'Neutral+',
+  N: 'N',
+  N_PLUS: 'N+',
+  N_MINUS: 'N-',
   NO_VOTE: 'No Vote',
   WITH_FLAG: 'With',
   UNKNOWN: 'Unknown'
@@ -234,7 +236,7 @@ const FamilySituation: React.FC = () => {
       const totalRow = data && data.length > 0 ? data.find(row => row.family === 'Total') : null;
       
       // Filter out the Total row and just display family rows
-      const familyRows = data?.filter(row => row.family !== 'Total').map(row => ({
+      const familyRows = data?.filter((row: any) => row.family !== 'Total').map((row: any) => ({
         family: row.family || 'Unnamed',
         AGAINST: row.against || 0,  // Note: column names might be lowercase in the raw results
         DEATH: row.death || 0,
@@ -242,6 +244,7 @@ const FamilySituation: React.FC = () => {
         MILITARY: row.military || 0,
         N: row.n || 0,
         N_PLUS: row.n_plus || 0,
+        N_MINUS: row.n_minus || 0,
         NO_VOTE: row.no_vote || 0,
         WITH_FLAG: row.with_flag || 0,
         UNKNOWN: row.unknown || 0
@@ -259,6 +262,7 @@ const FamilySituation: React.FC = () => {
           MILITARY: totalRow.military || 0,
           N: totalRow.n || 0,
           N_PLUS: totalRow.n_plus || 0,
+          N_MINUS: totalRow.n_minus || 0,
           NO_VOTE: totalRow.no_vote || 0,
           WITH_FLAG: totalRow.with_flag || 0,
           UNKNOWN: totalRow.unknown || 0
@@ -325,16 +329,29 @@ const FamilySituation: React.FC = () => {
         return;
       }
 
-      // Create proper headers array starting with Family column
-      const headers = ['Family'].concat(Object.keys(displayColumnNames).map(key => displayColumnNames[key]));
+      // Create headers array with explicit ordering to match the data exactly like Excel export
+      const headers = [
+        'Family',
+        displayColumnNames.WITH_FLAG,
+        displayColumnNames.AGAINST,
+        displayColumnNames.N,
+        displayColumnNames.N_PLUS,
+        displayColumnNames.N_MINUS,
+        displayColumnNames.DEATH, 
+        displayColumnNames.IMMIGRANT,
+        displayColumnNames.MILITARY,
+        displayColumnNames.NO_VOTE,
+        displayColumnNames.UNKNOWN
+      ];
       
-      // Create proper rows array with family name as first column
+      // Create proper rows array with family name as first column and explicit order matching headers
       const rows = familyStats.map(stat => {
         return [stat.family].concat([
           String(stat.WITH_FLAG),
           String(stat.AGAINST),
           String(stat.N),
           String(stat.N_PLUS),
+          String(stat.N_MINUS),
           String(stat.DEATH),
           String(stat.IMMIGRANT),
           String(stat.MILITARY),
@@ -342,6 +359,23 @@ const FamilySituation: React.FC = () => {
           String(stat.UNKNOWN)
         ]);
       });
+      
+      // Add total row at the end if totalStats is available
+      if (totalStats) {
+        rows.push([
+          'TOTAL',
+          String(totalStats.WITH_FLAG),
+          String(totalStats.AGAINST),
+          String(totalStats.N),
+          String(totalStats.N_PLUS),
+          String(totalStats.N_MINUS),
+          String(totalStats.DEATH),
+          String(totalStats.IMMIGRANT),
+          String(totalStats.MILITARY),
+          String(totalStats.NO_VOTE),
+          String(totalStats.UNKNOWN)
+        ]);
+      }
 
       // Use our new utility function to export the PDF
       exportDataToPDF(
@@ -392,6 +426,7 @@ const FamilySituation: React.FC = () => {
         displayColumnNames.AGAINST,
         displayColumnNames.N,
         displayColumnNames.N_PLUS,
+        displayColumnNames.N_MINUS,
         displayColumnNames.DEATH, 
         displayColumnNames.IMMIGRANT,
         displayColumnNames.MILITARY,
@@ -406,6 +441,7 @@ const FamilySituation: React.FC = () => {
           String(stat.AGAINST),
           String(stat.N),
           String(stat.N_PLUS),
+          String(stat.N_MINUS),
           String(stat.DEATH),
           String(stat.IMMIGRANT),
           String(stat.MILITARY),
@@ -413,6 +449,23 @@ const FamilySituation: React.FC = () => {
           String(stat.UNKNOWN)
         ]);
       });
+
+      // Add total row at the end if totalStats is available
+      if (totalStats) {
+        rows.push([
+          'TOTAL',
+          String(totalStats.WITH_FLAG),
+          String(totalStats.AGAINST),
+          String(totalStats.N),
+          String(totalStats.N_PLUS),
+          String(totalStats.N_MINUS),
+          String(totalStats.DEATH),
+          String(totalStats.IMMIGRANT),
+          String(totalStats.MILITARY),
+          String(totalStats.NO_VOTE),
+          String(totalStats.UNKNOWN)
+        ]);
+      }
 
       exportTableDataToExcel(headers, rows, fileName || 'family-situation.xlsx');
 
@@ -460,6 +513,12 @@ const FamilySituation: React.FC = () => {
       header: () => <span className="text-indigo-500 dark:text-indigo-300">{displayColumnNames.N_PLUS}</span>,
       cell: info => (
         <span className="text-indigo-500 dark:text-indigo-300 font-medium">{info.getValue()}</span>
+      ),
+    }),
+    columnHelper.accessor('N_MINUS', {
+      header: () => <span className="text-purple-500 dark:text-purple-300">{displayColumnNames.N_MINUS}</span>,
+      cell: info => (
+        <span className="text-purple-500 dark:text-purple-300 font-medium">{info.getValue()}</span>
       ),
     }),
     columnHelper.accessor('DEATH', {
@@ -573,6 +632,7 @@ const FamilySituation: React.FC = () => {
     totalStats.AGAINST + 
     totalStats.N + 
     totalStats.N_PLUS + 
+    totalStats.N_MINUS + 
     totalStats.DEATH + 
     totalStats.IMMIGRANT + 
     totalStats.MILITARY + 
@@ -668,7 +728,7 @@ const FamilySituation: React.FC = () => {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Neutral</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">N</p>
                   <div className="flex items-baseline">
                     <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mr-1.5">{(totalStats?.N || 0)}</p>
                     <span className="text-xs text-blue-500 dark:text-blue-400">({neutralPercentage}%)</span>
@@ -735,16 +795,30 @@ const FamilySituation: React.FC = () => {
                 </div>
               </div>
               
-              {/* Neutral+ */}
+              {/* N+ */}
               <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-md p-3 flex items-center">
                 <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 dark:bg-indigo-300 mr-2.5"></div>
                 <div className="flex-1">
                   <div className="flex items-baseline justify-between">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Neutral+</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">N+</p>
                     <p className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">{totalStats?.N_PLUS || 0}</p>
                   </div>
                   <div className="text-right text-xs text-indigo-600 dark:text-indigo-400">
                     {totalVoters > 0 ? Math.round((totalStats?.N_PLUS || 0) / totalVoters * 100) : 0}%
+                  </div>
+                </div>
+              </div>
+              
+              {/* N- */}
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-md p-3 flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-purple-500 dark:bg-purple-300 mr-2.5"></div>
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">N-</p>
+                    <p className="text-sm font-semibold text-purple-700 dark:text-purple-300">{totalStats?.N_MINUS || 0}</p>
+                  </div>
+                  <div className="text-right text-xs text-purple-600 dark:text-purple-400">
+                    {totalVoters > 0 ? Math.round((totalStats?.N_MINUS || 0) / totalVoters * 100) : 0}%
                   </div>
                 </div>
               </div>
@@ -874,6 +948,9 @@ const FamilySituation: React.FC = () => {
                   </td>
                   <td className="px-6 py-3 whitespace-nowrap text-sm font-bold text-indigo-500 dark:text-indigo-300 border-t-2 border-gray-300 dark:border-gray-600">
                     {totalStats.N_PLUS}
+                  </td>
+                  <td className="px-6 py-3 whitespace-nowrap text-sm font-bold text-purple-500 dark:text-purple-300 border-t-2 border-gray-300 dark:border-gray-600">
+                    {totalStats.N_MINUS}
                   </td>
                   <td className="px-6 py-3 whitespace-nowrap text-sm font-bold text-gray-600 dark:text-gray-400 border-t-2 border-gray-300 dark:border-gray-600">
                     {totalStats.DEATH}
@@ -1023,11 +1100,15 @@ const FamilySituation: React.FC = () => {
           </div>
           <div className="flex items-center">
             <span className="w-4 h-4 rounded-full bg-blue-500 mr-2"></span>
-            <span className="text-sm text-gray-700 dark:text-gray-300">Neutral</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">N</span>
           </div>
           <div className="flex items-center">
             <span className="w-4 h-4 rounded-full bg-indigo-500 mr-2"></span>
-            <span className="text-sm text-gray-700 dark:text-gray-300">Neutral+</span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">N+</span>
+          </div>
+          <div className="flex items-center">
+            <span className="w-4 h-4 rounded-full bg-purple-500 mr-2"></span>
+            <span className="text-sm text-gray-700 dark:text-gray-300">N-</span>
           </div>
           <div className="flex items-center">
             <span className="w-4 h-4 rounded-full bg-gray-500 mr-2"></span>
@@ -1038,7 +1119,7 @@ const FamilySituation: React.FC = () => {
             <span className="text-sm text-gray-700 dark:text-gray-300">Immigrant</span>
           </div>
           <div className="flex items-center">
-            <span className="w-4 h-4 rounded-full bg-purple-500 mr-2"></span>
+            <span className="w-4 h-4 rounded-full bg-purple-600 mr-2"></span>
             <span className="text-sm text-gray-700 dark:text-gray-300">Military</span>
           </div>
           <div className="flex items-center">
