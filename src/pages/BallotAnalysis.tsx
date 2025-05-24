@@ -93,20 +93,27 @@ const BallotAnalysis = () => {
         const sortedCandidateIds = candidateData.map(c => c.id);
         setCandidateIds(sortedCandidateIds);
 
-        // Then fetch all ballots
-        const { data, error } = await supabase
-          .from('avp_ballots')
-          .select('*')
-          .order('post_date', { ascending: false });
-
-        if (error) {
-          throw error;
+        // Then fetch all ballots (fetch in batches to avoid row limit)
+        let allRows: Ballot[] = [];
+        let start = 0;
+        const pageSize = 1000;
+        while (true) {
+          const { data, error } = await supabase
+            .from('avp_ballots')
+            .select('*')
+            .order('post_date', { ascending: false })
+            .range(start, start + pageSize - 1);
+          if (error) {
+            throw error;
+          }
+          if (!data || data.length === 0) break;
+          allRows = allRows.concat(data as Ballot[]);
+          if (data.length < pageSize) break;
+          start += pageSize;
         }
-
-        setBallots(data || []);
-        
+        setBallots(allRows);
         // Process the ballots to format them as required for the table
-        const processed = processBallotsData(data, sortedCandidateIds);
+        const processed = processBallotsData(allRows, sortedCandidateIds);
         setFormattedBallots(processed);
       } catch (err: any) {
         setError(err.message || 'Failed to fetch ballot data');

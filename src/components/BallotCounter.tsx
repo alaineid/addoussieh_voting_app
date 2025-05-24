@@ -44,34 +44,40 @@ const BallotCounter = forwardRef<BallotCounterRef, BallotCountProps>(({ classNam
   // Memoize the fetchBallotCount function with useCallback
   const fetchBallotCount = useCallback(async () => {
     try {
-      // Query distinct ballot_ids from avp_ballots table
-      const { data, error } = await supabase
-        .from('avp_ballots')
-        .select('ballot_id, ballot_type, ballot_source')
-        .limit(1000000) // High limit to get all records
-        .order('ballot_id', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching ballot count:', error);
-        return;
+      // Query all rows from avp_ballots table in batches to avoid row limit
+      let allRows: any[] = [];
+      let start = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('avp_ballots')
+          .select('ballot_id, ballot_type, ballot_source')
+          .order('ballot_id', { ascending: false })
+          .range(start, start + pageSize - 1);
+        if (error) {
+          console.error('Error fetching ballot count:', error);
+          break;
+        }
+        if (!data || data.length === 0) break;
+        allRows = allRows.concat(data);
+        if (data.length < pageSize) break;
+        start += pageSize;
       }
-
-      if (data) {
+      console.log('Fetched ballot count data:', allRows.length);
+      if (allRows.length > 0) {
         // Initialize counters using Sets for distinct ballot IDs
         let valid_ballots = new Set();
         let male_valid_ballots = new Set();
         let female_valid_ballots = new Set();
-        
         let blank_ballots = new Set();
         let male_blank_ballots = new Set();
         let female_blank_ballots = new Set();
-        
         let invalid_ballots = new Set();
         let male_invalid_ballots = new Set();
         let female_invalid_ballots = new Set();
 
         // Count each type of ballot by distinct ballot_id
-        data.forEach(ballot => {
+        allRows.forEach(ballot => {
           if (ballot.ballot_type === 'valid') {
             valid_ballots.add(ballot.ballot_id);
             if (ballot.ballot_source === 'male') male_valid_ballots.add(ballot.ballot_id);
